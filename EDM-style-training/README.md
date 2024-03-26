@@ -1,7 +1,13 @@
 # Elucidating the Design Space of Diffusion-Based Generative Models
 
 ## 项目背景
-diffuser库在2024三月份上新   
+PlaygroundAI 三月初推出 Playground v2.5 ，其仿佛基于edm公式训练。质量宣称优于现有各种模型        
+我们解决了三个关键问题：增强色彩和对比度、改进多宽高比生成以及改进以人为中心的精细细节。    
+英文版博客 https://playground.com/blog/playground-v2-5     
+技术报告 https://marketing-cdn.playground.com/research/pgv2.5_compressed.pdf    
+
+diffuser库在2024三月十号上新，支持 Playground v2.5 推理和基于其的 dreambooth_lora (可以带上edm) 微调      
+
 v0.27.0: Stable Cascade, Playground v2.5, EDM-style training, IP-Adapter image embeds, and more   
 需要实测模型效果    
 大致看来可以达到加速，以及质量不降低的特效   
@@ -83,6 +89,63 @@ Consistency Model的目标是让目标生成的速度尽可能快，比如一步
 
 
 ## 测试
+测试 playgroundai/playground-v2.5-1024px-aesthetic   
+推理fp16   
+显存占用   
+加载模型比较久，将近四分钟    
+模型加载8g左右   
+50步用时   
+
+过程问题   
+在底层计算卷积时报错返回   
+报错invalid argument   
+torch和torchvision不匹配   
+没有按照torch官网安装  
+
+按照官网装torch后终于运行成功     
+其实还是挺快   
+
+
+    from diffusers import DiffusionPipeline
+    import torch
+
+    model_path = "/models/playground-v2.5-1024px-aesthetic/"
+    #model_path = "/home/WujieAITeam/private/dj/models/playground-v2.5-1024px-aesthetic/playground-v2.5-1024px-aesthetic.fp16.safetensors"
+
+    pipe = DiffusionPipeline.from_pretrained(
+        model_path,
+        torch_dtype=torch.float16,
+        variant="fp16",
+    ).to("cuda")
+
+    # # Optional: Use DPM++ 2M Karras scheduler for crisper fine details
+    # from diffusers import EDMDPMSolverMultistepScheduler
+    # pipe.scheduler = EDMDPMSolverMultistepScheduler()
+
+    prompt = "Astronaut in a jungle, cold color palette, muted colors, detailed, 8k"
+    image = pipe(prompt=prompt, num_inference_steps=50, guidance_scale=3).images[0]
+
+    image.save("/home/WujieAITeam/private/lujunda/infer-pics/playground-v2.5/" + prompt[:10] + ".png")
+
+1024*1024  1.4mb   
+![alt text](assets/README/i.png)
+![alt text](assets/README/WeChatbb6ba74337cd6941194bd0c10d955424.jpg)
+
+prompt = "A Girl with brown hair with a ponytail, With a light brown shirt from the 80s, with short pants with Brown suspenders with colorful buttons, With black tights with light brown sneakers in a classic tone,"   
+negative_prompt = "watermark, low quality, cloned face, ugly, poorly drawn hands, extra limbs, missing legs, (bad body), (signature), (watermark), (username), blurry, cropped, (text), too many fingers, long neck,lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry, bad feet,{{poorly drawn hands}}, {{poorly drawn face}}, {{{mutation}}}, {{{deformed}}}, {{ugly}}, blurry, {{bad anatomy}}, {{{bad proportions}}}, {{extra limbs}}, cloned face, {{{disfigured}}}, {{{more than 2 nipples}}}, {{{adult}}}, out of frame, ugly, extra limbs, {bad anatomy}, gross proportions, {malformed limbs}, {{missing arms}}, {{missing legs}}, {{{extra arms}}}, {{{extra legs}}}, mutated hands, {fused fingers}, {too many fingers}, (((long neck:1.3)), missing fingers, extra digit, fewer digits, bad feet, sideways, side view portrait, no photo frame, ((long length neck:1.5))"   
+
+显存14g    
+耗时两分钟   
+1024*1024   
+1.18mb   
+![alt text](<assets/README/A Girl wit.png>)   
+![alt text](assets/README/WeChat026f416f5b1158f6b047312b66e991fd.jpg)    
+
+
+采用“webui 效果抖动” prompt      
+原图   
+![alt text](assets/README/image.png)     
+![alt text](assets/README/image-1.png)    
 
 
 
@@ -91,7 +154,11 @@ Consistency Model的目标是让目标生成的速度尽可能快，比如一步
 
 
 ## 训练
-
+训练 dreambooth_lora
+即加强版的dreambooth, 对text_encoder的embedding加强对同时，在对生图的unet调节   
+使用edm    
+计划采用/diffusers-main/examples/advanced_diffusion_training    
+其原理和特点在于在text_encoder和unet都加入lora层进行特定罕见词训练    
 
 
 
