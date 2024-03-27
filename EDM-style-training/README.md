@@ -6,8 +6,9 @@ PlaygroundAI 三月初推出 Playground v2.5 ，其仿佛基于edm公式训练�
 英文版博客 https://playground.com/blog/playground-v2-5     
 技术报告 https://marketing-cdn.playground.com/research/pgv2.5_compressed.pdf    
 
-diffuser库在2024三月十号上新，支持 Playground v2.5 推理和基于其的 dreambooth_lora (可以带上edm) 微调      
+diffuser库在2024三月十号上新，支持 Playground v2.5 推理和基于其的 dreambooth_lora 微调 (可以带上edm)      
 
+diffuser
 v0.27.0: Stable Cascade, Playground v2.5, EDM-style training, IP-Adapter image embeds, and more   
 需要实测模型效果    
 大致看来可以达到加速，以及质量不降低的特效   
@@ -154,14 +155,137 @@ negative_prompt = "watermark, low quality, cloned face, ugly, poorly drawn hands
 
 
 ## 训练
-训练 dreambooth_lora
-即加强版的dreambooth, 对text_encoder的embedding加强对同时，在对生图的unet调节   
+训练 dreambooth_lora      
+其原理和特点在于dreambooth微调unet,同时训练lora层     
+还用lora微调text encoders   
+Training with text encoder(s)   
+Alongside the UNet, LoRA fine-tuning of the text encoders is also supported.    
+
 使用edm    
-计划采用/diffusers-main/examples/advanced_diffusion_training    
-其原理和特点在于在text_encoder和unet都加入lora层进行特定罕见词训练    
+计划采用 /diffusers-main/examples/advanced_diffusion_training    
+或者 diffusers-main/examples/dreambooth/train_dreambooth_lora_sdxl.py     
+
+### 单纯advanced
+会使用   
+__main__ - list of token identifiers: ['TOK']  
+validation prompt: a \<s0>\<s1> icon of an astronaut riding a horse, in the style of \<s0>\<s1>   
+所谓text_inverse的方法加入到dreambooth_lora中训练     
+枢轴微调 (Pivotal Tuning) ,关键调整, 将文本反转与常规扩散微调相结合 - 我们将新标记插入模型的文本编码器中，而不是重用现有标记。然后，我们优化新插入的令牌嵌入来表示新概念。    
+
+除了 UNet 之外，还支持 LoRA 文本编码器微调。   
+
+optimizer: for this example, we'll use prodigy - an adaptive optimizer   
+pivotal tuning   
+min SNR gamma   
+我们把 Replicate 在 SDXL Cog 训练器中使用的枢轴微调 (Pivotal Tuning) 技术与 Kohya 训练器中使用的 Prodigy 优化器相结合，再加上一堆其他优化，一起对 SDXL 进行 Dreambooth LoRA 微调，取得了非常好的效果。    
+
+使用 Dreambooth LoRA 微调后的 Stable Diffusion XL(SDXL) 模型仅需借助少量图像即可捕获新概念，同时保留了 SDXL 出图美观高质的优势。   
 
 
 
+
+#### Pivotal tuning
+以 Dreambooth 为例，进行常规 Dreambooth 微调时，你需要选择一个稀有词元作为触发词，例如“一只 sks 狗” 中的 sks 。但是，因为这些词元原本就来自于词表，所以它们通常有自己的原义，这就有可能会影响你的结果。举个例子，社区之前经常使用 sks 作为触发词，但实际上其原义是一个武器品牌。   
+
+为了解决这个问题，我们插入一个新词元\<s0>\<s1>到模型的文本编码器中，而非重用词表中现有的词元。然后，我们优化新插入词元的嵌入向量来表示新概念，这种想法就是文本逆化，即我们对嵌入空间中的新词元进行学习来达到学习新概念的目的。一旦我们获得了新词元及其对应的嵌入向量，我们就可以用这些词元嵌入向量来训练我们的 Dreambooth LoRA，以获得两全其美的效果。
+
+
+
+#### 第一次启动训练    
+没有使用dora    
+
+用了连不上网  --push_to_hub   
+需要升级peft使用dora 安装prodigyopt     
+
+
+占用22g显存   
+训练时间半个小时  
+
+原始   
+![alt text](assets/README/image-2.png)    
+```
+训练命令
+accelerate launch train_dreambooth_lora_sdxl_advanced.py \
+  --pretrained_model_name_or_path=$MODEL_NAME \
+  --pretrained_vae_model_name_or_path=$VAE_PATH \
+  --dataset_name=$DATASET_NAME \
+  --instance_prompt="3d icon in the style of TOK" \
+  --validation_prompt="a TOK icon of an astronaut riding a horse, in the style of TOK" \
+  --output_dir=$OUTPUT_DIR \
+  --caption_column="prompt" \
+  --mixed_precision="bf16" \
+  --resolution=1024 \
+  --train_batch_size=3 \
+  --repeats=1 \
+  --report_to="wandb"\
+  --gradient_accumulation_steps=1 \
+  --gradient_checkpointing \
+  --learning_rate=1.0 \
+  --text_encoder_lr=1.0 \
+  --optimizer="prodigy"\
+  --train_text_encoder_ti\
+  --train_text_encoder_ti_frac=0.5\
+  --snr_gamma=5.0 \
+  --lr_scheduler="constant" \
+  --lr_warmup_steps=0 \
+  --rank=8 \
+  --max_train_steps=1000 \
+  --checkpointing_steps=2000 \
+  --seed="0" \
+
+
+Loaded scheduler as EulerDiscreteScheduler 
+Num examples = 22
+03/27/2024 07:07:33 - INFO - __main__ -   Num batches each epoch = 8
+03/27/2024 07:07:33 - INFO - __main__ -   Num Epochs = 125
+03/27/2024 07:07:33 - INFO - __main__ -   Instantaneous batch size per device = 3
+03/27/2024 07:07:33 - INFO - __main__ -   Total train batch size (w. parallel, distributed & accumulation) = 3
+03/27/2024 07:07:33 - INFO - __main__ -   Gradient Accumulation steps = 1
+03/27/2024 07:07:33 - INFO - __main__ -   Total optimization steps = 1000
+
+Loaded scheduler as EulerDiscreteScheduler 进行 validation 推理
+
+```
+
+The weights were trained using DreamBooth.
+
+LoRA for the text encoder was enabled: False.
+
+Pivotal tuning was enabled: True.
+
+Special VAE used for training: madebyollin/sdxl-vae-fp16-fix.  
+
+Trigger words    
+To trigger image generation of trained concept(or concepts) replace each concept identifier in you prompt with the new inserted tokens:    
+
+to trigger concept TOK-> use <s0><s1> in your prompt
+
+
+
+####   第二次启动训练
+使用 dora    
+加大训练轮次3000    
+依旧是22g显存    
+两个小时   
+
+
+
+
+
+
+#### 推理    
+不同之处在于，当我们进行枢轴微调时，除了 LoRA 的 *.safetensors 权重之外，还有经过训练的新词元及其文本嵌入模型的 *.safetensors 。为了对这些进行推理，我们在加载 LoRA 模型的方式上加了 2 个步骤:       
+
+为什么训练结束后没有保存embed_safetensor???         
+却要调用hug上面的？？？？    
+Pivotal tuning 的 emb获取并没有任何说明
+
+
+
+
+
+#### advanced + edm 训练
+EDM 式训练尚不支持 Min-SNR gamma。    
 
 
 
