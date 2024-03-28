@@ -698,6 +698,22 @@ DoRA 质量优于 LoRA，尤其是在较低等级中，等级 8 的 DoRA 和等�
 
 
 
+## ZipLoRA-pytorch
+![alt text](assets/README/image-21.png)   
+![alt text](assets/README/image-22.png)   
+![alt text](assets/README/image-23.png)     
+![alt text](assets/README/image-24.png)   
+基于这些观察，我们假设一种类似于拉链的方法，旨在减少相似方向和的数量，同时保留原始 LoRA 的内容和风格生成属性，将产生更稳健、更高质量的合并。就像拉链无缝连接织物的两侧一样，我们提出的基于优化的方法找到了一组不相交的合并系数来混合两个 LoRA。这确保了合并后的 LoRA 能够熟练地捕捉主题和风格。
+
+
+
+
+
+
+
+
+
+
 
 
 # 结尾
