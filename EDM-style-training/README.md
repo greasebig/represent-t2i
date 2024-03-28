@@ -280,13 +280,37 @@ to trigger concept TOK-> use <s0><s1> in your prompt
 却要调用hug上面的？？？？    
 Pivotal tuning 的 emb获取并没有任何说明
 
+![alt text](assets/README/image-3.png)
+![alt text](assets/README/llama2.png)
+
+
+#### 总结
+advanced训练原理：    
+优化器prodigy，标配学习率1，且文本编码器和unet学习率必须相同    
+训练unet的lora，不确定文本编码器是否训练lora  
+dreambooth方式训练，给文本（罕见词）和图片一起去训练  
+罕见词替换设置，所谓pivotal finetune   
+可以设置dora训练    
+秩默认8     
 
 
 
 
-#### advanced + edm 训练
+### advanced + edm 训练
 EDM 式训练尚不支持 Min-SNR gamma。    
 
+
+
+
+
+# advance 基础知识
+## snr_gamma
+
+
+
+
+
+## prodigy
 
 
 
