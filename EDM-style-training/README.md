@@ -499,7 +499,7 @@ adam_weight_decay_text_encoder 用于为文本编码器设置与 UNet 不同的�
 Efficient Diffusion Training via Min-SNR Weighting Strategy   
 2023.03     
 
-训练扩散模型通常会遇到收敛缓慢的问题，部分是由于各时间步之间的优化方向相互冲突。Hang 等人 通过引入简单的最小信噪比 Gamma 法 simple Min-SNR-gamma approach 来缓解此问题。     
+训练扩散模型通常会遇到收敛缓慢的问题，`部分是由于各时间步之间的优化方向相互冲突`。Hang 等人 通过引入简单的最小信噪比 Gamma 法 simple Min-SNR-gamma approach 来缓解此问题。     
 --snr_gamma=5.0  \    
 
 为了解决这个问题，我们将扩散训练视为多任务学习问题，并引入一种简单而有效的方法，称为 Min-SNR-γ。    
