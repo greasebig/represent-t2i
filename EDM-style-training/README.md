@@ -28,7 +28,7 @@ EDM-style training
 EDM 是指以下论文中介绍的训练和采样技术：Elucidating the Design Space of Diffusion-Based Generative Models。我们在脚本中引入了对使用 EDM 公式进行训练的支持train_dreambooth_lora_sdxl.py。  
 要stabilityai/stable-diffusion-xl-base-1.0使用 EDM 公式进行训练，您只需--do_edm_style_training在训练命令中指定标志即可   
 采用 EDM 公式的新调度程序   
-为了更好地支持 Playground v2.5 模型和 EDM 式培训，我们提供了对EDMDPMSolverMultistepScheduler和 的支持EDMEulerScheduler。DPMSolverMultistepScheduler它们分别支持和 的EDM 公式EulerDiscreteScheduler。    
+为了更好地支持 Playground v2.5 模型和 EDM 式培训，我们提供了对 EDMDPMSolverMultistepScheduler 和 的支持EDMEulerScheduler。DPMSolverMultistepScheduler它们分别支持和 的EDM 公式 EulerDiscreteScheduler。    
 
 Trajectory Consistency Distillation   
 轨迹一致性蒸馏 (TCD) 使模型能够以更少的步骤生成更高质量和更详细的图像。此外，由于蒸馏过程中有效的误差缓解，即使在推理步骤较大的情况下，TCD 也表现出优越的性能。它是在轨迹一致性蒸馏中提出的。   
@@ -376,6 +376,43 @@ EDM 式训练尚不支持 Min-SNR gamma。
 
 
 
+## MJHQ-30K测评
+我们引入了一个新的基准MJHQ-30K，用于自动评估模型的美学质量。该基准测试在高质量数据集上计算 FID，以衡量美学质量。
+
+我们整理了来自 Midjourney 的高质量数据集，包含 10 个常见类别，每个类别有 3K 个样本。按照惯例，我们使用美学评分和 CLIP 评分aesthetic score and CLIP score 来确保高图像质量和高图文对齐。此外，我们特别注意使每个类别中的数据多样化。
+
+对于 Playground v2，我们报告总体 FID 和每个类别的 FID。 （所有 FID 指标均在分辨率 1024x1024 下计算。）从结果来看，我们的模型在整体 FID 和所有类别 FID 方面优于 SDXL-1-0-refiner，尤其是在人物和时尚类别中。这与用户研究的结果一致，表明人类偏好与 MJHQ30K 基准的 FID 分数之间存在相关性。
+
+Unzip mjhq30k_imgs.zip into its per-category folder structure.
+
+    root
+    ├── animals
+    ├── art
+    ├── fashion
+    ├── food
+    ├── indoor
+    ├── landscape
+    ├── logo
+    ├── people
+    ├── plants
+    └── vehicles
+
+测量 FID  
+要对模型的性能进行基准测试，您需要首先使用 中的相同提示生成图像meta_data.json。
+
+我们使用clean-fid计算 FID 。您可以使用以下方法测量生成的图像和参考图像之间的 FID
+
+    from cleanfid import fid
+    score = fid.compute_fid(ref_dir, gen_dir)
+
+
+
+
+
+
+
+
+
 
 # advance 基础知识
 all of them have been incorporated into the new diffusers training script.
@@ -455,9 +492,10 @@ adam_weight_decay_text_encoder 用于为文本编码器设置与 UNet 不同的�
 
 ## Min-SNR Gamma weighting
 Efficient Diffusion Training via Min-SNR Weighting Strategy   
-2023.03   
+2023.03     
 
-训练扩散模型通常会遇到收敛缓慢的问题，部分是由于各时间步之间的优化方向相互冲突。Hang 等人 通过引入简单的最小信噪比 Gamma 法 simple Min-SNR-gamma approach 来缓解此问题。     
+训练扩散模型通常会遇到收敛缓慢的问题，部分是由于各时间步之间的优化方向相互冲突。    
+Hang 等人 通过引入简单的最小信噪比 Gamma 法 simple Min-SNR-gamma approach 来缓解此问题。     
 --snr_gamma=5.0  \    
 
 为了解决这个问题，我们将扩散训练视为多任务学习问题，并引入一种简单而有效的方法，称为 Min-SNR-γ。    
@@ -485,6 +523,7 @@ For small datasets, the effects of Min-SNR weighting strategy might not appear t
 An Expeditiously Adaptive Parameter-Free Learner    
 
 
+
 Adaptive Optimizers   
 ![alt text](assets/README/image-6.png)    
 收敛意味着我们选择的损失函数达到了最小值，我们认为损失函数达到最小值即说明模型已习得我们想要教给它的内容。当前，深度学习任务的标准 (也是最先进的) 优化器当属 Adam 和 AdamW 优化器。     
@@ -510,7 +549,8 @@ Adaptive Optimizers
 默认情况下，Prodigy 使用 AdamW 中的权重衰减。如果你想让它使用标准l2正则化（如 Adam所使用）用选项decouple=False      
 
 
-
+我们考虑自适应方法中估计学习率的问题，例如 AdaGrad 和 Adam。我们提出了 Prodigy，一种可证明地估计到解 D 的距离的算法，这是最佳设置学习率所必需的。 Prodigy 的核心是 D-Adaptation 方法的修改，用于无学习率学习。它将 D-Adaptation 的收敛速度提高了 O(plog(D/d0)) 倍，其中 d0 是 D 的初始估计。   
+我们的实验结果表明，我们的方法始终优于 D-Adaptation，并达到接近手动调整 Adam 的测试精度值。   
 
 
 
