@@ -212,6 +212,11 @@ Alongside the UNet, LoRA fine-tuning of the text encoders is also supported.
 计划采用 /diffusers-main/examples/advanced_diffusion_training    
 或者 diffusers-main/examples/dreambooth/train_dreambooth_lora_sdxl.py     
 
+这个脚本是不是没有训练text encoder的lora?   
+这个脚本时dreambooth吗？    
+
+
+
 ### 单纯advanced
 会使用   
 __main__ - list of token identifiers: ['TOK']  
