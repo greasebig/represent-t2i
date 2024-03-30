@@ -380,6 +380,53 @@ EDM 式训练尚不支持 Min-SNR gamma。
 
 
 
+## 训练对比结果
+图片过多过大  
+sdxl 使用 dreambooth_lora advanced 微调   
+sdxl 使用 dreambooth_lora advanced 微调 + edm   
+Playground v2.5 使用 dreambooth_lora advanced 微调  
+Playground v2.5 使用 dreambooth_lora advanced 微调 + edm  
+
+实验数据集  
+"linoyts/3d_icon" 23张  
+
+实验结果  
+优化器 prodigy  
+学习率 1 （所有都默认设置成1）  
+vae：madebyollin/sdxl-vae-fp16-fix  
+
+训练占显存22g   
+推理占显存8g  
+sdxl采样器：EulerDiscreteScheduler  
+
+base_model : SDXL-base-1.0
+
+小结：
+
+1. Min-SNR gamma is not supported with the EDM-style training yet.
+--snr_gamma=5.0  \      
+可能导致edm收敛缓慢        
+
+2. edm训练dreambooth_lora没有显著的提升效果
+
+3. 训练次数过多会过拟合，图片质量下降     
+有些prompt难以遵循指定训练的风格      
+
+
+base_model : playground-v2.5
+
+playground是使用edm训练的，无法使用snr接训dreambooth_lora，所以训练dreambooth_lora时都关闭snr   
+效果都比较差，学不到概念    
+最后都会训练崩    
+
+
+
+
+
+
+
+
+
 
 ## MJHQ-30K测评
 我们引入了一个新的基准MJHQ-30K，用于自动评估模型的美学质量。该基准测试在高质量数据集上计算 FID，以衡量美学质量。
@@ -411,16 +458,27 @@ Unzip mjhq30k_imgs.zip into its per-category folder structure.
     score = fid.compute_fid(ref_dir, gen_dir)
 
 
+测评 dreambooth_lora 的训练模型   
+三万张图    
+推理时间45小时    
+还在推理中    
+SDXL-base-1.0 默认 EulerDiscreteScheduler     
+推理步数25步    
 
 
-
-
+这个advanced方法应该理解为 ti + lora  
+由于没有保留类文件夹进行类先验约束    
+有着lora的通病：在通用prompt上会语言漂移，风格泛滥    
 
 
 
 
 # advance 基础知识
-all of them have been incorporated into the new diffusers training script.
+all of them have been incorporated into the new diffusers training script.  
+
+advanced_diffusion_training（简称为advanced）的基础上进行edm训练对比。  advanced_diffusion_training包括了一些训练技巧：pivotal tuning, 优化器prodigy, min-snr, dora
+
+
 
 包括: Nataniel Ruiz 的 Dreambooth、 Rinon Gal 的 文本逆化 (textual inversion) 、  
 Ron Mokady 的 枢轴微调、Simo Ryu 的 cog-sdxl、  
@@ -781,7 +839,7 @@ we used different datasets of Linoy's face composed of 6-10 images, including a 
 
 
 ## dora
-DoRA：权重分解低阶自适应中提出， DoRA与 LoRA 非常相似，不同之处在于它将预训练的权重分解为大小和方向两个部分，并采用 LoRA 进行定向更新，以有效地最小化可训练参数的数量。作者发现，通过使用 DoRA，LoRA 的学习能力和训练稳定性都得到了增强，并且在推理过程中没有任何额外的开销。    
+DoRA：权重分解低阶自适应中提出， DoRA与 LoRA 非常相似，`不同之处在于它将预训练的权重分解为大小和方向两个部分，并采用 LoRA 进行定向更新，以有效地最小化可训练参数的数量`。作者发现，通过使用 DoRA，LoRA 的学习能力和训练稳定性都得到了增强，并且在推理过程中没有任何额外的开销。    
 
 LoRA 似乎比 DoRA 收敛得更快（因此训练 LoRA 时可能导致过度拟合的一组参数可能对 DoRA 效果很好）
 DoRA 质量优于 LoRA，尤其是在较低等级中，等级 8 的 DoRA 和等级 8 的 LoRA 的质量差异似乎比训练等级为 32 或 64 时更显着。
