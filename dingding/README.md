@@ -131,8 +131,18 @@ Haiper
 MagicDance  
 DynamiCrafter   
 
+3D人物转绘   
+图生图+ControlNet   
 
+VAE主要起到的效果是类似于图片滤镜，附带轻微的改动几个图像像素。  
+OOTDiffusion   
+OutfitAnyone    
+汽车模型        
+超分模型        
 
+attribute-control   
+1. 用Embedding的方法对图片做属性编辑；
+2. 有预训练好的一些pt文件，可以编辑年龄、身高等，用权重控制，效果类似差异炼丹法的lora（细节、颜色、光影等）；   
 
 
 
