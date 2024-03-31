@@ -467,8 +467,7 @@ SDXL-base-1.0 默认 EulerDiscreteScheduler
 
 
 这个advanced方法应该理解为 ti + lora  
-由于没有保留类文件夹进行类先验约束    
-有着lora的通病：在通用prompt上会语言漂移，风格泛滥    
+由于没有保留类文件夹进行类先验约束    ,有着lora的通病：在通用prompt上会语言漂移，风格泛滥    
 
 
 
