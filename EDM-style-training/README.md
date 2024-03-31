@@ -471,6 +471,13 @@ SDXL-base-1.0 默认 EulerDiscreteScheduler
 
 
 
+12线程计算
+overall fid 42.46135841839822
+4分钟三万张
+
+animals fid 62.29403569758563
+半分钟 3000张
+
 
 # advance 基础知识
 all of them have been incorporated into the new diffusers training script.  
