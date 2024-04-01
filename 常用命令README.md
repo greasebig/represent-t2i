@@ -1,7 +1,9 @@
-## dind
+## find
 find /home/WujieAITeam/private -type d -name "stable-diffusion-xl-base-1.0"
 
 find /home/WujieAITeam/private -name "mjhq30k_imgs.zip"
+
+
 
    
 
@@ -9,6 +11,9 @@ find /home/WujieAITeam/private -name "mjhq30k_imgs.zip"
 tmux kill-session -t edm2  
 tmux attach -t edm2   
 tmux new-session -s edm2   
+
+
+
 
 ## kill 显存
 通过以下命令查看僵尸进程    
@@ -20,7 +25,24 @@ sudo kill -9 进程q
 
 
 ## 镜像hug下载
+
+export HF_ENDPOINT=https://hf-mirror.com
+
 huggingface-cli download --repo-type dataset --resume-download playgroundai/MJHQ-30K --local-dir playgroundai/MJHQ-30K
+
+huggingface-cli download --resume-download gpt2 --local-dir gpt2
+
+
+
+## 删除设置的环境变量
+
+unset HF_ENDPOINT   
+echo $HF_ENDPOINT    
+
+
+
+
+
 
 ## Linux统计文件夹下的文件数目
 统计当前目录下文件的个数（不包括目录）  
@@ -38,3 +60,13 @@ grep "^-"
 
 wc -l   
 统计输出信息的行数，统计结果就是输出信息的行数，一行信息对应一个文件，所以就是文件的个数。
+
+
+
+## 端口转发
+此外，如果我们开发的是 WEB 应用，为了能够浏览到远程主机上的应用，我们可以利用另一个端口转发的功能来实现。
+
+
+## 远程服务器vscode debug
+必须先在服务器上装python和python debugger扩展   
+没有就是vscode版本太久，某些方面不兼容了    
