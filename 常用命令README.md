@@ -70,3 +70,5 @@ wc -l
 ## 远程服务器vscode debug
 必须先在服务器上装python和python debugger扩展   
 没有就是vscode版本太久，某些方面不兼容了    
+
+
