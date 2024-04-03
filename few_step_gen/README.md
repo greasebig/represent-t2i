@@ -262,6 +262,35 @@ The autoencoding part of the model is lossy.
 #### 第一种方式：加载lora 和 sd1.5
 只有一个lora模型。可以调用社区的sd1.5。   
 加载lora失败
+a800换了一个a800 diffusers库加载运行成功
+
+新a800使用diffusers0.26.3转realist的diffusers模型到ckpt   
+到comfyui单纯底模运行失败   
+
+    RuntimeError: Error(s) in loading state_dict for AutoencoderKL:
+        size mismatch for encoder.mid.attn_1.q.bias: copying a param with shape torch.Size([512, 1, 1]) from checkpoint, the shape in current model is torch.Size([512]).
+但是在diffusers0.26.3的a800能使用diffusers库完整运行realist + lora 
+
+
+旧a800使用最新0.27.2转，在3090上comfyui运行底模成功   
+
+   
+　　最后，diffusers这个代码仓库日新月异，每天都在高强度更新，所以读者需要多git pull安装最新版本，这两个转换脚本什么时候发生变化也不能保证滴。    
+https://blog.csdn.net/weixin_43590796/article/details/130818747    
+
+
+
+问题不知道出在哪里    
+使用   
+
+直接把safetensor转换为ckpt就好了,comfyui不会再报loraloader Error while deserializing header: HeaderTooLarge      
+网上还有说去装最新的diffusers库，但感觉和comfyui关系不大    
+没事   
+
+
+
+
+
 
 ##### 1步推理  
 目前仅允许基于 SD v1.5 进行 1 步推理。   
@@ -610,6 +639,19 @@ Neural Information Processing Systems (NeurIPS) 2023
 我们设置了任务：提示反演，它采用单个图像并预测相应的提示。  
 现有模型很难捕获输入图像的细节和风格相关信息，并且在传统数据集中的表现也不佳。    
 ![alt text](assets/README/image-17.png)   
+
+
+
+
+## 高效推理
+comfyui一次几个模型   
+生态插件逐步变好   
+安装方便   
+xyz不知道行不行   
+
+webui可以输出xyz 每一步去噪图
+
+
 
 
 

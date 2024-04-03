@@ -33,6 +33,16 @@ huggingface-cli download --repo-type dataset --resume-download playgroundai/MJHQ
 huggingface-cli download --resume-download gpt2 --local-dir gpt2
 
 
+### 单文件
+wget https://hf-mirror.com/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors?download=true
+
+这样一般下载得，需要重命名 'yoso_lora.safetensors?download=true'
+
+而不是  
+wget https://hf-mirror.com/runwayml/stable-diffusion-v1-5/blob/main/v1-5-pruned-emaonly.safetensors
+
+
+
 
 ## 删除设置的环境变量
 
@@ -70,5 +80,23 @@ wc -l
 ## 远程服务器vscode debug
 必须先在服务器上装python和python debugger扩展   
 没有就是vscode版本太久，某些方面不兼容了    
+
+
+
+## diffusers转ckpt safetensors
+python scripts/convert_diffusers_to_original_stable_diffusion.py --model_path model_dir --checkpoint_path path_to_ckpt.ckpt
+
+
+
+
+
+
+
+
+
+
+# 结尾
+
+
 
 
