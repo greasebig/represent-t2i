@@ -16,8 +16,37 @@ Salimans 等人在 2016 年 《Improved Techniques for Training GANs》 一文�
 
 ![alt text](assets/Metrics/image.png)   
 
+## 损失
+### LPIPS 损失
+LPIPS 是一种衡量图像相似度的方法，它通过深度学习模型来评估两个图像之间的感知差异。LPIPS 认为，即使两个图像在像素级别上非常接近，人类观察者也可能将它们视为不同。因此，LPIPS 使用预训练的深度网络（如 VGG、AlexNet）来提取图像特征，然后计算这些特征之间的距离，以评估图像之间的感知相似度。        
 
-## sd多图生成方式
+来源于CVPR2018的一篇论文《The Unreasonable Effectiveness of Deep Features as a Perceptual Metric》     
+LPIPS 比传统方法（比如L2/PSNR, SSIM, FSIM）更符合人类的感知情况。LPIPS的值越低表示两张图像越相似，反之，则差异越大。       
+![alt text](assets_picture/Metrics-sduse/image.png)    
+
+由传统的评价标准如L2、SSIM、PSNR等评价结果和人体认为的大不相同，这是传统方法的弊端。如果图片平滑，那么传统的评价方式则大概率会失效。而目前GAN尤其是VAE等生成模型生成结果都过于平滑。     
+
+
+### 感知损失（Perceptual loss）
+计算方法：
+感知损失通常用于图像重建或生成任务中，如风格迁移、超分辨率等，其目的是使生成的图像在感知上更接近目标图像。感知损失通过使用深度网络（如 VGG）的中间层激活来比较原始图像和生成图像。不同于直接比较像素值，感知损失关注于图像的高级特征（如纹理、形状等），这更接近于人类的视觉感知。     
+
+两者之间的关系
+相同点：
+
+目标相似性：两者都旨在通过深度学习模型捕捉图像的感知质量，更接近人类的视觉系统。
+实现方式：它们都使用了深度卷积网络（如 VGG）来提取图像的特征表示。这些网络经过训练能够捕捉到图像的关键视觉特征，从而用于计算图像间的差异或相似性。
+不同点：
+
+应用场景的差异：尽管两者在理论上都关注于感知质量，但LPIPS更多用于评估图像相似度，如图像质量评估任务，而感知损失通常作为一种损失函数来使用，广泛应用于图像生成和重建任务，帮助生成的图像在感知上更加自然和真实。           
+
+
+
+## diffusers快速生图
+jupyter notebook
+
+
+## diffusers多图生成方式
 ```
 generator = torch.manual_seed(318)
 steps = 2
