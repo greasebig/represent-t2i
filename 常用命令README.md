@@ -89,7 +89,14 @@ python scripts/convert_diffusers_to_original_stable_diffusion.py --model_path mo
 
 
 
+## github镜像
+github在国内会碰到下载不稳定的情况，推荐使用镜像
 
+https://bgithub.xyz/
+将前缀更换即可，例如：
+
+https://github.com/OpenGVLab/CaFo
+https://bgithub.xyz/OpenGVLab/CaFo
 
 
 

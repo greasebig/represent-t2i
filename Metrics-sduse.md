@@ -106,8 +106,9 @@ GAN的训练方法，能够巧妙的解决这个问题：?????
 
 
 ## diffusers快速生图
-jupyter notebook
-
+类comfyui推理   
+jupyter notebook   
+.ipynb   
 
 ## diffusers多图生成方式
 ```
