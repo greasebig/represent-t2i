@@ -143,6 +143,42 @@ Segmented Diff-Instruct.
 ![alt text](assets/README/image-37.png)    
 实际中，online DM和student DM是交替训练的，并且在训练的中间阶段，将teacher DM 从预训练模型切换为经过训练的小型化一步模型本身，进一步减少了训练开销。   
 
+#### 看原论文
+假设图像生成时间限制为1秒，那么SDXL只能使用16个nfe生成略模糊的图像，而SDXS-1024可以生成30个清晰的图像。此外，我们提出的方法还可以训练ControlNet    
+
+real distribution p0(x)   
+dm模型的两种解释：  
+代码dm定义：   
+![alt text](assets_picture/README/1712393164904.png)    
+sde连续定义：   
+![alt text](assets_picture/README/1712393248530.png)    
+
+
+
+
+Diff-Instruct     
+有必要寻找一种方法从预训练的dm中提取其积累的知识，以指导能够在一步中生成样本的模型的训练。这种来自预训练dm的知识蒸馏被称为分数蒸馏，最初是在3D资产合成领域提出的   
+Integral Kullback-Leibler (IKL)积分Kullback-Leibler (IKL)散度    
+diff - directive[37]依靠两个分布p, q之间的积分Kullback-Leibler (IKL)散度的定义，将分数蒸馏带回到图像生成中:    
+
+![alt text](assets_picture/README/1712401484671.png)   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
