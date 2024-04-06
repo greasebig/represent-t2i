@@ -100,6 +100,50 @@ Diff-Instruct [37] 将分数蒸馏带回到图像生成中，依赖于两个分�
 
 
 
+#### 再阅读
+提出了一个同时做diffusion模型轻量化和采样步数压缩的框架SDXS。    
+对于模型压缩部分，主要关注于VAE的decoder和UNet的压缩，因为这两块占据的资源消耗是最多的。    
+对于采样步数压缩部分，使用feature matching loss来代替蒸馏loss， 并且进一步地，扩展了Diff-Instruct训练策略，在timestep的后半部分，使用了feature matching loss的梯度来代替score distillation的梯度   
+
+Methods    
+Diff-Instruct    
+    这一部分的基础知识可以参考对DreamFusion中的介绍。
+
+Architecture Optimizations    
+
+对VAE decoder的压缩是结合了`output distillation loss`和`GAN loss`来训练一个轻量化的image decoder来模仿原始的VAE decoder的输出。如公式1所示，G()是我要训练的tiny decoder，x是原始的decoder出来的图像，下采样了8倍计算的L1 loss, 说是为了减少冗余。使用的是一些包含残差块和上采样层的纯CNN结构。     
+![alt text](assets/README/image-33.png)   
+
+对于UNet，使用的是同时监督输出的OKD损失和监督中间层特征的FKD损失。如公式2所示。作者没有对其加原始的去噪损失。    
+![alt text](assets/README/image-34.png)    
+
+借鉴了block removal distillation策略，移除了对latency贡献最多的几个模块。比如，对于SD-2.1 base来说，去掉了middle stage，downsampling stage的最后一个stage，和upsampling的第一个stage，去除了最高分辨率stage的所有Transformer结构。     
+对于ontrolNet的蒸馏，也是蒸馏了UNet中间特征层和最终的输出, 考虑到ControlNet不影响原始的UNet encoder的特征层，所以特征蒸馏只是在UNet的decoder上去做的。      
+
+
+One-Step Training
+
+    Feature Matching Warmup.
+    这里借鉴了ReFlow的思想来讲故事，不过使用的是一个叫加权版SSIM的FM损失，如公式3所示。 
+
+![alt text](assets/README/image-35.png)     
+
+约束tiny unet生成的图像和原始的UNet使用ODE采样器生成的图像两个过encoder $f_{\theta}$ 在不同层上的特征的SSIM一致，不过作者使用FM损失只是用于warmup少量的训练steps。    
+
+
+Segmented Diff-Instruct.
+
+虽然feature matching loss可以生成清晰的图像，但是毕竟还不是直接和真实分布的匹配关系，所以只能用来当初始化。   
+所以借鉴Diff-Instruct来匹配模型输出的分布。   
+作者发现在采样轨迹是corse to fine的，t->T，score function提供了低频信息的梯度，t->0，提供的是高频信息的梯度。因此作者把采样过程分成了两部分，[0, \alpha T]和(\alpha T, T]，后者使用L_FM来代替，因为它可以提供足够多的低频信息。* 随着训练过程，逐渐降低FM损失的权重。   
+
+![alt text](assets/README/image-36.png)    
+
+
+![alt text](assets/README/image-37.png)    
+实际中，online DM和student DM是交替训练的，并且在训练的中间阶段，将teacher DM 从预训练模型切换为经过训练的小型化一步模型本身，进一步减少了训练开销。   
+
+
 
 
 

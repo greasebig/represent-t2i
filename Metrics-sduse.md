@@ -42,6 +42,69 @@ LPIPS 比传统方法（比如L2/PSNR, SSIM, FSIM）更符合人类的感知情�
 
 
 
+### GAN的损失函数
+
+GAN的训练方法，能够巧妙的解决这个问题：
+
+先训练D，再训练G，二者相互对抗，直到收敛
+
+在原始的GAN中，提出的loss是：   
+![alt text](assets/Metrics-sduse/image-1.png)   
+当G固定且运算可逆时（实际上这一点一般不成立，但不影响了解GAN的思想）：    
+![alt text](assets/Metrics-sduse/image-2.png)    
+代入loss公式，进而有：    
+![alt text](assets/Metrics-sduse/image-3.png)     
+对于积分区间内的每一个x，设被积函数为f 为：     
+![alt text](assets/Metrics-sduse/image-4.png)    
+注意这里x是固定的，变量是D。对f求导，得到当     
+![alt text](assets/Metrics-sduse/image-5.png)    
+
+代入loss公式，有:   
+![alt text](assets/Metrics-sduse/image-6.png)    
+
+所以原始GAN的loss实际等价于JS散度
+Wasserstein Loss   
+
+JS散度存在一个严重的问题：两个分布没有重叠时，JS散度为零，而在训练初期，JS散度是有非常大的可能为零的。所以如果D被训练的过于强，loss会经常收敛到-2log2而没有梯度    
+对于这个问题，WGAN提出了一个新的loss，Wasserstein loss， 也称作地球移动距离：     
+
+Hinge loss
+
+Hinge loss 是对地球移动距离的一种拓展
+
+Hinge loss 最初是SVM中的概念，其基本思想是让正例和负例之间的距离尽量大，后来在Geometric GAN中，被迁移到GAN:     
+![alt text](assets/Metrics-sduse/image-7.png)     
+对于D来说，只有当D(x) < 1 的正向样本，以及D(G(z)) > -1的负样本才会对结果产生影响    
+
+也就是说，只有一些没有被合理区分的样本，才会对梯度产生影响   
+这种方法可以使训练更加稳定
+
+
+
+#### JS散度
+
+GAN实际是通过对先验分布施加一个运算G, 来拟合一个新的分布    
+
+![alt text](assets/Metrics-sduse/image-8.png)    
+
+如果从传统的判别式网络的思路出发，只要选定合适的loss，就可以使生成分布和真实分布之间的距离尽可能逼近
+
+KL散度经常用来衡量分布之间距离    
+![alt text](assets/Metrics-sduse/image-9.png)    
+
+但KL散度是不对称的。不对称意味着，对于同一个距离，观察方式不同，获取的loss也不同，那么整体loss下降的方向就会趋向于某个特定方向????????。这在GAN中非常容易造成模式崩塌，即生成数据的多样性不足   
+
+JS散度在KL散度的基础上进行了修正，保证了距离的对称性：   
+![alt text](assets/Metrics-sduse/image-10.png)    
+实际上，无论KL散度还是JS散度，在直接用作loss时，都是难以训练的：由于分布只能通过取样计算，这个loss在每次迭代时都几乎为零    
+
+GAN的训练方法，能够巧妙的解决这个问题：?????
+
+先训练D，再训练G，二者相互对抗，直到收敛
+
+
+
+
 ## diffusers快速生图
 jupyter notebook
 
