@@ -1,6 +1,13 @@
 # few step gen
 
 
+![alt text](<assets/README/portrait photo of a .png>)   
+![alt text](<assets/README/A portrait of a youn.png>)   
+realistic-vision-v51  
+这两张能被鉴黄   
+
+
+
 
 ## SDXS
 Real-Time One-Step Latent Diffusion Models with Image Conditions    
@@ -118,7 +125,7 @@ Architecture Optimizations
 ![alt text](assets/README/image-34.png)    
 
 借鉴了block removal distillation策略，移除了对latency贡献最多的几个模块。比如，对于SD-2.1 base来说，去掉了middle stage，downsampling stage的最后一个stage，和upsampling的第一个stage，去除了最高分辨率stage的所有Transformer结构。     
-对于ontrolNet的蒸馏，也是蒸馏了UNet中间特征层和最终的输出, 考虑到ControlNet不影响原始的UNet encoder的特征层，所以特征蒸馏只是在UNet的decoder上去做的。      
+对于controlNet的蒸馏，也是蒸馏了UNet中间特征层和最终的输出, 考虑到ControlNet不影响原始的UNet encoder的特征层，所以特征蒸馏只是在UNet的decoder上去做的。      
 
 
 One-Step Training
@@ -501,7 +508,7 @@ PixArt-α: Fast Training of Diffusion Transformer for Photorealistic Text-to-Ima
 
 本文介绍PIXART-A，一种基于 Transformer 的 T2I 扩散模型，其图像生成质量可与最先进的图像生成器（例如 Imagen、SDXL，甚至 Midjourney）竞争，达到接近商业应用的标准。此外，它还支持高达 1024px 分辨率的高分辨率图像合成，训练成本较低，如图 1 和图 2 所示。为了实现这一目标，提出了三个核心设计：`（1）训练策略分解：我们设计了三个不同的训练步骤分别优化像素依赖性、文本图像对齐和图像美学质量； （2）高效的T2I Transformer：我们将交叉注意力模块合并到Diffusion Transformer（DiT）中，以注入文本条件并简化计算密集型的类条件分支； （3）高信息数据：我们强调文本-图像对中概念密度的重要性，并利用大型视觉语言模型自动标记密集的伪标题以辅助文本-图像对齐学习。`结果，PIXART-A训练速度明显超越现有的大规模T2I模型，例如PIXART-A仅花费 Stable Diffusion v1.5 训练时间的 10.8%（A100 GPU 675 天 vs. 6,250 天），节省近300,000美元（ 26,000美元vs. 320,000美元），并减少 90% 的二氧化碳排放。而且，与更大的SOTA模型RAPHAEL相比，我们的训练成本仅为1%。大量实验证明 PIXART-A在图像质量、艺术性和语义控制方面表现出色。我们希望PIXART-A将为 AIGC 社区和初创公司提供新的见解，以加速从头开始构建自己的高质量且低成本的生成模型。    
 
-我的理解是采用了高质量 少量数据 训练出了较好的效果   
+我的理解是采用了高质量 少量数据 从头训练出了较好的效果   
 数据量2500万张，很少    
 训练策略，使用dit 密集类条件注入   
 

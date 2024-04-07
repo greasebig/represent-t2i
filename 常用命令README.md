@@ -1,3 +1,5 @@
+# 命令
+
 ## find
 find /home/WujieAITeam/private -type d -name "stable-diffusion-xl-base-1.0"
 
@@ -97,6 +99,113 @@ https://bgithub.xyz/
 
 https://github.com/OpenGVLab/CaFo
 https://bgithub.xyz/OpenGVLab/CaFo
+
+
+
+## conda复制环境和删除环境
+
+conda create --name <new_environment_name> --clone <existing_environment_name>
+
+conda remove --name <environment_name> --all
+
+
+
+## 终端上网
+export http_proxy=127.0.0.1:7890
+export https_proxy=127.0.0.1:7890
+
+export http_proxy="http://127.0.0.1:7890"
+export https_proxy="http://127.0.0.1:7890"
+
+
+## 终端查找历史命令
+
+使用 Ctrl + R 进行反向搜索：
+您可以按下 Ctrl + R 键，然后开始输入部分命令。终端会自动显示最接近的匹配项。继续按 Ctrl + R 将继续在历史记录中搜索更早的命令。
+
+
+## torch将变量从cpu转到cuda，相同浮点数
+noise = noise.to('cuda')
+
+mat1 and mat2 must have the same dtype
+tensor = torch.randn(3, 3)
+tensor_float16 = tensor.to(torch.float16)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 报错
+
+
+
+## 安装xformers报错
+ERROR: Could not build wheels for xformers, which is required to install pyproject.toml-based projects    
+这个问题是由于cuda版本、nvcc版本、Pytorch版本不一致所导致的。    
+
+
+## safetensor header too large
+加载lora失败
+Name: safetensors
+Version: 0.4.2
+Name: diffusers
+Version: 0.28.0.dev0
+
+换机器加载成功
+都是a800
+但是担心比较时显存和速度会有所不同
+Name: safetensors
+Version: 0.4.2
+Name: diffusers
+Version: 0.25.0
+
+
+旧机器报错
+
+    Traceback (most recent call last):
+    File "/root/miniconda3/envs/emd-new/lib/python3.8/site-packages/diffusers/models/modeling_utils.py", line 109, in load_state_dict
+    return safetensors.torch.load_file(checkpoint_file, device="cpu")
+    File "/root/miniconda3/envs/emd-new/lib/python3.8/site-packages/safetensors/torch.py", line 308, in load_file
+    with safe_open(filename, framework="pt", device=device) as f:
+    safetensors_rust.SafetensorError: Error while deserializing header: HeaderTooLarge
+
+    During handling of the above exception, another exception occurred:
+
+    Traceback (most recent call last):
+    File "/root/miniconda3/envs/emd-new/lib/python3.8/site-packages/diffusers/models/modeling_utils.py", line 120, in load_state_dict
+    if f.read().startswith("version"):
+    File "/root/miniconda3/envs/emd-new/lib/python3.8/codecs.py", line 322, in decode
+    (result, consumed) = self._buffer_decode(data, self.errors, final)
+    UnicodeDecodeError: 'utf-8' codec can't decode byte 0x80 in position 64: invalid start byte
+
+    During handling of the above exception, another exception occurred:
+
+    Traceback (most recent call last):
+    File "/lujunda/diffusers-main/examples/inference/yoso-infer-1step.py", line 23, in
+    pipeline.load_lora_weights('/lujunda/diffusers-main/examples/inference/yoso_lora.safetensors')
+    File "/root/miniconda3/envs/emd-new/lib/python3.8/site-packages/diffusers/loaders/lora.py", line 114, in load_lora_weights
+    state_dict, network_alphas = self.lora_state_dict(pretrained_model_name_or_path_or_dict, **kwargs)
+    File "/root/miniconda3/envs/emd-new/lib/python3.8/site-packages/huggingface_hub/utils/_validators.py", line 119, in _inner_fn
+    return fn(*args, **kwargs)
+    File "/root/miniconda3/envs/emd-new/lib/python3.8/site-packages/diffusers/loaders/lora.py", line 284, in lora_state_dict
+    state_dict = load_state_dict(model_file)
+    File "/root/miniconda3/envs/emd-new/lib/python3.8/site-packages/diffusers/models/modeling_utils.py", line 132, in load_state_dict
+    raise OSError(
+    OSError: Unable to load weights from checkpoint file for '/lujunda/diffusers-main/examples/inference/yoso_lora.safetensors' at '/lujunda/diffusers-main/examples/inference/yoso_lora.safetensors'.
+
 
 
 
