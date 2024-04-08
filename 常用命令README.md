@@ -229,6 +229,16 @@ Error: [Errno 38] Function not implemented: 'lib' -> '/teams/ai_model_1667305326
 最新webui不适配python3.8       
 
 
+前面加装cuda11.8以及装cudnn,最后一步其实报错    
+通过装python3.10, torch2.1.2，运行launch.py    
+安装成功  
+
+
+
+
+
+
+
 
 ### 装git lfs
 curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash    
