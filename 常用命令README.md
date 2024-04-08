@@ -117,6 +117,9 @@ export https_proxy=127.0.0.1:7890
 export http_proxy="http://127.0.0.1:7890"
 export https_proxy="http://127.0.0.1:7890"
 
+unset http_proxy
+unset https_proxy
+
 
 ## 终端查找历史命令
 
@@ -133,14 +136,34 @@ tensor_float16 = tensor.to(torch.float16)
 
 
 
+## vim退出保存
+:wq   
+:q   
+:q!   
+
+
+vim删除所有   
+esc.不要进入：     
+使用 ggdG 命令。这个命令的含义是：   
+gg 将光标移动到文件的开头。   
+dG 删除从当前光标位置到文件末尾的所有内容。   
 
 
 
+## pip中科大源
+pip install torch -i https://pypi.mirrors.ustc.edu.cn/simple/    
 
 
+## 查看机器型号下载cuda
+uname -m   
+arch   
+lsb_release -a   
 
+## 软连接
 
+ln -s <target> <link_name>
 
+hug上下载的权重有软连接，直接mv很多移动不了   
 
 
 
@@ -149,6 +172,111 @@ tensor_float16 = tensor.to(torch.float16)
 
 
 # 报错
+
+
+## 新机器装环境
+### 装cuda toolkit 11.8   
+直接runfile两行    
+![alt text](assets/常用命令README/image.png)   
+![alt text](assets/常用命令README/image-1.png)   
+wget https://developer.download.nvidia.com/compute/cuda/11.8.0/local_installers/cuda_11.8.0_520.61.05_linux.run   
+sudo sh cuda_11.8.0_520.61.05_linux.run   
+
+
+
+### webui    
+采取直接安装在conda的方法    
+No module 'xformers'. Proceeding without it.    
+明明环境装了最新的xformers    
+能运行但没有xformers    
+https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/Install-and-Run-on-NVidia-GPUs   
+
+python launch.py --xformers
+
+
+以下使用venvs安装失败    
+
+RROR: Cannot activate python venv, aborting...   
+
+E: Unable to locate package python3.10-venv   
+sudo apt-get update    
+sudo apt-get upgrade      
+
+apt install python3.10-venv   
+E: Unable to locate package python3.10-venv   
+E: Couldn't find any package by glob 'python3.10-venv'   
+
+sudo apt install  python3-venv     
+
+./webui.sh   
+ERROR: Cannot activate python venv, aborting...   
+
+
+python3 -m venv venv    
+Error: [Errno 38] Function not implemented: 'lib' -> '/teams/ai_model_1667305326/WujieAITeam/private/lujunda/stable-diffusion-webui/venv/lib64'    
+
+失败路线，可能是linux系统版本问题???
+
+    No LSB modules are available.
+    Distributor ID: Ubuntu
+    Description:    Ubuntu 20.04.6 LTS
+    Release:        20.04
+    Codename:       focal
+
+    Linux q1yOYo 4.19.0-14-amd64 #1 SMP Debian 4.19.171-2 (2021-01-30) x86_64 x86_64 x86_64 GNU/Linux
+
+
+最新webui不适配python3.8       
+
+
+
+### 装git lfs
+curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash    
+sudo apt-get install git-lfs     
+
+
+
+
+## 常见cudnn报错
+python: symbol lookup error: /root/miniconda3/envs/webui310/lib/python3.10/site-packages/torch/lib/../../nvidia/cudnn/lib/libcudnn_cnn_infer.so.8: undefined symbol: _ZN15TracebackLoggerC1EPKc, version libcudnn_ops_infer.so.8    
+
+原始  
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/nvidia/lib:/usr/local/nvidia/lib64:/usr/local/cuda/lib64/:/usr/lib/x86_64-linux-gnu
+export PATH=$PATH:/usr/local/cuda/bin:/usr/bin:/usr/sbin
+
+改成   
+普通模式，没啥用   
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib64   
+export PATH=$PATH:/usr/local/cuda/bin
+
+source ~/.bashrc
+
+可能原因是先装了最新torch cu118在cuda11.3,后面才去换成cuda11.8   
+没用   
+
+终端  
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/root/miniconda3/envs/web310new/lib/python3.10/site-packages/
+nvidia/cudnn/lib    
+没用   
+
+sudo apt-get -y install cudnn-cuda-11
+
+    Reading package lists... Done
+    Building dependency tree       
+    Reading state information... Done
+    Note, selecting 'cudnn9-cuda-11' instead of 'cudnn-cuda-11'
+    Some packages could not be installed. This may mean that you have
+    requested an impossible situation or if you are using the unstable
+    distribution that some required packages have not yet been created
+    or been moved out of Incoming.
+    The following information may help to resolve the situation:
+
+    The following packages have unmet dependencies:
+    cudnn9-cuda-11 : Depends: cudnn9-cuda-11-8 (>= 9.0.0.312) but it is not going to be installed
+    E: Unable to correct problems, you have held broken packages.
+想重装cudnn一直报错    
+
+
 
 
 
@@ -207,6 +335,47 @@ Version: 0.25.0
     OSError: Unable to load weights from checkpoint file for '/lujunda/diffusers-main/examples/inference/yoso_lora.safetensors' at '/lujunda/diffusers-main/examples/inference/yoso_lora.safetensors'.
 
 
+## conda装环境报错
+
+conda装torch等报错   
+改国内镜像也没用   
+改之后倒是还可以装python   
+
+
+
+原始
+
+    channel_alias: https://mirrors.tuna.tsinghua.edu.cn/anaconda
+    channels:
+    - defaults
+    custom_channels:
+    conda-forge: https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud
+    msys2: https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud
+    bioconda: https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud
+    menpo: https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud
+    pytorch: https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud
+    simpleitk: https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud
+    default_channels:
+    - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/r
+    show_channel_urls: True
+
+改成
+
+    channel_alias: https://anaconda.mirrors.sjtug.sjtu.edu.cn
+    channels:
+    - defaults
+    custom_channels:
+    conda-forge: https://anaconda.mirrors.sjtug.sjtu.edu.cn/cloud
+    msys2: https://anaconda.mirrors.sjtug.sjtu.edu.cn/cloud
+    bioconda: https://anaconda.mirrors.sjtug.sjtu.edu.cn/cloud
+    menpo: https://anaconda.mirrors.sjtug.sjtu.edu.cn/cloud
+    pytorch: https://anaconda.mirrors.sjtug.sjtu.edu.cn/cloud
+    simpleitk: https://anaconda.mirrors.sjtug.sjtu.edu.cn/cloud
+    default_channels:
+    - https://anaconda.mirrors.sjtug.sjtu.edu.cn/pkgs/main
+    - https://anaconda.mirrors.sjtug.sjtu.edu.cn/pkgs/r
+    show_channel_urls: Tr
 
 
 
