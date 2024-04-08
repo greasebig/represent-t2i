@@ -232,8 +232,8 @@ Error: [Errno 38] Function not implemented: 'lib' -> '/teams/ai_model_1667305326
 前面加装cuda11.8以及装cudnn,最后一步其实报错    
 通过装python3.10, torch2.1.2，运行launch.py    
 安装成功  
-
-
+具体不知道哪一步起到关键作用   
+没装xformers  
 
 
 

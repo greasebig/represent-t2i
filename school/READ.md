@@ -21,3 +21,29 @@
 ## webui支持outpaint
 比较难以安装    
 相比于comfyui   
+
+
+装插件    
+masoic    
+16步，比较模糊   
+原理扩展加masoic然后又有另一张mask图片，通过这些去做inpaint   
+我的理解是输入前处理latent，生图。获取的结果通过mask过滤   
+可以选择方向，功能齐全，效果略差    
+可以使用controlnet   
+后期也许可以考虑叠加lora，    
+
+另一个是infinite zoom   
+介绍是生视频的，生出五张图，没有方向控制    
+
+另一个是画板形式插件，类似stable-diffusion-infinity-xl   
+但是还不了解如何作画    
+
+
+
+
+
+
+
+
+
+
