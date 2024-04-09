@@ -1,38 +1,18 @@
+from diffusers import AutoPipelineForText2Image
+import torch
+
+
+pipe = AutoPipelineForText2Image.from_pretrained("/private/dj/models/sdxl-turbo",
+                                                 torch_dtype=torch.float16, 
+                                                 variant="fp16")
+pipe.to("cuda")
+
 import torch
 from diffusers.models import AutoencoderKL
-from safetensors.torch import load_file
-import numpy as np
-import random
-from PIL import Image
 import os
-from diffusers import PixArtAlphaPipeline, LCMScheduler, Transformer2DModel
-
-model_path = "weights/PixArt-alpha/PixArt-XL-2-512x512"
-transformer_path = "weights/Luo-Yihong/yoso_pixart1024"
-
-transformer = Transformer2DModel.from_pretrained(
-    transformer_path, torch_dtype=torch.float16).to('cuda')
-
-pipe = PixArtAlphaPipeline.from_pretrained(model_path, 
-                            transformer=transformer,
-                            torch_dtype=torch.float16, use_safetensors=True)
+from diffusers import DiffusionPipeline, LCMScheduler
 
 
-pipeline = pipe.to('cuda')
-pipeline.scheduler = LCMScheduler.from_config(pipeline.scheduler.config)
-pipeline.scheduler.config.prediction_type = "v_prediction"
-
-steps = 1
-
-folder_path = 'infer-pics/pic-yoso_pixart1024/'
-if not os.path.exists(folder_path):
-    os.makedirs(folder_path)
-
-output_width = 2 # 列数
-output_height = 2 # 行数
-nums=output_width*output_height
-width = 1024
-image_size = (width, width) # 设置每张图片的大小，可以根据实际需要调整
 
 prompt_list = [
 'A photo of a man, XT3',
@@ -45,49 +25,36 @@ prompt_list = [
     beach whirlpool engine, volumetric lighting, spectacular, ambient lights, \
         light pollution, cinematic atmosphere, art nouveau style, illustration \
             art artwork by SenseiJaye, intricate detail.",
+"A portrait of a young woman with a mysterious allure, her deep and story-filled eyes sparkling with wisdom and curiosity. Her skin has a natural glow, with delicate and elegant facial features. Her hair is wavy dark brown, gently resting on her shoulders. She wears a simple yet elegant black top, adorned with a delicate necklace. The focus of the image is on her portrait, from the shoulders up, emphasizing her expressive face and captivating gaze.",
+"A regal lioness donning a flowing, golden Renaissance gown, complete with intricate embroidery that mimics her majestic mane. She holds court from atop a grand throne, a scepter in one paw, her demeanor both noble and wise.",
+"beautiful scenery nature glass bottle landscape, , purple galaxy bottle",
+"1girl, solo, long hair, looking at viewer, simple background, (black hair:1.2), closed mouth, upper body, artist name, from side, looking to the side, makeup, straight hair, brown background, red lips, (red Hanfu:1.2), (realistic:1.2), red robe, Chinese style",
+"A cinematic shot of a baby racoon wearing an intricate italian priest robe.",
 ]
 
+negetive_prompt = ""
+
+steps = 1
+cfg = 0 #1.
+
+
+folder_path = f'/private/lujunda/infer/infer-pics-secondweek/pic-sdxlturbo-{steps}step-{cfg}cfg/'
+if not os.path.exists(folder_path):
+    os.makedirs(folder_path)
+
+seed = 0
+
 for prompt in prompt_list:
-    image_files = []
+    
 
-    for i in range(nums):
-
-        seed = i
-
-        #image = pipe(prompt=prompt, num_inference_steps=25, cross_attention_kwargs={"scale": 1.0}).images[0]
-        image = pipeline(prompt=prompt,
+    image = pipe(prompt=prompt,
                     num_inference_steps=steps, 
                     num_images_per_prompt = 1,
                     generator = torch.Generator(device="cuda").manual_seed(seed),
-                    guidance_scale=1.,
+                    guidance_scale=cfg,
+                    negetive_prompt = negetive_prompt,
                 ).images[0]
-        image_files.append(image)
-
-    output_image = Image.new("RGB", (output_width * image_size[0], output_height * image_size[1]))
-
-    # 遍历每张图片并粘贴到合成图上
-    for i in range(output_width):
-        for j in range(output_height):
-            index = i * output_width + j
-            if index < len(image_files):
-                img = image_files[index]
-                output_image.paste(img, (j * image_size[0], i * image_size[1]))
-
-    filename = prompt[:18] if len(prompt) > 17 else prompt
-    output_image.save(folder_path + filename + ".png")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    
+    filename = prompt[:20] if len(prompt) > 19 else prompt
+    image.save(folder_path + filename + ".png")
+    
