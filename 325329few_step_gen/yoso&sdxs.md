@@ -616,8 +616,53 @@ imgs[0]
 
 ```
 
+我根据旧版本构造   
 
+    image = pipeline_yoso_lora(
+            prompt=prompt,
+            num_inference_steps=steps, 
+            num_images_per_prompt = 1,
+            generator = torch.Generator(device="cuda").manual_seed(seed),
+            guidance_scale=cfg,
+            negetive_prompt = negetive_prompt,
+            output_type="latent",
+            ).images
+    bs = 1
+    latents = image # maybe some latent codes of real images or SD generation
+    latent_mean = latents.mean(dim=0)
+    noise = torch.randn([1,bs,64,64])
+    noise = noise.to('cuda')
+    timesteps = torch.randint(0, pipeline_yoso_lora.scheduler.config.num_train_timesteps, (bs,), device=latents.device)
+    timesteps = timesteps.long()
+    input_latent = pipeline_yoso_lora.scheduler.add_noise(latent_mean.repeat(bs,1,1,1), noise, timesteps)
+    input_latent = input_latent.to(torch.float16)
+我这样是0-1000步加噪，作者只是加噪1步
 
+作者新版本构造   
+
+    image = pipeline_yoso_lora(
+            prompt=prompt,
+            num_inference_steps=steps, 
+            num_images_per_prompt = 1,
+            generator = torch.Generator(device="cuda").manual_seed(seed),
+            guidance_scale=cfg,
+            negetive_prompt = negetive_prompt,
+            output_type="latent",
+            ).images
+    bs = 1
+    latents = image # maybe some latent codes of real images or SD generation
+    latent_mean = latents.mean(dim=0)
+    noise = torch.randn([bs,1,64,64])
+    noise = noise.to('cuda')
+    timesteps = torch.ones(bs).to(latents.device) * 999
+    timesteps = timesteps.long()
+    init_latent = latent_mean.repeat(bs,1,1,1) + latents.std() *  torch.randn_like(noise)
+    input_latent = pipeline_yoso_lora.scheduler.add_noise(init_latent , noise, timesteps)
+    input_latent = input_latent.to(torch.float16)
+
+在我看来 文生图 领域这就是两步推理，而且效果还没有两部推理好，类似sdxl原理    
+唯一的优势在于选定了某个主题主角，可以给先验latent,然后一步生图     
+做一个引导   
 
 
 ##### 2步推理   
