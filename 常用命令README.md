@@ -138,7 +138,15 @@ macbook还是比较不一样的，既能登录又能映射
 
 
 
+## huggingface登录下载
+huggingface-cli login   
 
+https://huggingface.co/settings/tokens
+
+
+## 装git lfs
+curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash    
+sudo apt-get install git-lfs     
 
 
 

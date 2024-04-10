@@ -663,6 +663,14 @@ imgs[0]
 在我看来 文生图 领域这就是两步推理，而且效果还没有两部推理好，类似sdxl原理    
 唯一的优势在于选定了某个主题主角，可以给先验latent,然后一步生图     
 做一个引导   
+区别两步推理在于：   
+1. 如果使用生成latent，中间多加一步噪声   
+2. 如果使用主题主角引导，需要限定范围，可以直接获取    
+
+这套更新的代码更加用不了    
+更差   
+直接花图   
+![alt text](assets/yoso&sdxs/image.png)   
 
 
 ##### 2步推理   
@@ -713,6 +721,29 @@ SentencePiece allows us to make a purely end-to-end system that does not depend 
 
 #### 第3种方式 yoso_pixart1024
 加载yoso_pixart1024 transfomer. 主模型加载PixArt-XL-2-512x512。lcm schedu . v_prediction
+
+## 总结
+SDXS-512-0.9 is a old version of SDXS-512. 论文中的512和1024模型尚未开源    
+yoso : This is an early version of our pre-trained models, it is expected to be updated soon.     
+测试模型均不是论文中的最佳模型    
+
+yoso有两个工作：  
+1. 基于PixArt-XL-2 （DiT模型）全参训练  
+2. 训练 1 step generate - lora，可以和社区的其他模型结合  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

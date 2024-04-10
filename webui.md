@@ -1,5 +1,5 @@
 ## 3090
-
+### 黑图和xyz
 真实感大模型sdxl加载失败    
 File "/teams/ai_model_1667305326/WujieAITeam/private/lujunda/stable-diffusion-webui-master/modules/sd_disable_initialization.py", line 219, in load_state_dict
     state_dict = {k: v.to(device="meta", dtype=v.dtype) for k, v in state_dict.items()}

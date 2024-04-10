@@ -1,11 +1,32 @@
 # CustomNet
 : Object Customization with Variable-Viewpoints in Text-to-Image Diffusion Models.   
+CustomNet: Zero-shot Object Customization with Variable-Viewpoints in Text-to-Image Diffusion Models    
+
+
+
+
 
 需要额外安装  
 basicsr   
 但依赖tb-nightly    
 清华源不存在tb-nightly    
 pip install tb-nightly -i https://mirrors.aliyun.com/pypi/simple    
+
+
+CustomNet is novel unified customization method that can generate harmonious customized images without test-time optimization. CustomNet supports explicit viewpoint, location, text controls while ensuring object identity preservation.    
+![alt text](assets/pixart-sigma&customnet/image.png)   
+不知道background-image在哪里设置，示例代码好像没有   
+
+
+![alt text](assets/pixart-sigma&customnet/image-1.png)
+可以通过文字描述或用户定义的背景来实现位置控制和灵活的背景控制。   
+`Some` methods `finetune T2I models for each object individually at test-time`, which tend to be overfitted and time-consuming     
+`Others train an extra encoder` to extract object visual information for customization efficiently but struggle to preserve the object’s identity.       
+we incorporates `3D novel view synthesis` capabilities into the customization process    
+we propose a `dataset construction pipeline` to better handle real-world objects and complex backgrounds.    
+Additionally, we introduce delicate designs that enable `location control and flexible background control` through textual descriptions or user-defined backgrounds. Our method allows for object customization without the need of test-time optimization     
+
+
 
 
 
@@ -49,7 +70,10 @@ PIXART-δ: Fast and Controllable Image Generation with Latent Consistency Models
 使用gradio推理   
 尚不支持diffusers   
 可以训练和推理   
-有256 512两个模型    
+有256 512 1024模型    
+后续还会出dmd模型     
+
+
 
 nvcc11.8,torch 2.0.0没说明cu版本   
 好像默认11.7   
@@ -79,6 +103,7 @@ pip install torch==2.0.0 torchvision==0.15.1 torchaudio==2.0.1 --index-url https
 
 
 
-
+# cosxl
+Cos Stable Diffusion XL 1.0 and Cos Stable Diffusion XL 1.0 Edit   
 
 
