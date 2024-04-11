@@ -199,9 +199,29 @@ hug上下载的权重有软连接，直接mv很多移动不了
 
 
 
+## 手装xformers
+用它的自动脚本又慢又久     
+简直愚蠢    
+
+torch2.1.2+cu118      
+pip install xformers==0.0.22.post4 --index-url https://download.pytorch.org/whl/cu118    
+Collecting torch==2.1.0 (from xformers==0.0.22.post4)    
+
+3090 2号    
+xformers                          0.0.20     
+torch                             2.0.1+cu118    
+`正常使用`   
 
 
+3090 1号原镜像    
+torch                             1.13.1+cu117   
+xformers                          0.0.16rc425    
 
+3090 1号    
+torch2.1.2+cu118  py311   
+pip install xformers==0.0.23.post1 --index-url https://download.pytorch.org/whl/cu118       
+没有冲突   
+`正常使用`   
 
 
 

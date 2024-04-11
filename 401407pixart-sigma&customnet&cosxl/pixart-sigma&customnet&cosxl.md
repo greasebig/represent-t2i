@@ -106,4 +106,32 @@ pip install torch==2.0.0 torchvision==0.15.1 torchaudio==2.0.1 --index-url https
 # cosxl
 Cos Stable Diffusion XL 1.0 and Cos Stable Diffusion XL 1.0 Edit   
 
+可以一致的生成2k 4k 8k   
+显存恒为25g左右    
+清晰度没有上升，就是图片大小变大了    
+所以是为什么能够一致性的生成？？？？？？    
+而且速度还挺快   
+
+尝试使用realistic_vision_v51进行4096*4096生图   
+Ran out of memory when regular VAE encoding, retrying with tiled VAE encoding.     
+显存2g上升到5g   
+42s/it     
+42steps 
+![alt text](assets/pixart-sigma&customnet&cosxl/WeChat93b104784546b5c1c61f7d31dd987388.jpg)
+半个小时    
+
+
+![alt text](assets/pixart-sigma&customnet&cosxl/image.png)   
+正常写法生图效果不好    
+![alt text](assets/pixart-sigma&customnet&cosxl/image-2.png)   
+确切地说需要使用eular42步    
+![alt text](assets/pixart-sigma&customnet&cosxl/image-3.png)   
+使用dpm ++ 2m不太正常   
+
+
+要加上ip2p写法    
+![alt text](assets/pixart-sigma&customnet&cosxl/image-1.png)   
+
+
+
 
