@@ -134,4 +134,10 @@ Ran out of memory when regular VAE encoding, retrying with tiled VAE encoding.
 
 
 
+![alt text](assets/pixart-sigma&customnet&cosxl/image-4.png)
+
+
+类似ip2p工作  
+[Submitted on 28 Jan 2023 (v1), last revised 2 Nov 2023 (this version, v2)]     
+SEGA: Instructing Text-to-Image Models using Semantic Guidance         
 

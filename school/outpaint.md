@@ -59,22 +59,35 @@ https://github.com/runwayml/stable-diffusion#inpainting-with-stable-diffusion
 
 
 v1.5    
-1. 直接resize大小，往左右两边扩展       
+#### 1. 直接resize大小，往左右两边扩展       
 但这不是需求  
 
-2. poor man's outpainting   
+#### 2. poor man's outpainting   
 可以选择方向    
 ![alt text](assets/README/431712639349_.pic-1.jpg)    
 ![alt text](assets/README/631712642102_.pic.jpg)    
 ![alt text](assets/README/image.png)    
 ![alt text](assets/README/image-1.png)   
 
-3. outpainting mk2   
+#### 3. outpainting mk2   
 ![alt text](assets/README/image-2.png)    
 ![alt text](assets/README/image-3.png)    
 ![alt text](assets/README/image-4.png)     
 ![alt text](assets/README/image-5.png)   
 参数比较难调   
+
+采用专门对inpaint优化的模型   
+sd2.1基准    
+https://huggingface.co/webui/stable-diffusion-2-inpainting/tree/main    
+![alt text](assets/outpaint/image.png)
+
+controlnet：   
+https://huggingface.co/lllyasviel/control_v11p_sd15_inpaint   
+sd1.5基准   
+![alt text](assets/outpaint/image-1.png)    
+ControlNet插件inpaint局部重绘模型对于接缝处的处理 确实比图生图自带的局部重绘功能处理的要好太多了。     
+https://zhuanlan.zhihu.com/p/633750880?utm_id=0    
+
 
 ### webui插件支持outpaint
 
