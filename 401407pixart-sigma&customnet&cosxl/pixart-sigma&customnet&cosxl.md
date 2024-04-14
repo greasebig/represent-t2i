@@ -27,7 +27,13 @@ we propose a `dataset construction pipeline` to better handle real-world objects
 Additionally, we introduce delicate designs that enable `location control and flexible background control` through textual descriptions or user-defined backgrounds. Our method allows for object customization without the need of test-time optimization     
 
 
+将定制对象合并到图像生成中是文本到图像 (T2I) 生成的一个有吸引力的功能。一些方法在测试时单独微调每个对象的 T2I 模型，这往往会过度拟合且耗时。其他人训练额外的编码器来提取对象视觉信息以进行有效的定制，但很难保留对象的身份。为了解决这些限制，我们提出了 CustomNet，这是一个基于编码器的统一对象定制框架，它明确地将 3D 新颖视图合成功能合并到定制过程中。这种集成有助于空间位置和视点的调整，产生不同的输出，同时有效地保留对象的身份。为了有效地训练我们的模型，我们提出了一个数据集构建管道，以更好地处理现实世界的对象和复杂的背景。此外，我们还引入了精致的设计，可以通过文字描述或用户定义的背景来实现位置控制和灵活的背景控制。我们的方法允许对象定制，无需测试时优化，提供对视点、位置和文本的同步控制。实验结果表明，我们的方法在身份保存、多样性和和谐性方面优于其他定制方法。
 
+使用方法：输入一张白背景的物品图片作为参考图图，输入prompt编辑背景，可以通过参数改变物品在图片中的坐标位置和3D视角。   
+测试模型：CustomNet   
+测试参数：   
+DDIM，采样50步，GUI无法修改    
+测试结论：人物恢复效果差，文本控制不太准确，上下视角不太准确，小图时， 绘制效果不好。图片会被预处理成256*256。    
 
 
 
