@@ -6,6 +6,10 @@ pipe = AutoPipelineForText2Image.from_pretrained("/private/dj/models/sdxl-turbo"
                                                  torch_dtype=torch.float16, 
                                                  variant="fp16")
 pipe.to("cuda")
+# pipe.enable_xformers_memory_efficient_attention()
+
+# Enable memory optimizations.
+# pipe.enable_model_cpu_offload()
 
 import torch
 from diffusers.models import AutoencoderKL

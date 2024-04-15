@@ -1,4 +1,7 @@
 # CustomNet
+
+替代方案 lora    
+
 : Object Customization with Variable-Viewpoints in Text-to-Image Diffusion Models.   
 CustomNet: Zero-shot Object Customization with Variable-Viewpoints in Text-to-Image Diffusion Models    
 
@@ -44,7 +47,9 @@ DDIM，采样50步，GUI无法修改
 
 
 
-# PixArt-Σ 
+# PixArt-Σ    
+该组织不嫌累
+
 Weak-to-Strong Training of Diffusion Transformer for 4K Text-to-Image Generation   
 
 (🔥 New) Apr. 6, 2024. 💥 PixArt-Σ checkpoint 256px & 512px are released!   
@@ -60,6 +65,12 @@ https://arxiv.org/abs/2403.04692
 
 
 ## 该组织前期研究
+1Huawei Noah's Ark Lab, 2Dalian University of Technology, 3The University of Hong Kong,     
+OpenXLab    
+
+
+
+
 https://arxiv.org/abs/2310.00426   
 [Submitted on 30 Sep 2023 (v1), last revised 29 Dec 2023 (this version, v3)]    
 PixArt-α: Fast Training of Diffusion Transformer for Photorealistic Text-to-Image Synthesis    
@@ -72,12 +83,20 @@ https://arxiv.org/abs/2401.05252
 [Submitted on 10 Jan 2024]   
 PIXART-δ: Fast and Controllable Image Generation with Latent Consistency Models    
 
+
+英语名称：sigma，汉语名称：西格玛（大写Σ，小写σ）   
+PIXART-δ: Fast and Controllable Image Generation with Latent Consistency Models    
+PixArt-Σ: Weak-to-Strong Training of Diffusion Transformer for 4K Text-to-Image Generation    
+
+
+
+
 ## 推理
-使用gradio推理   
-尚不支持diffusers   
+可以使用gradio推理   
+支持diffusers   
 可以训练和推理   
 有256 512 1024模型    
-后续还会出dmd模型     
+512dmd模型     
 
 
 
@@ -109,7 +128,16 @@ pip install torch==2.0.0 torchvision==0.15.1 torchaudio==2.0.1 --index-url https
 
 
 
-# cosxl
+
+
+
+
+
+# cosxl     
+Cosine-Continuous Stable Diffusion XL   
+Cosine-Continuous EDM VPred schedule     
+
+
 Cos Stable Diffusion XL 1.0 and Cos Stable Diffusion XL 1.0 Edit   
 
 可以一致的生成2k 4k 8k   
@@ -146,4 +174,19 @@ Ran out of memory when regular VAE encoding, retrying with tiled VAE encoding.
 类似ip2p工作  
 [Submitted on 28 Jan 2023 (v1), last revised 2 Nov 2023 (this version, v2)]     
 SEGA: Instructing Text-to-Image Models using Semantic Guidance         
+
+
+
+## 对比度
+对比度指的是一幅图像中明暗区域最亮的白和最暗的黑之间不同亮度层级的测量，差异范围越大代表对比越大，差异范围越小代表对比越小，好的对比率120:1就可容易地显示生动、丰富的色彩，当对比率高达300:1时，便可支持各阶的颜色。但对比率遭受和亮度相同的困境，现今尚无一套有效又公正的标准来衡量对比率，所以最好的辨识方式还是依靠使用者眼睛。    
+在暗室中，白色画面(最亮时)下的亮度除以黑色画面(最暗时)下的亮度。  
+
+
+
+
+
+
+
+
+
 
