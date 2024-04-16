@@ -88,7 +88,7 @@ PIXART-δ: Fast and Controllable Image Generation with Latent Consistency Models
 PIXART-δ: Fast and Controllable Image Generation with Latent Consistency Models    
 PixArt-Σ: Weak-to-Strong Training of Diffusion Transformer for 4K Text-to-Image Generation    
 
-
+Thanks to PixArt-α, DiT and OpenDMD for their wonderful work and codebase!
 
 
 ## 推理
@@ -119,6 +119,15 @@ pip install torch==2.0.0 torchvision==0.15.1 torchaudio==2.0.1 --index-url https
 
     import torch
     torch.backends.cudnn.enabled = False
+
+
+dmd模型指定timesteps 400    
+
+    timesteps (`List[int]`, *optional*):
+            Custom timesteps to use for the denoising process. If not defined, equal spaced `num_inference_steps`
+            timesteps are used. Must be in descending order.       
+
+
 
 
 
