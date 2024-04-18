@@ -134,6 +134,87 @@ dmd模型指定timesteps 400
 ## 原理
 主要模型结构与PixArt-α相同   
 
+    use_resolution_binning (`bool` defaults to `True`):
+        If set to `True`, the requested height and width are first mapped to the closest resolutions using
+        `ASPECT_RATIO_1024_BIN`. After the produced latents are decoded into images, they are resized back to
+        the requested resolution. Useful for generating non-square images.
+
+
+
+## k-diffusion
+
+最后，您可能听说过 k-diffusion 这个术语，并想知道它是什么意思。它指的是 Katherine Crowson 的 k-diffusion GitHub 存储库以及与之相关的采样器。    
+https://github.com/crowsonkb/k-diffusion    
+An implementation of Elucidating the Design Space of Diffusion-Based Generative Models (Karras et al., 2022) for PyTorch, with enhancements and additional features, such as improved sampling algorithms and transformer-based diffusion models.     
+
+
+
+
+该资源库实现了 Karras 2022 文章中研究的采样器。    
+ [Submitted on 1 Jun 2022 (v1), last revised 11 Oct 2022 (this version, v2)]   
+Elucidating the Design Space of Diffusion-Based Generative Models     
+
+基本上，除了 DDIM、PLMS 和 UniPC 之外，AUTOMATIC1111 中的所有采样器都是从 k-diffusion 中借用的。
+
+Enhancements/additional features
+
+    k-diffusion supports a highly efficient hierarchical transformer model type.
+
+    k-diffusion supports a soft version of Min-SNR loss weighting for improved training at high resolutions with less hyperparameters than the loss weighting used in Karras et al. (2022).
+
+    k-diffusion has wrappers for v-diffusion-pytorch, OpenAI diffusion, and CompVis diffusion models allowing them to be used with its samplers and ODE/SDE.
+
+    k-diffusion implements DPM-Solver, which produces higher quality samples at the same number of function evalutions as Karras Algorithm 2, as well as supporting adaptive step size control. DPM-Solver++(2S) and (2M) are implemented now too for improved quality with low numbers of steps.
+
+    k-diffusion supports CLIP guided sampling from unconditional diffusion models (see sample_clip_guided.py).
+
+    k-diffusion supports log likelihood calculation (not a variational lower bound) for native models and all wrapped models.
+
+    k-diffusion can calculate, during training, the FID and KID vs the training set.
+
+    k-diffusion can calculate, during training, the gradient noise scale (1 / SNR), from An Empirical Model of Large-Batch Training, https://arxiv.org/abs/1812.06162).
+
+To do
+
+    Latent diffusion
+
+
+
+## 类似模型
+### stabilityai/sdxl-turbo   
+SDXL-Turbo is a fast generative text-to-image model that can synthesize photorealistic images from a text prompt in a single network evaluation.    
+
+SDXL-Turbo is a distilled version of SDXL 1.0, trained for real-time synthesis. SDXL-Turbo is based on a novel training method called Adversarial Diffusion Distillation (ADD) (see the technical report), which allows sampling large-scale foundational image diffusion models in `1 to 4 steps` at high image quality. This approach uses score distillation to leverage large-scale off-the-shelf image diffusion models as a teacher signal and combines this with an adversarial loss to ensure high image fidelity even in the low-step regime of one or two sampling steps.
+
+Finetuned from model: SDXL 1.0 Base
+
+### latent-consistency/lcm-lora-sdxl
+Latent Consistency Model (LCM) LoRA: SDXL    
+
+Latent Consistency Model (LCM) LoRA was proposed in LCM-LoRA: A universal Stable-Diffusion Acceleration Module by Simian Luo, Yiqin Tan, Suraj Patil, Daniel Gu et al.
+
+It is a distilled consistency adapter for stable-diffusion-xl-base-1.0 that allows to reduce the number of inference steps to only between `2 - 8 steps.`
+
+The adapter can be loaded with it's base model stabilityai/stable-diffusion-xl-base-1.0. Next, the scheduler needs to be changed to LCMScheduler and we can reduce the number of inference steps to just 2 to 8 steps. Please make sure to either disable guidance_scale or use values between 1.0 and 2.0.
+
+Combine with styled LoRAs    
+LCM-LoRA can be combined with other LoRAs to generate styled-images in very few steps (4-8). In the following example, we'll use the LCM-LoRA with the papercut LoRA. To learn more about how to combine LoRAs, refer to this guide.
+
+
+### PixArt-δ-1024-LCM
+PixArt-alpha/PixArt-LCM-XL-2-1024-MS
+
+Pixart-α consists of pure transformer blocks for latent diffusion: It can directly generate 1024px images from text prompts `within a single sampling process.`
+
+LCMs is a diffusion distillation method which predict PF-ODE's solution directly in latent space, achieving super fast inference with few steps.
+
+[Submitted on 6 Oct 2023]      
+Latent Consistency Models: Synthesizing High-Resolution Images with Few-Step Inference     
+Latent Diffusion models (LDMs) have achieved remarkable results in synthesizing high-resolution images. However, the iterative sampling process is computationally intensive and leads to slow generation. Inspired by Consistency Models (song et al.), we propose Latent Consistency Models (LCMs), enabling swift inference with minimal steps on any pre-trained LDMs, including Stable Diffusion (rombach et al). Viewing the guided reverse diffusion process as solving an augmented probability flow ODE (PF-ODE), LCMs are designed to directly predict the solution of such ODE in latent space, mitigating the need for numerous iterations and allowing rapid, high-fidelity sampling. Efficiently distilled from pre-trained classifier-free guided diffusion models, a high-quality 768 x 768 2~4-step LCM takes only 32 A100 GPU hours for training. Furthermore, we introduce Latent Consistency Fine-tuning (LCF), a novel method that is tailored for fine-tuning LCMs on customized image datasets. Evaluation on the LAION-5B-Aesthetics dataset demonstrates that LCMs achieve state-of-the-art text-to-image generation performance with few-step inference. 
+
+https://latent-consistency-models.github.io/
+
+
 
 
 
@@ -189,7 +270,6 @@ SEGA: Instructing Text-to-Image Models using Semantic Guidance
 ## 对比度
 对比度指的是一幅图像中明暗区域最亮的白和最暗的黑之间不同亮度层级的测量，差异范围越大代表对比越大，差异范围越小代表对比越小，好的对比率120:1就可容易地显示生动、丰富的色彩，当对比率高达300:1时，便可支持各阶的颜色。但对比率遭受和亮度相同的困境，现今尚无一套有效又公正的标准来衡量对比率，所以最好的辨识方式还是依靠使用者眼睛。    
 在暗室中，白色画面(最亮时)下的亮度除以黑色画面(最暗时)下的亮度。  
-
 
 
 

@@ -58,11 +58,17 @@ https://modelscope.cn/models/yutong/Ranni/files
 ![alt text](assets/Ranni/image-2.png)     
 解决customnet的问题     
 
-对空间关系进行提示。
+对空间关系进行提示。   
+可能解决cosxl的问题    
+但pixart sigma已经解决   
+
 
 对属性绑定进行了提示，包括(a)颜色绑定和(b)纹理绑定。为了清楚比较，随机种子被固定以保留一行中的空间排列。    
 
-颜色编辑     
+颜色编辑      
+可能解决cosxl的问题    
+
+
 
 shape editing   
 ![alt text](assets/Ranni/image-3.png)    

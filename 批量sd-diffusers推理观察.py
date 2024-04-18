@@ -157,6 +157,19 @@ for prompt in prompt_list:
 
 
 '''
+缺陷：
+DiffusionPipeline对于无效输入参数不报错，重复则报错
+导致有时写错关键字也不报错，无效生成
+negative_prompt
+
+
+
+
+
+
+
+
+
 端侧部署    
 
 Optimum
@@ -168,3 +181,4 @@ To install Optimum with the dependencies required for OpenVINO :
 pip install optimum[openvino]
 
 '''
+

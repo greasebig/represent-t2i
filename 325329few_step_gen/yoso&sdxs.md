@@ -541,6 +541,10 @@ The autoencoding part of the model is lossy.
 加载lora失败
 a800换了一个a800 diffusers库加载运行成功
 
+只支持sd1.5框架
+
+
+
 新a800使用diffusers0.26.3转realist的diffusers模型到ckpt   
 到comfyui单纯底模运行失败   
 
@@ -564,7 +568,19 @@ https://blog.csdn.net/weixin_43590796/article/details/130818747
 网上还有说去装最新的diffusers库，但感觉和comfyui关系不大    
 没事   
 
+加载lora失败
+Name: safetensors
+Version: 0.4.2
+Name: diffusers
+Version: 0.28.0.dev0
 
+换机器加载成功
+都是a800
+但是担心比较时显存和速度会有所不同
+Name: safetensors
+Version: 0.4.2
+Name: diffusers
+Version: 0.25.0
 
 
 
