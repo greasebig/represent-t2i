@@ -11,7 +11,7 @@ prompt: explosion, white, black
 powerpaint   
 等   
 
-
+涂鸦 inpaint都可以视作扩图方法 都做mask
 
 ## glid
 https://github.com/Jack000/glid-3-xl-stable    
