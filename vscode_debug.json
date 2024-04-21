@@ -1,0 +1,57 @@
+替代方案  
+对于IDE提供的断点功能确实很方便，但是对于一些vim党来说就的另寻方案了。 Python 的 pdb，正是其自带的一个调试库。它为 Python 程序提供了交互式的源代码调试功能，是命令行版本的 IDE 断点调试器，完美地解决了我们刚刚讨论的这个问题。   
+
+
+打开方式   
+
+
+
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "PVRCNN",
+            "type": "python",
+            "request": "launch",
+            //要进行调试的python文件
+            "program": "/data_f/sun/miniconda3/envs/openpcdet/lib/python3.8/site-packages/torch/distributed/launch.py",
+            "console": "integratedTerminal",
+            //修改默认采用的conda环境，注意是pythonPath，不是python
+            "pythonPath":"/data_f/sun/miniconda3/envs/openpcdet/bin/python",
+            //设置为false，表示会进入内置包package中代码进行调试
+            "justMyCode": false,
+            //相关参数python xxx.py  --xxx xxxx
+            "args":[
+                // "--nproc_per_node=2",
+                "--nproc_per_node=1",
+                "--master_addr=127.0.0.1",
+                "--master_port=29500",
+                "/data_f/sun/OpenPCDet/tools/train.py",
+                "--launcher",
+                "pytorch",
+                "--cfg_file",
+                "/data_f/sun/OpenPCDet/tools/cfgs/kitti_models/pv_rcnn.yaml",
+            ],
+            //设置采用哪几块的GPU进行训练调试
+            "env": {"CUDA_VISIBLE_DEVICES":"1"},
+            //修改vscode代码调试的根目录,${workspaceFolder}表示当前VSCode打开的文件夹根目录
+            "cwd": "${workspaceFolder}/tools"
+        },
+    ]
+}
+————————————————
+
+                            版权声明：本文为博主原创文章，遵循 CC 4.0 BY-SA 版权协议，转载请附上原文出处链接和本声明。
+                        
+原文链接：https://blog.csdn.net/qq_49086305/article/details/131083904

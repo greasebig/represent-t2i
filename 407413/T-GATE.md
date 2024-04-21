@@ -11,6 +11,7 @@ T-GATE：交叉注意力使文本到图像扩散模型中的推理变得麻烦
 
 
 
+### 相关工作
  📖 Related works:    
 We encourage the users to read DeepCache and Adaptive Guidance     
 ![alt text](assets/T-GATE/image-3.png)     
@@ -34,6 +35,8 @@ TGATE 是开源的。
 diffusers==0.27.0.dev0   
 pytorch==2.2.0   
 transformers   
+
+
 
 
 机构：   
@@ -103,3 +106,101 @@ https://github.com/HaozheLiu-ST/T-GATE
 
     if cross_attn and (gate_step<cur_step):
         hidden_states = cache
+
+
+
+
+
+
+
+
+
+### MACs
+
+
+
+
+
+### FID
+FID is a measure of similarity between two datasets of images. It was shown to correlate well with human judgement of visual quality and is most often used to evaluate the quality of samples of Generative Adversarial Networks. FID is calculated by computing the Fréchet distance between two Gaussians fitted to feature representations of the Inception network.
+
+In mathematics, the Fréchet distance is a measure of similarity between curves that takes into account the location and ordering of the points along the curves. It is named after Maurice Fréchet.
+
+In short: The Fréchet distance between two multivariate Gaussians X_1 ~ N(mu_1, C_1) and X_2 ~ N(mu_2, C_2) is
+
+    d^2 = ||mu_1 - mu_2||^2 + Tr(C_1 + C_2 - 2*sqrt(C_1*C_2)).
+
+
+
+
+
+
+
+
+## diffusers使用
+To use T-GATE with a pipeline, you need to use its corresponding loader.
+
+![alt text](assets/T-GATE/image-4.png)     
+
+
+
+推理两张图后报错    
+torch python版本？？    
+diffusers缺陷？？   
+决定不重装环境，直接去试源码     
+
+    --> 148 image = pipe.tgate(
+        149                 prompt=prompt_style,
+        150                 gate_step=gate_step,
+        151                 num_inference_steps=steps, 
+        152                 num_images_per_prompt = 1,
+        153                 generator = torch.Generator(device="cuda").manual_seed(seed),
+        154                 guidance_scale=cfg,
+        155                 
+        156                 max_sequence_length=300,
+        157 
+        158             ).images[0]
+        160 filename = prompt[:25] if len(prompt) > 24 else prompt
+        161 image.save(style_folder_path + filename + ".png")
+
+    File ~/miniconda3/envs/pixart/lib/python3.9/site-packages/torch/utils/_contextlib.py:115, in context_decorator.<locals>.decorate_context(*args, **kwargs)
+        112 @functools.wraps(func)
+        113 def decorate_context(*args, **kwargs):
+        114     with ctx_factory():
+    --> 115         return func(*args, **kwargs)
+    ...
+    --> 231         hidden_uncond, hidden_pred_text = hidden_states.chunk(2)
+        232         cache = (hidden_uncond + hidden_pred_text ) / 2
+        233 else:
+
+    ValueError: not enough values to unpack (expected 2, got 1)
+
+
+
+It's a late answer but may help.
+
+I had the same error. My problem was that 'input_ids' and 'attention_mask' have to be 2D tensor but I got them as 1D tensor. So do
+
+input_ids = input_ids.unsqueeze(0)
+attention_mask = attention_mask.unsqueeze(0)
+in your case.
+
+
+解决了！
+
+显然 'input_ids'、'attention_mask'、'token_type_ids' 的大小都需要为
+(batch_size,equence_length) ，所以当我使用
+
+.unsqueeze(0)
+代替
+
+.squeeze(0)
+有效。
+
+
+
+
+## 工作演进
+We thank prompt to prompt and diffusers for the great code.
+
+# 结尾
