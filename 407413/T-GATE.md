@@ -198,6 +198,27 @@ in your case.
 有效。
 
 
+### comfyui 使用
+    git apply tgate.patch 
+    error: comfy/ldm/modules/attention.py: No such file or directory
+    error: comfy/model_patcher.py: No such file or directory
+    error: comfy/samplers.py: No such file or directory
+
+Git是目前最流行的分布式版本控制系统之一，它可以帮助团队在开发过程中管理和协调代码的更改。通过Git，我们可以进行代码的版本管理，包括跟踪更改、回滚版本、分支管理等。
+
+补丁（patch）是一种用于将更改应用于源代码的方法。它包含了源代码中的更改的信息，可以被Git应用到目标代码库中。补丁通常以.diff或.patch的文件扩展名存在，包含了源代码中的更改的行号、内容等信息。
+
+Git提供了一个命令行工具git apply来应用补丁。使用git apply命令可以将补丁文件应用到当前代码库中，并自动根据补丁文件中的信息修改源代码。
+
+
+
+
+
+
+
+
+
+
 
 
 ## 工作演进
