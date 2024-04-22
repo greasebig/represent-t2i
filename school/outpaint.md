@@ -34,6 +34,85 @@ https://huggingface.co/Jack000/glid-3-xl-stable/tree/main/default
 kl模型暂不知用意是什么，拆开vae? 只在训练时候输入模型路径，推理不用？？？    
 
 
+
+
+
+### 代码
+
+    elif args.outpaint == 'left':
+        input_image = torch.zeros(1, 4, im.shape[2], im.shape[3]+32, device=device)
+        input_image[:,:,:,32:32+im.shape[3]] = im
+        input_image_mask = torch.zeros(1, 1, im.shape[2], im.shape[3]+32, device=device, dtype=torch.bool)
+        input_image_mask[:,:,:,32:32+im.shape[3]] = True
+1.创建一个与输入图像 im 相同大小的张量，但是宽度增加了32个像素的空白区域。这个张量是用零填充的，表示黑色背景。        
+2.将原始图像 im 复制到这个新创建的张量中，复制到新张量的右侧，即向左填充32个像素的空白区域。      
+3.创建一个与输入图像 im 相同大小的布尔型张量，同样是宽度增加了32个像素的空白区域，用于表示图像的掩码。       
+4.将掩码的相应区域设置为 True，表示在这个区域内需要进行处理。     
+
+这段代码的作用是在输入图像的左侧添加一个32像素宽的空白区域，同时为该区域生成一个掩码，用于后续的图像处理。     
+
+
+```
+from PIL import Image
+import os
+
+def resize_images(input_folder, output_folder_resize, output_folder_crop):
+    # 创建保存文件夹
+    os.makedirs(output_folder_resize, exist_ok=True)
+    os.makedirs(output_folder_crop, exist_ok=True)
+
+    # 遍历文件夹中的所有文件
+    for filename in os.listdir(input_folder):
+        # 确保是图片文件
+        if filename.endswith(".jpg") or filename.endswith(".png") or filename.endswith(".jpeg"):
+            # 打开图片
+            img_path = os.path.join(input_folder, filename)
+            img = Image.open(img_path)
+
+            # Resize图片为512x512
+            resized_img = img.resize((512, 512))
+
+            # 保存resize后的图片到文件夹1
+            output_path_resize = os.path.join(output_folder_resize, filename)
+            resized_img.save(output_path_resize)
+
+            # 切割图片
+            width, height = resized_img.size
+            left = width // 2
+            top = 0
+            right = width
+            bottom = height
+            cropped_img = resized_img.crop((left, top, right, bottom))
+
+            # 保存切割后的图片到文件夹2
+            output_path_crop = os.path.join(output_folder_crop, filename)
+            cropped_img.save(output_path_crop)
+
+    print("任务完成！")
+
+# 设置输入文件夹和输出文件夹
+input_folder = "input_folder_path"
+output_folder_resize = "output_folder1_path"
+output_folder_crop = "output_folder2_path"
+
+# 调用函数
+resize_images(input_folder, output_folder_resize, output_folder_crop)
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
 ## stable-diffusion-infinity-xl
 装环境可以，运行app.py报错：   
 
