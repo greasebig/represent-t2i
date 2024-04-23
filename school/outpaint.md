@@ -107,6 +107,64 @@ resize_images(input_folder, output_folder_resize, output_folder_crop)
 
 
 
+## 报错
+    Traceback (most recent call last):
+    File "/data/lujunda/sd/glid-3-xl-stable-master/sample.py", line 32, in <module>
+        from transformers import CLIPTokenizer, CLIPTextModel
+    File "/home/lujunda/.conda/envs/glid-sd/lib/python3.9/site-packages/transformers/__init__.py", line 43, in <module>
+        from . import dependency_versions_check
+    File "/home/lujunda/.conda/envs/glid-sd/lib/python3.9/site-packages/transformers/dependency_versions_check.py", line 41, in <module>
+        require_version_core(deps[pkg])
+    File "/home/lujunda/.conda/envs/glid-sd/lib/python3.9/site-packages/transformers/utils/versions.py", line 94, in require_version_core
+        return require_version(requirement, hint)
+    File "/home/lujunda/.conda/envs/glid-sd/lib/python3.9/site-packages/transformers/utils/versions.py", line 85, in require_version
+        if want_ver is not None and not ops[op](version.parse(got_ver), version.parse(want_ver)):
+    File "/home/lujunda/.conda/envs/glid-sd/lib/python3.9/site-packages/packaging/version.py", line 54, in parse
+        return Version(version)
+    File "/home/lujunda/.conda/envs/glid-sd/lib/python3.9/site-packages/packaging/version.py", line 200, in __init__
+        raise InvalidVersion(f"Invalid version: '{version}'")
+    packaging.version.InvalidVersion: Invalid version: '0.10.1,<0.11'
+
+需要升级transformers   
+numpy也是和torch版本一一对应      
+
+    Traceback (most recent call last):
+    File "/data/lujunda/sd/glid-3-xl-stable-master/sample.py", line 252, in <module>
+        ldm = instantiate_from_config(kl_config.model)
+    File "/data/lujunda/sd/glid-3-xl-stable-master/latent-diffusion/ldm/util.py", line 85, in instantiate_from_config
+        return get_obj_from_str(config["target"])(**config.get("params", dict()))
+    File "/data/lujunda/sd/glid-3-xl-stable-master/latent-diffusion/ldm/util.py", line 93, in get_obj_from_str
+        return getattr(importlib.import_module(module, package=None), cls)
+    File "/home/lujunda/.conda/envs/glid-sd/lib/python3.9/importlib/__init__.py", line 127, in import_module
+        return _bootstrap._gcd_import(name[level:], package, level)
+    File "<frozen importlib._bootstrap>", line 1030, in _gcd_import
+    File "<frozen importlib._bootstrap>", line 1007, in _find_and_load
+    File "<frozen importlib._bootstrap>", line 986, in _find_and_load_unlocked
+    File "<frozen importlib._bootstrap>", line 680, in _load_unlocked
+    File "<frozen importlib._bootstrap_external>", line 850, in exec_module
+    File "<frozen importlib._bootstrap>", line 228, in _call_with_frames_removed
+    File "/data/lujunda/sd/glid-3-xl-stable-master/latent-diffusion/ldm/models/autoencoder.py", line 2, in <module>
+        import pytorch_lightning as pl
+    File "/home/lujunda/.conda/envs/glid-sd/lib/python3.9/site-packages/pytorch_lightning/__init__.py", line 20, in <module>
+        from pytorch_lightning import metrics  # noqa: E402
+    File "/home/lujunda/.conda/envs/glid-sd/lib/python3.9/site-packages/pytorch_lightning/metrics/__init__.py", line 15, in <module>
+        from pytorch_lightning.metrics.classification import (  # noqa: F401
+    File "/home/lujunda/.conda/envs/glid-sd/lib/python3.9/site-packages/pytorch_lightning/metrics/classification/__init__.py", line 14, in <module>
+        from pytorch_lightning.metrics.classification.accuracy import Accuracy  # noqa: F401
+    File "/home/lujunda/.conda/envs/glid-sd/lib/python3.9/site-packages/pytorch_lightning/metrics/classification/accuracy.py", line 18, in <module>
+        from pytorch_lightning.metrics.utils import deprecated_metrics, void
+    File "/home/lujunda/.conda/envs/glid-sd/lib/python3.9/site-packages/pytorch_lightning/metrics/utils.py", line 22, in <module>
+        from torchmetrics.utilities.data import get_num_classes as _get_num_classes
+    ImportError: cannot import name 'get_num_classes' from 'torchmetrics.utilities.data' (/home/lujunda/.conda/envs/glid-sd/lib/python3.9/site-packages/torchmetrics/utilities/data.py)
+
+
+pip install pytorch-lightning  --upgrade
+
+
+
+
+
+
 
 
 
