@@ -163,15 +163,34 @@ realistic base model
 
 
 
+## workflow_ultimate_upscale_simple
+Simplified workflow for ultimate sd upscale
+
+
+StableSRColorFix node type were not found    
+manage也找不到   
+
+手装
+
+
+
+
+
+# 其他模型
+
+## 8x_NMKD-Superscale_150000_G
 
 
 
 
 
 
+## SSD
+The Segmind Stable Diffusion Model (SSD-1B) is a distilled 50% smaller version of the Stable Diffusion XL (SDXL), offering a 60% speedup while maintaining high-quality text-to-image generation capabilities. 
 
+https://huggingface.co/segmind/SSD-1B
 
-
+半年前发布
 
 
 # 结尾
