@@ -71,20 +71,23 @@ OpenXLab
 
 
 
-https://arxiv.org/abs/2310.00426   
-[Submitted on 30 Sep 2023 (v1), last revised 29 Dec 2023 (this version, v3)]    
-PixArt-α: Fast Training of Diffusion Transformer for Photorealistic Text-to-Image Synthesis    
+  
+### PixArt-α: Fast Training of Diffusion Transformer for Photorealistic Text-to-Image Synthesis    
 被yoso用来微调模型    
-few_step_gen folder有简略介绍   
+few_step_gen folder有简略介绍    
+https://arxiv.org/abs/2310.00426   
+[Submitted on 30 Sep 2023 (v1), last revised 29 Dec 2023 (this version, v3)]  
 
 
 
+### PIXART-δ: Fast and Controllable Image Generation with Latent Consistency Models    
 https://arxiv.org/abs/2401.05252    
 [Submitted on 10 Jan 2024]   
-PIXART-δ: Fast and Controllable Image Generation with Latent Consistency Models    
 
-
-英语名称：sigma，汉语名称：西格玛（大写Σ，小写σ）   
+Alpha的大小写形式分别是 Α 和 α 。它是希腊字母表中的第1个字母。
+Delta(大写 Δ,小写 δ),是第四个希腊字母      
+英语名称： sigma ，汉语名称：西格玛（大写Σ，小写σ）Sigma是希腊字母的第十八个字母        
+  
 PIXART-δ: Fast and Controllable Image Generation with Latent Consistency Models    
 PixArt-Σ: Weak-to-Strong Training of Diffusion Transformer for 4K Text-to-Image Generation    
 

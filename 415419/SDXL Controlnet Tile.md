@@ -1,4 +1,14 @@
 # v2 信息
+As there is no SDXL Tile available from the most open source, I decide to share this one out.
+
+是一个改善质量的模型      
+
+
+
+-For human image fix, IPA and early stop on controlnet will provide better reslut
+
+
+
 
 最新更新2024/4/13：
 

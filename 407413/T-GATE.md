@@ -108,7 +108,31 @@ https://github.com/HaozheLiu-ST/T-GATE
         hidden_states = cache
 
 
+测试结论：加速10%-35%，效果明显，图片质量有一定程度下降，以下缺点出现概率增加：细节丢失，颜色变暗，wrong anatomy     
+结论：论文原理逻辑有问题，论文效果图也可以看出图片质量下降
 
+
+T-GATE accelerates inference for Stable Diffusion, PixArt, and Latency Consistency Model pipelines by skipping the cross-attention calculation once it converges. This method doesn’t require any additional training and it can speed up inference from 10-50%. T-GATE is also compatible with other optimization methods like DeepCache.     
+
+the entire inference process can be divided into two stages: an initial semantics-planning phase, during which the model relies on text to plan visual semantics, and a subsequent fidelity-improving phase, during which the model tries to generate images from previously planned semantics.     
+ignoring text conditions in the fidelity-improving stage not only reduces computation complexity, but also slightly decreases FID score. 其实对图像质量影响还是很大的     
+This yields a simple and training-free method called TGATE for efficient generation, which caches the cross-attention output once it converges and keeps it fixed during the remaining inference steps.   
+
+原理就是在后面去噪阶段弃用 cross-attention 的 text embedding 
+
+
+缺陷：这种方法保证了空间语义，但细节往往会丢失
+
+4.23周二作者修复bug，发布 v0.1.2 。能用
+
+
+
+
+
+### 不理解
+不知道为什么在模型加载时就要输入tgate step     
+在推理又要输入一次     
+没看源代码    
 
 
 
@@ -198,7 +222,7 @@ in your case.
 有效。
 
 
-### comfyui 使用
+## comfyui 使用
     git apply tgate.patch 
     error: comfy/ldm/modules/attention.py: No such file or directory
     error: comfy/model_patcher.py: No such file or directory
