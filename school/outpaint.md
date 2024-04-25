@@ -243,6 +243,19 @@ sudo apt-get install qt5-default fixes the issue.
 
 (I'm using OpenCV 4.4)
 
+### 2080
+还是已放弃 (核心已转储)   
+安装 sudo apt-get install qt5-default    
+找不到      
+
+sudo apt-get install qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools qtcreator
+
+无法发起与 mirrors.tuna.tsinghua.edu.cn:80 (
+
+![alt text](assets_picture/outpaint/1714059930951.png)    
+过于麻烦，后续再看
+
+
 
 
 
