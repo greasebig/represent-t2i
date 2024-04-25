@@ -23,12 +23,12 @@ Delta(大写 Δ,小写 δ),是第四个希腊字母
 
 
 ## 同篇论文的其他部分 lcm
-![alt text](<assets/PixArt-ControlNet /截屏2024-04-25 09.57.31.png>)    
+![alt text](<assets/PixArt-ControlNet/截屏2024-04-25 09.57.31.png>)    
 delta的lcm模型没有sigma的dmd效果好    
 
 # 原理
 pixart ControlNet        
-![alt text](<assets/PixArt-ControlNet /image-2.png>)      
+![alt text](<assets/PixArt-ControlNet/image-2.png>)      
 我们结合了类似 ControlNet（https://github.com/lllyasviel/ControlNet）模块，可以对文本到图像扩散模型进行细粒度控制。我们引入了一种新颖的 ControlNet-Transformer 架构，专为 Transformer 量身定制，可在生成高质量图像的同时实现明确的可控性。
 
 有关PixArt-ControlNet的更多详细信息，请查看技术报告PixArt-δ。
@@ -55,8 +55,8 @@ pixart ControlNet
 
 
 # 官方示例
-![alt text](<assets/PixArt-ControlNet /image.png>)      
-![alt text](<assets/PixArt-ControlNet /image-1.png>)      
+![alt text](<assets/PixArt-ControlNet/image.png>)      
+![alt text](<assets/PixArt-ControlNet/image-1.png>)      
 
 
 
