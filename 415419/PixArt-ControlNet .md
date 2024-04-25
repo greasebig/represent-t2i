@@ -1,16 +1,18 @@
-https://huggingface.co/PixArt-alpha/PixArt-ControlNet/tree/main
-
 PixArt-δ-1024-ControlNet     
+有512 1024两个模型     
+
+
+https://huggingface.co/PixArt-alpha/PixArt-ControlNet/tree/main     
 三个月前发布    
 
-提出了PixArt-alpha的lcm和controlnet。但是这两个东西不是连着用的。
+提出了PixArt-alpha的lcm和controlnet。但是这两个东西不是连着用的。     
 
 
 # 论文信息
 PIXART-δ: Fast and Controllable Image Generation with Latent Consistency Models    
-https://arxiv.org/abs/2401.05252    
-[Submitted on 10 Jan 2024]   
-
+https://arxiv.org/abs/2401.05252     
+[Submitted on 10 Jan 2024]    
+提出了PixArt-alpha的lcm和controlnet。但是这两个东西不是连着用的。  
 
 Alpha的大小写形式分别是 Α 和 α 。它是希腊字母表中的第1个字母。
 Delta(大写 Δ,小写 δ),是第四个希腊字母      
@@ -20,6 +22,16 @@ Delta(大写 Δ,小写 δ),是第四个希腊字母
 
 
 
+## 同篇论文的其他部分 lcm
+![alt text](<assets/PixArt-ControlNet /截屏2024-04-25 09.57.31.png>)    
+delta的lcm模型没有sigma的dmd效果好    
+
+# 原理
+pixart ControlNet        
+![alt text](<assets/PixArt-ControlNet /image-2.png>)      
+我们结合了类似 ControlNet（https://github.com/lllyasviel/ControlNet）模块，可以对文本到图像扩散模型进行细粒度控制。我们引入了一种新颖的 ControlNet-Transformer 架构，专为 Transformer 量身定制，可在生成高质量图像的同时实现明确的可控性。
+
+有关PixArt-ControlNet的更多详细信息，请查看技术报告PixArt-δ。
 
 
 
@@ -29,3 +41,45 @@ Delta(大写 Δ,小写 δ),是第四个希腊字母
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 官方示例
+![alt text](<assets/PixArt-ControlNet /image.png>)      
+![alt text](<assets/PixArt-ControlNet /image-1.png>)      
+
+
+
+
+
+# 其他代码
+## hed
+https://github.com/s9xie/hed   
+九年前   
+
+HED shows a clear advantage in consistency over Canny. The history of computational edge detection is extremely rich; we now highlight a few representative works that have proven to be of great practical importance.
+
+Notice how the Canny edge detector is not able to preserve the object boundary of the cat, mountains, or the rock the cat is sitting on. HED, on the other hand, is able to preserve all of those object boundaries
+
+
+
+## t5
+该模型被分成两个9g的依次加载    
+
+
+
+
+
+
+
+# 结尾

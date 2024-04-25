@@ -2,7 +2,7 @@ Inference code for: ControlNet++: Improving Conditional Controls with Efficient 
 ControlNet++：通过高效的一致性反馈改进条件控制    
 https://github.com/liming-ai/ControlNet_Plus_Plus   
 
-这是个快速版controlnet 即lcm controlnet
+这是个快速版controlnet 即使用lcm加速controlnet
 
 有点类似ST-GCN++命名 
 

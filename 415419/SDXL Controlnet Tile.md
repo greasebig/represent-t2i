@@ -203,4 +203,16 @@ https://huggingface.co/segmind/SSD-1B
 半年前发布
 
 
+## ComfyUI ControlNet Tile
+5.2. ComfyUI ControlNet 磁贴    
+Tile Resample 模型用于增强图像的细节。它与放大器结合使用特别有用，可以提高图像分辨率，同时添加更精细的细节，通常用于锐化和丰富图像中的纹理和元素。
+
+预处理器：平铺
+
+
+
+
+
+
+
 # 结尾
