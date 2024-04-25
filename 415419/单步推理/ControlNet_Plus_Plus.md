@@ -37,6 +37,8 @@ We noticed the results in the online demo are unstable: The same code, weights a
 
 
 
+# 模型信息
+基于sd1.5
 
 
 
@@ -49,6 +51,5 @@ We noticed the results in the online demo are unstable: The same code, weights a
 
 
 
-
-
+# 结尾
 
