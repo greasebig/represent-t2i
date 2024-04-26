@@ -221,6 +221,14 @@ IP-Adapter: Text Compatible Image Prompt Adapter for Text-to-Image Diffusion Mod
 腾讯     
 
 
+### h94/IP-Adapter-FaceID
+
+
+
+An experimental version of IP-Adapter-FaceID: we use face ID embedding from a face recognition model instead of CLIP image embedding, additionally, we use LoRA to improve ID consistency. IP-Adapter-FaceID can generate various style images conditioned on a face with only text prompts.
+
+IPaapter团队推出IP-Adapter-FaceID模型，利用人脸ID嵌入和LoRA技术，大幅提高人脸识别精准度。该模型有望在未来人工智能领域发挥重要作用，为人脸识别技术带来重大突破。 
+
 
 
 ## instantid
