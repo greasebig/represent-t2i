@@ -210,6 +210,35 @@ Tile Resample 模型用于增强图像的细节。它与放大器结合使用特
 预处理器：平铺
 
 
+## ipadapter
+IP-Adapter: Text Compatible Image Prompt Adapter for Text-to-Image Diffusion Models
+
+![alt text](<assets/SDXL Controlnet Tile/image-1.png>)
+
+[Submitted on 13 Aug 2023]   
+IP-Adapter: Text Compatible Image Prompt Adapter for Text-to-Image Diffusion Models   
+
+腾讯     
+
+
+
+
+## instantid
+![alt text](<assets/SDXL Controlnet Tile/image.png>)
+
+[Submitted on 15 Jan 2024 (v1), last revised 2 Feb 2024 (this version, v2)]     
+InstantID: Zero-shot Identity-Preserving Generation in Seconds     
+
+
+
+
+### InstantStyle
+[2024/04/03] 🔥 We release our recent work InstantStyle for style transfer, compatible with InstantID!
+
+InstantStyle: Free Lunch towards Style-Preserving in Text-to-Image Generation
+
+
+![alt text](<assets/SDXL Controlnet Tile/截屏2024-04-09 10.48.08.png>)
 
 
 
