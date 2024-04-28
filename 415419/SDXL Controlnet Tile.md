@@ -249,6 +249,20 @@ InstantStyle: Free Lunch towards Style-Preserving in Text-to-Image Generation
 ![alt text](<assets/SDXL Controlnet Tile/截屏2024-04-09 10.48.08.png>)
 
 
+## T2I-Adapter
+T2I-Adapter vs ControlNets    
+T2I-Adapters are much much more efficient than ControlNets so I highly recommend them. ControlNets will slow down generation speed by a significant amount while T2I-Adapters have almost zero negative impact on generation speed.
+
+In ControlNets the ControlNet model is run once every iteration. For the T2I-Adapter the model runs once in total.
+
+T2I-Adapters are used the same way as ControlNets in ComfyUI: using the ControlNetLoader node.
+
+
+
+
+
+
+
 
 
 

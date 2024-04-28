@@ -19,7 +19,8 @@ git clone repo 到 ComfyUI/custom_nodes/
 而在 60% 时，它使用了大部分原始图像的颜色、明暗信息。
 
 
-
+# 服务器端口卡住，本地映射加载不出页面
+python main.py --port 12345
 
 
 

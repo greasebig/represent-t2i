@@ -27,6 +27,11 @@ The first row in outputs is the input conditions. The second row is the images g
 ![alt text](assets/ControlNet_Plus_Plus/image-5.png)    
 ![alt text](assets/ControlNet_Plus_Plus/image-6.png)   
 
+![alt text](<assets/ControlNet_Plus_Plus/截屏2024-04-28 15.04.32.png>)    
+
+
+
+
 
 
 We noticed the results in the online demo are unstable: The same code, weights and random seeds have huge differences in results under different spaces, which may due to the ZeroGPU. If it is convenient, please git clone and run it locally.
