@@ -29,10 +29,15 @@ Project Page: https://hyper-sd.github.io/
 
 News🔥🔥🔥
 
-    Apr.20, 2024. Our checkpoints and two demos 🤗 (i.e. SD15-Scribble and SDXL-T2I) are publicly available on HuggingFace Repo.
-    Apr.21, 2024. Hyper-SD ⚡️ is highly compatible and work well with different base models and controlnets. To clarify, we also append the usage example of controlnet here.
+    Apr.28, 2024. ComfyUI workflows on 1-Step Unified LoRA 🥰 with TCDScheduler to inference on different steps are released! Remember to install ⭕️ ComfyUI-TCD in your ComfyUI/custom_nodes folder!!! You're encouraged to adjust the eta parameter to get better results 🌟!
+    Apr.26, 2024. 💥💥💥 Our CFG-Preserved Hyper-SD15/SDXL that facilitate negative prompts and larger guidance scales (e.g. 5~10) will be coming soon!!! 💥💥💥
+    Apr.26, 2024. Thanks to @Pete for contributing to our scribble demo with larger canvas right now 👏.
+    Apr.24, 2024. The ComfyUI workflow and checkpoint on 1-Step SDXL UNet ✨ is also available! Don't forget ⭕️ to install the custom scheduler in your ComfyUI/custom_nodes folder!!!
+    Apr.23, 2024. ComfyUI workflows on N-Steps LoRAs are released! Worth a try for creators 💥!
     Apr.23, 2024. Our technical report 📚 is uploaded to arXiv! Many implementation details are provided and we welcome more discussions👏.
-    Apr.23, 2024. The ComfyUI workflows on N-Steps LoRAs are released! Worth a try for creators 💥!
+    Apr.21, 2024. Hyper-SD ⚡️ is highly compatible and work well with different base models and controlnets. To clarify, we also append the usage example of controlnet here.
+    Apr.20, 2024. Our checkpoints and two demos 🤗 (i.e. SD15-Scribble and SDXL-T2I) are publicly available on HuggingFace Repo.
+
 
 
 Hyper-SD Scribble demo host on 🤗 scribble
@@ -43,9 +48,18 @@ Hyper-SDXL One-step Text-to-Image demo host on 🤗 T2I
 Checkpoints
 
     Hyper-SDXL-Nstep-lora.safetensors: Lora checkpoint, for SDXL-related models.
+
     Hyper-SD15-Nstep-lora.safetensors: Lora checkpoint, for SD1.5-related models.
+
     Hyper-SDXL-1step-unet.safetensors: Unet checkpoint distilled from SDXL-Base.
 
+Hyper-SD is one of the new State-of-the-Art diffusion model acceleration techniques. In this repository, we release the models distilled from SDXL Base 1.0 and Stable-Diffusion v1-5。    
+
+
+
+# 原理
+Hyper-SD 采用两阶段渐进稠度蒸馏。第一阶段涉及两个独立时间段的一致性蒸馏：[0，T/2]和[T/2，T]以获得两个段的一致性ODE。然后，采用该ODE轨迹在后续阶段训练全局一致性模型     
+![alt text](assets/Hyper-SD/image.png)     
 
 
 
@@ -54,8 +68,27 @@ Checkpoints
 
 
 
+# 效果
+ByteDance/Hyper-SDXL-1Step-T2I      
+
+the word 'START'   
+![alt text](assets/Hyper-SD/image-1.png)    
+与论文不一致，文字不遵循    
+
+The unified LoRAs of Hyper-SD are compatible with ControlNet. The examples are conditioned on either scribble or canny images.    
+
+Hyper-SD15-Scribble     
+![alt text](assets/Hyper-SD/image.jpeg)    
+a photo of a cat   
+lcm   
+网页上两三秒出图  
+![alt text](assets/Hyper-SD/image-1.jpeg)      
+![alt text](assets/Hyper-SD/image-2.jpeg)    
+
+TCD
 
 
 
+# 结尾
 
 

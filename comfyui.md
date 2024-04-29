@@ -20,8 +20,9 @@ git clone repo 到 ComfyUI/custom_nodes/
 
 
 # 服务器端口卡住，本地映射加载不出页面
-python main.py --port 12345
-
+python main.py --port 12345   
+换就可以   
+本地端口一般不用改   
 
 
 

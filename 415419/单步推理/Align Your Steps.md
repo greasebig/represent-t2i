@@ -36,6 +36,7 @@ We also studied the effect of optimized schedules in video generation using the 
 
 
 # 实践
+https://research.nvidia.com/labs/toronto-ai/AlignYourSteps/     
 https://research.nvidia.com/labs/toronto-ai/AlignYourSteps/howto.html     
 好像和 pixart dmd 一样，都会在timestep进行下手手动设置    
 确实类似，但是pixart dmd我只测过单步，然后取400.    
