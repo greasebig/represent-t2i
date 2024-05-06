@@ -29,6 +29,8 @@ Project Page: https://hyper-sd.github.io/
 
 News🔥🔥🔥
 
+    Apr.30, 2024. 💥💥💥 Our 8-Steps CFG-Preserved Hyper-SDXL-8steps-CFG-LoRA and Hyper-SD15-8steps-CFG-LoRA is available now(support 5~8 guidance scales), we strongly recommend making the 8-step CFGLora a standard configuration for all SDXL and SD15 models!!! (the 4-steps version will be coming soon)💥💥💥
+
     Apr.28, 2024. ComfyUI workflows on 1-Step Unified LoRA 🥰 with TCDScheduler to inference on different steps are released! Remember to install ⭕️ ComfyUI-TCD in your ComfyUI/custom_nodes folder!!! You're encouraged to adjust the eta parameter to get better results 🌟!
     Apr.26, 2024. 💥💥💥 Our CFG-Preserved Hyper-SD15/SDXL that facilitate negative prompts and larger guidance scales (e.g. 5~10) will be coming soon!!! 💥💥💥
     Apr.26, 2024. Thanks to @Pete for contributing to our scribble demo with larger canvas right now 👏.
@@ -73,7 +75,9 @@ ByteDance/Hyper-SDXL-1Step-T2I
 
 the word 'START'   
 ![alt text](assets/Hyper-SD/image-1.png)    
-与论文不一致，文字不遵循    
+单步与论文不一致，文字不遵循    
+可能是多步的结果   
+
 
 The unified LoRAs of Hyper-SD are compatible with ControlNet. The examples are conditioned on either scribble or canny images.    
 
