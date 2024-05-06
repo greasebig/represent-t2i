@@ -258,6 +258,208 @@ sudo apt-get install qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools qtcreator
 
 
 
+### 顺利安装
+只需要矩池云就可以顺利安装所有的环境       
+
+推理运行时：       
+ImportError: cannot import name 'masks_to_boxes' from 'torchvision.ops' (/root/miniconda3/envs/ldm/lib/python3.8/site-packages/torchvision/ops/__init__.py)       
+
+torch2.3   torchvision 0.8.1   
+
+pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2
+
+    File "sample.py", line 32, in <module>
+        from transformers import CLIPTokenizer, CLIPTextModel
+    File "/root/miniconda3/envs/ldm/lib/python3.8/site-packages/transformers/__init__.py", line 43, in <module>
+    from . import dependency_versions_check
+
+    File "/root/miniconda3/envs/ldm/lib/python3.8/site-packages/packaging/version.py", line 200, in __init__
+        raise InvalidVersion(f"Invalid version: '{version}'")
+    packaging.version.InvalidVersion: Invalid version: '0.10.1,<0.11'
+
+
+
+    pip show packaging
+    Name: packaging
+    Version: 24.0
+
+
+报错原因
+
+    packaging.version版本过高
+
+    解决方向
+    降低packaging版本；
+    先尝试降低2个版本：
+
+    pip install packaging==21.3 -i https://pypi.tuna.tsinghua.edu.cn/simple/
+    1
+    问题解决结果（成功解决）
+
+接下来
+
+
+    Traceback (most recent call last):
+    File "sample.py", line 32, in <module>
+        from transformers import CLIPTokenizer, CLIPTextModel
+    ImportError: cannot import name 'CLIPTokenizer' from 'transformers' (unknown location)
+
+
+    pip show transformers
+    Name: transformers
+    Version: 4.3.1
+
+    pip install transformers==4.8.0
+
+
+终于版本检查通过，可以运行进去了        
+
+
+ImportError:      
+cannot import name 'get_num_classes' from 'torchmetrics.utilities.data' (/root/miniconda3/envs/ldm/lib/python3.8/site-packages/torchmetrics/utilities/data.py)
+
+pip --no-cache-dir install pytorch-lightning==2.1.0    
+
+    Attempting uninstall: pytorch-lightning
+        Found existing installation: pytorch-lightning 1.4.2
+        Uninstalling pytorch-lightning-1.4.2:
+        Successfully uninstalled pytorch-lightning-1.4.2
+    Successfully installed pytorch-lightning-2.1.0
+
+还是这个    
+
+    making attention of type 'vanilla' with 512 in_channels
+    draw the area for inpainting, then close the window
+    qt.qpa.plugin: Could not load the Qt platform plugin "xcb" in "" even though it was found.
+    This application failed to start because no Qt platform plugin could be initialized. Reinstalling the application may fix this problem.
+
+    Available platform plugins are: eglfs, linuxfb, minimal, minimalegl, offscreen, vnc, wayland-egl, wayland, wayland-xcomposite-egl, wayland-xcomposite-glx, webgl, xcb.
+
+
+pip install opencv-python-headless
+
+sudo apt-get install qt5-default
+
+解决不了，这个版本已经对了 opencv-python             4.1.2.30           
+
+pip install --upgrade pyqt5_tools
+
+    Attempting uninstall: pyqt5
+        Found existing installation: PyQt5 5.15.10
+        Uninstalling PyQt5-5.15.10:
+        Successfully uninstalled PyQt5-5.15.10
+    Successfully installed pyqt5-5.15.9 pyqt5-plugins-5.15.9.2.3 pyqt5-tools-5.15.9.3.3 python-dotenv-1.0.1 qt5-applications-5.15.2.2.3 qt5-tools-5.15.2.1.3
+
+单单是运行就已经报错改了三次还不行        
+启动还很慢      
+
+
+    Version:0.9 StartHTML:0000000170 EndHTML:0000004125 StartFragment:0000000206 EndFragment:0000004089 SourceURL:https://github.com/NVlabs/instant-ngp/discussions/300 I was trying hard, but could not fix it. I was downloading literally hundreds of different packages, over and over again, trying all sorts of "hacks" found online, eventually trying anaconda, a massive download...
+    In the end, I don't know if that was the fix, because my system is about to be reinstalled after all of my "trying", BUT, after I wrote this in console:
+    export QT_QPA_PLATFORM=offscreen
+
+### 解决关键 export QT_QPA_PLATFORM=offscreen
+
+
+
+第四次好像成功了，但是linux没有图形界面
+
+    Working with z of shape (1, 4, 32, 32) = 4096 dimensions.
+    making attention of type 'vanilla' with 512 in_channels
+    draw the area for inpainting, then close the window
+    QStandardPaths: XDG_RUNTIME_DIR not set, defaulting to '/tmp/runtime-root'
+
+
+
+用linux服务器没有图形界面，qt一直打不开，后续应该只能直接使用mask_file做输入才能出结果，这个我还得看下怎么改
+
+运行显存 8620MiB         
+
+
+    警告或报错问题：XDG_RUNTIME_DIR not set, defaulting to ‘/tmp/runtime-root‘
+    解决方法：
+    方法一：设置环境变量：终端输入export XDG_RUNTIME_DIR=/usr/lib/
+    方法二：在/etc/profile末尾增加两句
+
+    export XDG_RUNTIME_DIR=/usr/lib/
+    export RUNLEVEL=3
+    1
+    2
+    然后刷新全局变量
+
+    source /etc/profile
+
+
+
+在MacOS系统上安装Putty，得先安装MacPorts，它是一个类似brew的包管理工具。    
+因为putty工具在Linux和macOS下，都是使用的GTK+图形界面，所以需要安装GTK支持。打开终端，使用port命令安装GTK+，命令如下：   
+
+四、安装XQuartz
+
+XQuartz提供Mac下的绘图层支持，请打开下方链接下载dmg文件：
+
+五、安装Putty
+
+sudo port install putty
+
+稍微麻烦 四步完成，不如直接提供mask_file
+
+需要本地电脑装putty     
+服务器再装一个可视化服务器       
+gpt        
+
+
+
+
+
+
+
+
+
+
+### gui这一步总算是运行成功
+但是需要一个mask_file     
+应该就可以了
+
+
+module 'PIL.Image' has no attribute 'ANTIALIAS'         
+
+
+pip uninstall -y Pillow       
+pip install Pillow==9.5.0
+
+
+Successfully uninstalled pillow-10.3.0
+
+
+![alt text](assets_picture/outpaint/image.png)
+
+
+### 终于
+
+    Using device: cuda:0
+    making attention of type 'vanilla' with 512 in_channels
+    Working with z of shape (1, 4, 32, 32) = 4096 dimensions.
+    making attention of type 'vanilla' with 512 in_channels
+    sample.py:362: DeprecationWarning: ANTIALIAS is deprecated and will be removed in Pillow 10 (2023-07-01). Use LANCZOS or Resampling.LANCZOS instead.
+    mask_image = mask_image.resize((input_image.shape[3],input_image.shape[2]), Image.ANTIALIAS)
+    100%|█████████████████████████████| 50/50 [00:09<00:00,  5.10it/s]
+    100%|█████████████████████████████| 50/50 [00:10<00:00,  4.97it/s]
+    100%|█████████████████████████████| 50/50 [00:10<00:00,  4.97it/s]
+    100%|█████████████████████████████| 50/50 [00:10<00:00,  4.96it/s]
+
+
+显存峰值10676mb
+
+好像是ddim     
+50步         
+然后使用类似tile渲染      
+
+
+
+
+
+
 
 
 ## stable-diffusion-infinity-xl
