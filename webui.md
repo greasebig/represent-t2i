@@ -1,5 +1,5 @@
-## 3090
-### 黑图和xyz
+# 3090
+## 黑图和xyz
 真实感大模型sdxl加载失败    
 File "/teams/ai_model_1667305326/WujieAITeam/private/lujunda/stable-diffusion-webui-master/modules/sd_disable_initialization.py", line 219, in load_state_dict
     state_dict = {k: v.to(device="meta", dtype=v.dtype) for k, v in state_dict.items()}
@@ -102,7 +102,7 @@ Sampler: DPM++ 3M SDE Karras,
 
 
 
-### webui启动方式
+## webui启动方式
 python webui.py   
 python launch.py    
 --precision full --no-half   
@@ -111,6 +111,75 @@ python launch.py
 而comfyui会自动调用xformers
 
 
+# hires 精绘
+
+ Diffusers 包有几个限制，阻止它生成与 Stable Diffusion WebUI 生成的图像一样好的图像。这些限制中最重要的包括：
+
+无法使用 .safetensor 文件格式的自定义模型；
+77个提示符限制；
+缺乏 LoRA 支持；
+并且缺少图像放大功能（在 Stable Diffusion WebUI 中也称为 HighRes）；
+默认情况下性能低，VRAM 使用率高。
+
+
+一个方便的选项，可以以较低的分辨率部分渲染图像，放大图像，然后以高分辨率添加细节。换句话说，这相当于在 txt2img 中生成图像，通过您选择的方法对其进行放大，然后对 img2img 中现在放大的图像运行第二遍，以进一步细化放大并创建最终结果。
+
+默认情况下，基于 SD1/2 的模型会以非常高的分辨率创建可怕的图像，因为这些模型仅在 512px 或 768px 下进行训练。该方法可以通过在大版本的去噪过程中利用小图片的构图来避免这个问题。通过选中 txt2img 页面上的“Hires.fix”复选框来启用。    
+This method makes it possible to avoid this issue by utilizing the small picture's composition in the denoising process of the larger version. Enabled by checking the "Hires. fix" checkbox on the txt2img page.     
+
+
+
+1.8.0 更新：图像现在可以通过雇佣来升级。在图像查看器中选择相关图像时，单击 [✨] 按钮，在初始生成后作为单独的过程进行修复。    
+1.8.0 Update: Images can now be upscaled with hires. fix as a separate process after the initial generation by clicking on the [✨] button while the relevant image is selected in the image viewer.    
+ 
+小图片将以您使用宽度/高度滑块设置的任何分辨率呈现。大图片的尺寸由三个滑块控制：“缩放比例”乘数（雇用放大）、“将宽度调整为”和/或“将高度调整为”（雇用调整大小）。    
+
+"Scale by" multiplier (Hires upscale), "Resize width to" and/or "Resize height to" (Hires resize).
+
+    If "Resize width to" and "Resize height to" are 0, "Scale by" is used.
+    If "Resize width to" is 0, "Resize height to" is calculated from width and height.
+    If "Resize height to" is 0, "Resize width to" is calculated from width and height.
+    If both "Resize width to" and "Resize height to" are non-zero, image is upscaled to be at least those dimensions, and some parts are cropped.
+
+To potentially further enhance details in hires. fix, see the notes on extra noise.
+
+
+
+## Extra noise
+![alt text](assets/webui/image-16.png)     
+从随机种子中添加额外的噪声，由设置决定，默认为0。在 1.6.0 版本中通过#12564img2img实现，可在->下的设置中使用Extra noise multiplier for img2img and hires fix。如 UI 中所述，此参数应始终低于用于产生最佳结果的去噪强度。
+
+此调整的一个目的是在招聘修复中添加更多详细信息。为了非常简化的理解，您可以将其视为 GAN 升级和潜在升级之间的交叉。    
+ For a very simplified understanding, you may think of it as a cross between GAN upscaling and latent upscaling.      
+所以现在高分辨率还是需要gan啊    
+
+下面的示例是应用了 Hires 修复的 512x512 图像，使用 GAN 放大器 (4x-UltraSharp)，降噪强度为 0.45。右侧的图像利用了这种额外的噪声调整。
+
+请注意，几个月前实施的先前设置（Noise multiplier for img2img）在技术上达到了相同的效果，但正如名称中所指出的，仅适用于 img2img（而不是雇用。修复），并且由于它的实施，它非常敏感，实际上仅适用于有用的范围为1到1.1。对于几乎所有操作，建议改用新Extra noise参数。
+
+对于开发者来说，回调也是存在的（on_extra_noise）。下面是一个使用示例，使区域可以添加噪声以进行屏蔽。
+
+and due to it was implemented it is very sensitive, realisticly only useful in a range of 1 to 1.1. For almost all operations it would be suggested to use the new Extra noise parameter instead.
+
+For developers, a callback also exists (on_extra_noise).
+
+
+# Upscalers
+下拉菜单允许您选择用于调整图像大小的放大器类型。除了“附加”选项卡上提供的所有升级器之外，还有一个选项可以升级潜在空间图像，这就是稳定扩散在内部工作的方式 - 对于 3x512x512 RGB 图像，其潜在空间表示将为 4x64x64。要查看每个潜在空间放大器的作用，您可以将去噪强度设置为 0，并将 Hires 步长设置为 1 - 您将获得稳定扩散在放大图像上的作用的非常好的近似值。    
+
+A dropdown allows you to to select the kind of upscaler to use for resizing the image. In addition to all upscalers you have available on extras tab, there is an option to `upscale a latent space image`, which is what stable diffusion works with internally - for a 3x512x512 RGB image, its latent space representation would be 4x64x64. To see what each latent space upscaler does, you can set Denoising strength to 0 and Hires steps to 1 - you'll get a very good approximation of what stable diffusion would be working with on upscaled image.
+
+![alt text](assets/webui/image-18.png)     
+
+神秘的latent空间放大    
+
+
+
+# Soft inpainting
+软修复允许降噪器直接使用软边缘（即非二元）蒙版，从而使未蒙版的内容与具有渐变过渡的修复内容无缝混合。它在概念上类似于每像素去噪强度。     
+Soft inpainting allows the denoiser to work directly with soft-edged (i.e. non-binary) masks, whereby unmasked content is blended seamlessly with inpainted content with gradual transitions. It is conceptually similar to per-pixel denoising strength.     
+
+![alt text](assets/webui/image-17.png)    
 
 
 

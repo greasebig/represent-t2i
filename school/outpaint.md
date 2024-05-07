@@ -13,7 +13,7 @@ powerpaint
 
 涂鸦 inpaint都可以视作扩图方法 都做mask
 
-## glid
+# glid
 https://github.com/Jack000/glid-3-xl-stable    
 https://huggingface.co/Jack000/glid-3-xl-stable/tree/main/default   
 运行训练有些问题   
@@ -37,7 +37,7 @@ kl模型暂不知用意是什么，拆开vae? 只在训练时候输入模型路�
 
 
 
-### 代码
+## 代码
 
     elif args.outpaint == 'left':
         input_image = torch.zeros(1, 4, im.shape[2], im.shape[3]+32, device=device)
@@ -159,7 +159,7 @@ def resize_images(input_folder, output_folder_crop):
 
 
 
-### 报错
+## 报错
     Traceback (most recent call last):
     File "/data/lujunda/sd/glid-3-xl-stable-master/sample.py", line 32, in <module>
         from transformers import CLIPTokenizer, CLIPTextModel
@@ -243,7 +243,7 @@ sudo apt-get install qt5-default fixes the issue.
 
 (I'm using OpenCV 4.4)
 
-### 2080
+## 2080
 还是已放弃 (核心已转储)   
 安装 sudo apt-get install qt5-default    
 找不到      
@@ -258,7 +258,7 @@ sudo apt-get install qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools qtcreator
 
 
 
-### 顺利安装
+## 顺利安装
 只需要矩池云就可以顺利安装所有的环境       
 
 推理运行时：       
@@ -358,7 +358,7 @@ pip install --upgrade pyqt5_tools
     In the end, I don't know if that was the fix, because my system is about to be reinstalled after all of my "trying", BUT, after I wrote this in console:
     export QT_QPA_PLATFORM=offscreen
 
-### 解决关键 export QT_QPA_PLATFORM=offscreen
+## 解决关键 export QT_QPA_PLATFORM=offscreen
 
 
 
@@ -417,7 +417,7 @@ gpt
 
 
 
-### gui这一步总算是运行成功
+## gui这一步总算是运行成功
 但是需要一个mask_file     
 应该就可以了
 
@@ -435,7 +435,7 @@ Successfully uninstalled pillow-10.3.0
 ![alt text](assets_picture/outpaint/image.png)
 
 
-### 终于
+## 终于
 
     Using device: cuda:0
     making attention of type 'vanilla' with 512 in_channels
@@ -455,6 +455,142 @@ Successfully uninstalled pillow-10.3.0
 50步         
 然后使用类似tile渲染      
 
+python sample.py --model_path inpaint.pt --edit 1.png --text "explosion, grepscale" --outpaint left --kl_path kl.pt --mask mask1.png    
+![alt text](assets/outpaint/521715010081_.pic.jpg)
+
+![alt text](assets/outpaint/571715011105_.pic_hd.jpg)
+
+![alt text](assets/outpaint/541715010425_.pic.jpg)
+
+![alt text](assets/outpaint/501715010042_.pic.jpg)
+
+![alt text](assets/outpaint/531715010097_.pic.jpg)
+
+大小正确但是不可控     
+
+
+## 更改prompt
+mask1     
+![alt text](assets/outpaint/mask1.png)     
+512*512     
+
+
+
+按照32扩展    
+python sample.py --model_path inpaint.pt --edit 1.png --text "explosion black white" --outpaint left --kl_path kl.pt --mask mask1.png --negative "color object human" --seed 0 --prefix "explosion" --guidance_scale 5.0     
+![alt text](assets/outpaint/explosion00000.png)
+
+按照一半扩展    
+python sample_my.py --model_path inpaint.pt --edit 1.png --text "explosion black white" --outpaint left --kl_path kl.pt --mask mask1.png --negative "color object human" --seed 0 --prefix "explosion" --guidance_scale 5.0    
+11916mb    
+![alt text](assets/outpaint/explosion00000-1.png)      
+1024*680      
+
+making attention of type 'vanilla' with 512 in_channels    
+Working with z of shape (1, 4, 32, 32) = 4096 dimensions.    
+making attention of type 'vanilla' with 512 in_channels    
+im.shape[3]= 64    
+im.shape[2]= 85     
+
+![alt text](assets/outpaint/image-3.png)     
+
+mask全白       
+
+扩展32       
+![alt text](assets/outpaint/explosion00000-3.png)   
+结果差不多一样，但是比上面那个mask更好     
+上面少了一些信息     
+
+扩展一半     
+![alt text](assets/outpaint/explosion00000-2.png)
+
+
+
+
+
+
+## 接下来
+换prompt     
+进去看隐变量大小    
+
+
+
+# 训练glid
+Training/Fine tuning 和 Train inpainting 的 arg 参数一致     
+
+Train with same flags as guided diffusion. Data directory should contain image and text files with the same name (image1.png image1.txt)
+
+A custom inpainting/outpainting model trained for an additional 100k steps
+
+对于正常训练模型会merge会sd14      
+
+    model_path = sys.argv[1]
+    diffusion_path = sys.argv[2]
+
+    state = torch.load(model_path)
+    diffusion = torch.load(diffusion_path)
+
+    diffusion_prefix = 'model.diffusion_model.'
+
+    for key in diffusion.keys():
+        state['state_dict'][diffusion_prefix + key] = diffusion[key]
+
+    torch.save(state, 'model-merged.pt')
+
+## 代码差异观察
+inpaint多了    
+
+    blur = transforms.GaussianBlur(kernel_size=35, sigma=(0.1, 5)
+    定义了一个高斯模糊的变换，它将被用于生成随机的遮罩(mask)。
+
+
+
+    emb_cond = emb.detach().clone()
+
+    for i in range(batch.shape[0]):
+        if random.randint(0,100) < 20:
+        以20%的概率执行以下操作。
+            emb_cond[i,:,:,:] = 0 # unconditional
+        else:
+            if random.randint(0,100) < 50: # random mask
+            随机掩码：以一定的概率，生成一个随机的掩码（mask），通过模糊化处理后，将其应用于输入的特征向量（emb_cond）。这个掩码是一个二元的张量，与输入的特征向量形状相同，用于控制哪些元素被保留（值为1）或者被遮蔽（值为0）。
+                mask = torch.randn(1, emb.shape[2], emb.shape[3]).to(dist_util.dev())
+                mask = blur(mask)
+                mask = (mask > 0)
+                mask = mask.repeat(4, 1, 1)
+                mask = mask.float()
+                emb_cond[i] *= mask
+                生成一个与输入特征向量（emb）同形状的随机张量作为掩码，然后通过blur函数进行模糊处理，将其二值化为0或1，并将其复制多份以覆盖整个特征向量的空间维度。最后将掩码应用于输入特征向量，将对应位置的元素置为0。
+            else:
+            随机遮蔽矩形：以一定的概率，对输入的特征向量应用随机数量的矩形遮罩。每个矩形的位置和大小都是随机生成的，并且会将这些矩形区域内的元素置为0，从而达到遮蔽的效果。
+                # mask out 4 random rectangles
+                for j in range(random.randint(1,4)):
+                随机生成1到4之间的数值，确定要生成的矩形数量。然后对每个矩形，随机生成其宽度和高度，并根据特征向量的尺寸确定其位置，将该区域内的元素置为0，以达到遮蔽的效果。
+                    max_area = emb.shape[2]*emb.shape[3]//2
+
+                    w = random.randint(1,emb.shape[3])
+                    h = random.randint(1,emb.shape[2])
+                    if w*h > max_area:
+                        if random.randint(0,100) < 50:
+                            w = max_area//h
+                        else:
+                            h = max_area//w
+                    if w == emb.shape[3]:
+                        offsetx = 0
+                    else:
+                        offsetx = random.randint(0, emb.shape[3]-w)
+                    if h == emb.shape[2]:
+                        offsety = 0
+                    else:
+                        offsety = random.randint(0, emb.shape[2]-h)
+                    emb_cond[i,:, offsety:offsety+h, offsetx:offsetx+w] = 0
+
+
+    model_kwargs["image_embed"] = emb_cond
+    将处理后的条件化的嵌入张量 emb_cond 存储在模型参数字典 model_kwargs 中，以便后续传递给模型。
+
+
+    defaults['image_condition'] = True
 
 
 
@@ -462,7 +598,25 @@ Successfully uninstalled pillow-10.3.0
 
 
 
-## stable-diffusion-infinity-xl
+
+
+## lora解决
+这是全量微调的代码     
+
+考虑直接训练一个爆炸图片的lora     
+trainer不知道行不    
+到时加载底模，训练框架有些问题     
+必须用trainer或diffusers训练lora，那里比较成熟。但是底模不知道能不能加载上原本的      
+
+
+
+
+
+
+
+
+
+# stable-diffusion-infinity-xl
 装环境可以，运行app.py报错：   
 
     (sd-inf) root@q1yOYo:/private/lujunda/stable-diffusion-infinity-xl-main# python app.py
@@ -481,23 +635,23 @@ Successfully uninstalled pillow-10.3.0
 作者已经不维护   
 
 
-### webui inpaint script
+## webui inpaint script
 https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/Features#inpainting-model-sd2     
 https://github.com/runwayml/stable-diffusion#inpainting-with-stable-diffusion
 
 
 v1.5    
-#### 1. 直接resize大小，往左右两边扩展       
+### 1. 直接resize大小，往左右两边扩展       
 但这不是需求  
 
-#### 2. poor man's outpainting   
+### 2. poor man's outpainting   
 可以选择方向    
 ![alt text](assets/README/431712639349_.pic-1.jpg)    
 ![alt text](assets/README/631712642102_.pic.jpg)    
 ![alt text](assets/README/image.png)    
 ![alt text](assets/README/image-1.png)   
 
-#### 3. outpainting mk2   
+### 3. outpainting mk2   
 ![alt text](assets/README/image-2.png)    
 ![alt text](assets/README/image-3.png)    
 ![alt text](assets/README/image-4.png)     
