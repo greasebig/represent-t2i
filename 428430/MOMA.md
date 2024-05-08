@@ -102,6 +102,73 @@ diffusers加载扩散模型
         Attentions and mappings: attn_adapters_projectors.th (151 Mb)
 
 
+
+# 代码
+
+    class MoMA_generator:
+        def __init__(self, device,args):
+            self.args = args
+            self.device = device
+            
+            noise_scheduler = DDIMScheduler(num_train_timesteps=1000,beta_start=0.00085,beta_end=0.012,beta_schedule="scaled_linear",clip_sample=False,set_alpha_to_one=False,steps_offset=1,)
+            
+            print('Loading VAE: stabilityai--sd-vae-ft-mse...')
+            vae = AutoencoderKL.from_pretrained("stabilityai/sd-vae-ft-mse")
+            
+            print('Loading StableDiffusion: Realistic_Vision...')
+            self.pipe = StableDiffusionPipeline.from_pretrained(
+                "SG161222/Realistic_Vision_V4.0_noVAE",
+                torch_dtype=torch.bfloat16,
+                scheduler=noise_scheduler,
+                vae=vae,
+                feature_extractor=None,
+                safety_checker=None,
+            ).to(self.device)
+
+            self.unet = self.pipe.unet
+            add_function(self.pipe)
+            self.pipe.moMA_generator = self
+
+            self.set_ip_adapter()
+            self.image_proj_model = self.init_proj()
+
+
+    def set_ip_adapter(self):
+        unet = self.unet
+        attn_procs = {}
+        for name in unet.attn_processors.keys():
+            cross_attention_dim = None if name.endswith("attn1.processor") else unet.config.cross_attention_dim
+            if name.startswith("mid_block"):
+                hidden_size = unet.config.block_out_channels[-1]
+            elif name.startswith("up_blocks"):
+                block_id = int(name[len("up_blocks.")])
+                hidden_size = list(reversed(unet.config.block_out_channels))[block_id]
+            elif name.startswith("down_blocks"):
+                block_id = int(name[len("down_blocks.")])
+                hidden_size = unet.config.block_out_channels[block_id]
+            if cross_attention_dim is None:
+                attn_procs[name] = IPAttnProcessor_Self(hidden_size=hidden_size, cross_attention_dim=cross_attention_dim,scale=1.0,num_tokens=4).to(self.device, dtype=torch.float16)
+            else:
+                attn_procs[name] = IPAttnProcessor(hidden_size=hidden_size, cross_attention_dim=cross_attention_dim,scale=1.0,num_tokens=4).to(self.device, dtype=torch.float16)
+        unet.set_attn_processor(attn_procs)
+
+这是什么意思 用了ipadapter?
+
+![alt text](assets/MOMA/image-10.png)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # 其他
 ## DeepFloyd IF
 新的生图模型DeepFloyd IF来了，可以拳打Stable Diffusion，脚踢Dall-E？
@@ -192,6 +259,148 @@ IV. Zero-shot Inpainting
 https://github.com/Linaqruf/kohya-trainer
 
 page太乱     
+
+
+
+## sd script
+训练
+
+
+
+
+## llava
+LLaVA（Large Language and Vision Assistant）
+
+    LLaVA 是一种新颖的端到端训练的大型多模态模型，将 CLIP 的开放式视觉编码器与 LLaMA 的语言解码器相连接，并在生成的视觉-语言数据上进行端到端的微调
+### 论文信息
+
+[Submitted on 5 Oct 2023]     
+Improved Baselines with Visual Instruction Tuning
+
+[NeurIPS'23 Oral] Visual Instruction Tuning (LLaVA) built towards GPT-4V level capabilities and beyond.
+
+Improved Baselines with Visual Instruction Tuning [Paper] [HF]
+Haotian Liu, Chunyuan Li, Yuheng Li, Yong Jae Lee
+
+Visual Instruction Tuning (NeurIPS 2023, Oral) [Paper] [HF]
+Haotian Liu*, Chunyuan Li*, Qingyang Wu, Yong Jae Lee (*Equal Contribution)
+
+
+Acknowledgement     
+Vicuna: the codebase we built upon, and our base model Vicuna-13B that has the amazing language capabilities!
+
+Related Projects     
+
+    Instruction Tuning with GPT-4
+    LLaVA-Med: Training a Large Language-and-Vision Assistant for Biomedicine in One Day
+    Otter: In-Context Multi-Modal Instruction Tuning
+For future project ideas, please check out:
+
+    SEEM: Segment Everything Everywhere All at Once
+    Grounded-Segment-Anything to detect, segment, and generate anything by marrying Grounding DINO and Segment-Anything.
+
+
+### 原理
+
+文章主要贡献：
+1. 多模态指令跟踪数据（多模态指令数据）：提出了一种数据重塑的视角和流程，使用GPT-4将图像-文本对转换为适当的指令格式；
+
+为了将图像编码为其视觉特征以提示纯文本GPT，使用两种符号表示： （i）标题通常从各种角度描述视觉场景。 （ii）边界框通常定位场景中的对象，每个框编码对象概念及其空间位置
+
+2. 视觉指令训练(Visual Instruction Tuning)模型    
+![alt text](assets/MOMA/v2-22a2ec7ca8597813205797e79da5632c_720w.webp)
+
+![alt text](assets/MOMA/image-9.png)
+
+Traning :
+
+Step1-特征对齐预训练
+
+1. 数据转换： 为每个图像生成一个简单的问题,请求助手简要描述图像内容。将图像-文本对转换为问题(指令)-回答(描述) 格式
+
+2. 模型构建： 使用预训练的CLIP视觉编码器和LLaMA语言模型,加入一个线性投影层W将图像特征映射到语言特征空间（参照上述Vision Encoder模型）
+
+3. 训练目标： 最大化回答的生成似然概率,仅优化投影层W的参数,冻结视觉编码器和语言模型
+
+4. 训练效果：
+
+学会将图像特征转换为语言模型可理解的表示,实现两者的对齐。
+
+Step2-端到端微调
+
+1. 数据转换： 将3种类型(对话、详细描述、复杂推理)组织成统一的指令-回答序列格式
+
+2. 模型构建： 冻结CLIP视觉编码器,解冻LLaMA参数及投影层W
+
+3. 训练效果： 提高模型遵循指令的能力,实现视觉问答
+tags: 两次训练的不同之处在于预训练阶段仅优化投影层,是为了先获得图像特征与语言特征的对齐,而不破坏语言模型的先验知识；两阶段训练方式利用不同类型的数据。 
+
+
+
+
+## Vicuna-13B
+An open platform for training, serving, and evaluating large language models. Release repo for Vicuna and Chatbot Arena.
+
+https://github.com/lm-sys/FastChat
+
+
+    [2024/03] 🔥 We released Chatbot Arena technical report.
+    [2023/09] We released LMSYS-Chat-1M, a large-scale real-world LLM conversation dataset. Read the report.
+    [2023/08] We released Vicuna v1.5 based on Llama 2 with 4K and 16K context lengths. Download weights.
+    [2023/07] We released Chatbot Arena Conversations, a dataset containing 33k conversations with human preferences. Download it here.
+
+
+
+
+
+## mermaid
+关于 Mermaid
+
+Mermaid 是一个基于 Javascript 的图表绘制工具，通过解析类 Markdown 的文本语法来实现图表的创建和动态修改。Mermaid 诞生的主要目的是让文档的更新能够及时跟上开发进度。
+
+![alt text](assets/MOMA/5d33325464ddc1d2c029fb190f4f5a06.png)
+
+
+    Mermaid 致力于解决 Doc-Rot 这个令人头疼的问题。
+
+绘图和编写文档花费了开发者宝贵的开发时间，而且随着业务的变更，它很快就会过期。 但是如果缺少了图表或文档，对于生产力和团队新人的业务学习都会产生巨大的阻碍。
+
+Mermaid 通过减少创建可修改的图表所需要的时间、精力和工具来解决这一难题，从而提高了内容的智能化和可重用性。 作为一个基于文本的绘图工具， Mermaid 天生就易于维护和更新，它也可以作为生产脚本（或其他代码）的一部分，使得文档编写变得更加简单。 有了它之后，开发者可以从维护文档这个与开发割离且麻烦的任务中解放出来。 
+
+```mermaid
+flowchart BT
+    %% Declare Nodes
+    gws("Gradio (UI Server)")
+    c("Controller (API Server):<br/>PORT: 10000")
+    mw7b("Model Worker:<br/>llava-v1.5-7b<br/>PORT: 40000")
+    mw13b("Model Worker:<br/>llava-v1.5-13b<br/>PORT: 40001")
+    sglw13b("SGLang Backend:<br/>llava-v1.6-34b<br/>http://localhost:30000")
+    lsglw13b("SGLang Worker:<br/>llava-v1.6-34b<br/>PORT: 40002")
+
+    %% Declare Styles
+    classDef data fill:#3af,stroke:#48a,stroke-width:2px,color:#444
+    classDef success fill:#8f8,stroke:#0a0,stroke-width:2px,color:#444
+    classDef failure fill:#f88,stroke:#f00,stroke-width:2px,color:#444
+
+    %% Assign Styles
+    class id,od data;
+    class cimg,cs_s,scsim_s success;
+    class ncimg,cs_f,scsim_f failure;
+
+    subgraph Demo Connections
+        direction BT
+        c<-->gws
+        
+        mw7b<-->c
+        mw13b<-->c
+        lsglw13b<-->c
+        sglw13b<-->lsglw13b
+    end
+```
+
+
+
+
 
 
 

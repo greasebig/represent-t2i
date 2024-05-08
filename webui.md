@@ -113,6 +113,15 @@ python launch.py
 
 # hires 精绘
 
+在comfyui的实现也是对latant做最近邻差值再采样一次    
+相当于refiner模型变异    
+而且时插值方式对   
+
+
+
+
+
+
  Diffusers 包有几个限制，阻止它生成与 Stable Diffusion WebUI 生成的图像一样好的图像。这些限制中最重要的包括：
 
 无法使用 .safetensor 文件格式的自定义模型；

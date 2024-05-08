@@ -14,6 +14,9 @@ powerpaint
 涂鸦 inpaint都可以视作扩图方法 都做mask
 
 # glid
+
+
+
 https://github.com/Jack000/glid-3-xl-stable    
 https://huggingface.co/Jack000/glid-3-xl-stable/tree/main/default   
 运行训练有些问题   
@@ -34,6 +37,13 @@ https://huggingface.co/Jack000/glid-3-xl-stable/tree/main/default
 kl模型暂不知用意是什么，拆开vae? 只在训练时候输入模型路径，推理不用？？？    
 
 
+
+
+
+## 模型信息
+GLID-3-xl-stable is stable diffusion back-ported to the OpenAI `guided diffusion` codebase, for easier development and training.
+
+Commits on Aug 21, 2022     
 
 
 
@@ -504,6 +514,137 @@ mask全白
 扩展一半     
 ![alt text](assets/outpaint/explosion00000-2.png)
 
+全白mask生效分析     
+mask1 = np.ones((height, width, 1), np.uint8) * 255
+cv2.imwrite('mask-white.png', mask1)    
+
+0黑，255是白      
+灰度图和彩色图区别为：组成不同、通道不同、表示不同。      
+
+推理代码处理 
+
+    input_image = torch.zeros(1, 4, im.shape[2], im.shape[3]+32, device=device)
+    input_image[:,:,:,32:32+im.shape[3]] = im
+    input_image_mask = torch.zeros(1, 1, im.shape[2], im.shape[3]+32, device=device, dtype=torch.bool)
+    input_image_mask[:,:,:,32:32+im.shape[3]] = True
+    这行代码创建了一个全零的张量（tensor），使用了 torch.zeros 函数。该张量是一个布尔类型（torch.bool），并且被设定在特定的 device 上（这个设备由代码中的变量 device 决定，可能是 GPU 或 CPU）。
+    这段代码的作用是创建一个和输入图像同样大小的掩码，这个掩码的宽度比输入图像的宽度大 32 个像素，掩码中除了与输入图像宽度相同的部分外，其余部分都被标记为无效。
+
+    mask1 = (mask > 0.5)
+    input_image_mask *= mask1
+
+    扩展后的图片全部设置成true然后inpaint
+    但是是如何保证原油的不变？？
+    因为这个相乘操作。原本扩展部分就是默认是false的，所以整个input_image_mask属于正常逻辑的mask,不需要特别提供mask_file，给个全白即可，自动outpaint
+
+    image_embed = torch.cat(args.batch_size*2*[input_image], dim=0).float()
+
+
+    kwargs = {
+        "context": torch.cat([text_emb, text_emb_blank], dim=0).float(),
+        "clip_embed": None,
+        "image_embed": image_embed
+    }
+
+
+    后续
+    overlap = 32
+    这个overlap导致图片空白边缘出现。为了满足模型的一些限制   
+
+
+
+    if args.edit:
+        for i in range(args.num_batches):
+            output = input_image.detach().clone()
+            output *= input_image_mask.repeat(1, 4, 1, 1).float()
+            output就是im所在部分true 
+
+            mask = input_image_mask.detach().clone()
+
+            box = masks_to_boxes(~mask.squeeze(0))[0]
+
+            x0 = int(box[0])
+            y0 = int(box[1])
+            x1 = int(box[2] + 1)
+            y1 = int(box[3] + 1)
+
+            x_num = math.ceil(((x1-x0)-overlap)/(64-overlap))
+            y_num = math.ceil(((y1-y0)-overlap)/(64-overlap))
+
+            if x_num < 1:
+                x_num = 1
+            if y_num < 1:
+                y_num = 1
+
+            for y in range(y_num):
+                for x in range(x_num):
+                    offsetx = x0 + x*(64-overlap)
+                    offsety = y0 + y*(64-overlap)
+
+                    if offsetx + 64 > x1:
+                        offsetx = x1 - 64
+                    if offsetx < 0:
+                        offsetx = 0
+
+                    if offsety + 64 > y1:
+                        offsety = y1 - 64
+                    if offsety < 0:
+                        offsety = 0
+
+                    patch_input = output[:,:, offsety:offsety+64, offsetx:offsetx+64]
+                    patch_mask = mask[:,:, offsety:offsety+64, offsetx:offsetx+64]
+
+                    if not torch.any(~patch_mask):
+                        # region does not require any inpainting
+                        output[:,:, offsety:offsety+64, offsetx:offsetx+64] = patch_input
+                        continue
+
+                    mask[:,:, offsety:offsety+64, offsetx:offsetx+64] = True
+
+                    patch_init = None
+    
+    
+                    if args.skip_timesteps > 0:
+                        patch_init = input_image[:,:, offsety:offsety+64, offsetx:offsetx+64]
+                        patch_init = torch.cat([patch_init, patch_init], dim=0)
+
+                    skip_timesteps = args.skip_timesteps
+
+                    if not torch.any(patch_mask):
+                        # region has no input image, cannot use init
+                        patch_init = None
+                        skip_timesteps = 0
+
+                    patch_kwargs = {
+                        "context": kwargs["context"],
+                        "clip_embed": None,
+                        "image_embed": torch.cat([patch_input, patch_input], dim=0)
+                    }
+
+
+                    cur_t = diffusion.num_timesteps - 1
+
+                    samples = sample_fn(
+                        model_fn,
+                        (2, 4, 64, 64),
+                        clip_denoised=False,
+                        model_kwargs=patch_kwargs,
+                        cond_fn=cond_fn,
+                        device=device,
+                        progress=True,
+                        init_image=patch_init,
+                        skip_timesteps=skip_timesteps,
+                    )
+
+                    for j, sample in enumerate(samples):
+                        cur_t -= 1
+                        output[0,:, offsety:offsety+64, offsetx:offsetx+64] = sample['pred_xstart'][0]
+                        if j % 25 == 0:
+                            save_sample(i, output, square=(offsetx, offsety))
+
+                    save_sample(i, output)
+
+
 
 
 
@@ -608,6 +749,69 @@ trainer不知道行不
 到时加载底模，训练框架有些问题     
 必须用trainer或diffusers训练lora，那里比较成熟。但是底模不知道能不能加载上原本的      
 
+训练和推理有些问题    
+倒是可以训练一个任意底模的LORA，用SD-SCRIPT    
+但是推理时候怎么合到源代码里面？     
+
+
+glid源代码模型加载方式     
+
+    model_config = model_and_diffusion_defaults()
+    model_config.update(model_params)
+
+    # Load models
+    model, diffusion = create_model_and_diffusion(**model_config)
+    model.load_state_dict(model_state_dict, strict=True)
+    model.requires_grad_(False).eval().to(device)
+
+
+
+加载lora比较麻烦     
+直接全参数训练吧     
+
+## 全参数训练解决
+继承于 guided_diffusion
+
+其模型结构     
+
+    def model_and_diffusion_defaults():
+        """
+        Defaults for image training.
+        """
+        res = dict(
+            image_size=64,
+            num_channels=128,
+            num_res_blocks=2,
+            num_heads=4,
+            num_heads_upsample=-1,
+            num_head_channels=-1,
+            attention_resolutions="16,8",
+            channel_mult="",
+            dropout=0.0,
+            class_cond=False,
+            use_checkpoint=True,
+            use_scale_shift_norm=True,
+            resblock_updown=False,
+            use_fp16=False,
+
+            use_spatial_transformer=True,
+            context_dim=768,
+
+            clip_embed_dim=None,
+            image_condition=False,
+            super_res_condition=False
+        )
+        res.update(diffusion_defaults())
+        return res
+
+
+
+
+
+
+
+
+
 
 
 
@@ -711,9 +915,101 @@ https://youtube.com/shorts/Erju6TzEAEM?feature=share
 
 
 
+# 其他
+## guided_diffusion
+从DDPM到GLIDE：基于扩散模型的图像生成算法进展    
+前几天，OpenAI在Arxiv上挂出来了他们最新最强的文本-图像生成GLIDE [1]，如头图所示，GLIDE能生成非常真实的结果。GLIDE并非基于对抗生成网络或是VQ-VAE类模型所设计，而是采用了一种新的图像生成范式 - 扩散模型（Diffusion Model）。作为一种新的生成模型范式，扩散模型有着和GAN不同且有趣的很多特质。    
+
+发布于 2021-12-27 10:34・IP 属地未知
+
+### 一、扩散模型与DDPM
+
+![alt text](assets/outpaint/image-6.png)
+
+
+
+
+### 二、Guided Diffusion - 基于类别引导的扩散模型
+
+https://github.com/openai/guided-diffusion     
+
+ [Submitted on 11 May 2021 (v1), last revised 1 Jun 2021 (this version, v4)]     
+Diffusion Models Beat GANs on Image Synthesis
 
 
 
 
 
+通常而言，对于通用图像生成任务，加入类别条件能够比无类别条件生成获得更好的效果，这是因为加入类别条件的时候，实际上是大大减小了生成时的多样性。OpenAI的Guided Diffusion [4]就提出了一种简单有效的类别引导的扩散模型生成方式。Guided Diffusion的核心思路是在逆向过程的每一步，用一个分类网络对生成的图片进行分类，再基于分类分数和目标类别之间的交叉熵损失计算梯度，用梯度引导下一步的生成采样。这个方法一个很大的优点是，不需要重新训练扩散模型，只需要在前馈时加入引导既能实现相应的生成效果。
 
+
+基于条件的逆向过程
+
+在DDPM中，无条件的逆向过程可以用![alt text](assets/outpaint/image-4.png)
+来描述，在加入类别条件 后，逆向过程可以表示为     
+![alt text](assets/outpaint/image-5.png)
+
+![alt text](assets/outpaint/image-7.png)
+
+扩散模型结构改进
+
+guided diffusion 中，还对DDPM中采用的U-Net 结构的Autoencoder进行了一些结构上的改进。包括加深网络、增加attention head数量、增加添加attention layer的尺度数量、采用BigGAN的残差模块结构。此外，在这篇工作中还采用了一种称为Adaptive Group Normalization （AdaGN）的归一化模块。
+
+
+### 三、Semantic Guidence Diffusion - 更多的扩散引导形式（图片/文本）
+
+在Guided Diffusion 中，每一步逆向过程里通过引入朝向目标类别的梯度信息，来实现针对性的生成。这个过程其实和基于优化（Optimization）的图像生成算法（即固定网络，直接对图片本身进行优化）有很大的相似之处。这就意味着之前很多基于优化的图像生成算法都可以迁移到扩散模型上。换一句话说，我们可以轻易地通过修改Guided Diffusion中的条件类型，来实现更加丰富、有趣的扩散生成效果。在Semantic Guidence Diffusion （SGD）[5] 中，作者就将类别引导改成了基于参考图引导以及基于文本引导两种形式，通过设计对应的梯度项，实现对应的引导效果，实现了不错的效果。
+
+![alt text](assets/outpaint/v2-7071fbfc940ea88ca9da1efe550ab370_720w.webp)
+
+![alt text](assets/outpaint/image-8.png)
+
+![alt text](assets/outpaint/image-9.png)
+
+
+![alt text](assets/outpaint/image-10.png)
+
+
+![alt text](assets/outpaint/image-11.png)
+
+
+
+### 四、Classifier-Free Diffusion Guidence - 无分类器的扩散引导
+
+上述的各种引导函数，基本都是额外的网络前向 + 梯度计算的形式，这种形式虽然有着成本低，见效快的优点。也存在着一些问题：（1）额外的计算量比较多；（2）引导函数和扩散模型分别进行训练，不利于进一步扩增模型规模，不能够通过联合训练获得更好的效果。DDPM的作者，谷歌的Jonathan Ho等人在今年NIPS 的workshop 上对Guided Diffusion 进行了一波改进，提出了无需额外分类器的扩散引导方法 [6]。
+
+
+![alt text](assets/outpaint/image-12.png)
+
+
+### 五、GLIDE - 基于扩散模型的文本图像生成大模型
+
+
+GLIDE(Guided Language to Image Diffusion for Generation and Editing)       
+
+GLIDE: Towards Photorealistic Image Generation and Editing with Text-Guided Diffusion Models
+
+https://github.com/openai/glide-text2im
+
+
+[Submitted on 20 Dec 2021 (v1), last revised 8 Mar 2022 (this version, v3)]     
+GLIDE: Towards Photorealistic Image Generation and Editing with Text-Guided Diffusion Models
+
+
+
+上一节说到no-classifer guidence 可以更好的将条件信息加入到扩散模型的训练中去以得到更好的训练效果，但同时也会增加训练成本。财大气粗的OpenAI 就基于no-classifier guidence 的思想，整了一个超大规模的基于扩散模型的文本图像生成模型GLIDE。其中算法的核心即将前面的类别条件更新为了文本条件：
+
+![alt text](assets/outpaint/image-13.png)
+
+其余部分在方法上并没有什么特别新的东西，说的上是大力出奇迹了。这里简单介绍一些重要的点
+
+    更大的模型：算法采用了Guided Diffusion方法中相同的Autoencoder结构，但是进一步扩大了通道数量，使得最终的网络参数数量达到了3.5 billion；
+    更多的数据：采用了和DALLE [7]相同的大规模文本-图像对数据集
+    很高的训练成本：这里作者没有细说，只说了采用2048batch size，训练了250万轮，总体成本接近Dalle。
+
+在2020年Google 发表DDPM后，这两年扩散模型有成为一个新的研究热点的趋势，除了上面介绍的几篇论文之外，还有不少基于扩散模型所设计的优秀的生成模型，应用于多种不同的任务，比如超分、inpainting等。除了在视觉任务上的应用，也有工作针对DDPM的速度进行优化[8]，加速生成时的采样过程。此外，也有将扩散模型与VQ-VAE结合起来实现文本图像生成的算法[9]。其实在七八月份的时候，就已经看了一些DDPM的相关工作，不过因为种种原因当时没有follow下去，还是比较可惜。
+
+
+
+
+# 结尾
