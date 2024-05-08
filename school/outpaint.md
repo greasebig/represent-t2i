@@ -806,13 +806,91 @@ glid源代码模型加载方式
 
 
 
+24g bs1训练不了
 
 
 
+## 学校a100装环境报错
+mpi4py    
+ERROR: Could not build wheels for mpi4py, which is required to install pyproject.toml-based projects      
+
+训练不起来    
 
 
+    collect2: error: ld returned 1 exit status
+        failure.
+        removing: _configtest.c _configtest.o
+        error: Cannot link MPI programs. Check your configuration!!!
+        [end of output]
+    
+    note: This error originates from a subprocess, and is likely not a problem with pip.
+    ERROR: Failed building wheel for mpi4py
+    Failed to build mpi4py
+    ERROR: Could not build wheels for mpi4py, which is required to install pyproject.toml-based projects
 
 
+解决方法:     
+换conda安装     
+conda install mpi4py       
+
+StackOverflow也有说sudo装一些东西，但没必要了         
+
+## 训练过程
+
+bs1 训练显存33g
+
+    MODEL_FLAGS="--actual_image_size 512 --lr_warmup_steps 10000 --ema_rate 0.9999 --attention_resolutions 64,32,16 --class_cond False --diffusion_steps 1000 --image_size 64 --learn_sigma False --noise_schedule linear --num_channels 320 --num_heads 8 --num_res_blocks 2 --resblock_updown False --use_fp16 True --use_scale_shift_norm False "
+    TRAIN_FLAGS="--lr 5e-5 --batch_size 1 --log_interval 10 --save_interval 10000 --kl_model checkpoint/kl-1.4.pt --resume_checkpoint checkpoint/ema_0.9999_100000.pt"
+    export OPENAI_LOGDIR=./logs_inpaint/
+    python scripts/image_train_inpaint.py --data_dir datasets/mydata $MODEL_FLAGS $TRAIN_FLAGS
+
+两张图片训练       
+![alt text](assets_picture/outpaint/1715179619944.png)       
+
+
+A custom inpainting/outpainting model trained for an additional 100k steps
+
+readme说额外训练10万步       
+不知道他的数据量多少      
+
+model, diffusion = create_model_and_diffusion(
+        **args_to_dict(args, model_and_diffusion_defaults().keys())
+    )
+
+有些奇怪         
+
+
+OPENAI_
+LOGDIR=./logs_inpaint1/ python -m debugpy --l
+isten 7890 --wait-for-client scripts/image_tr
+ain_inpaint.py --data_dir datasets/mydata --lr 5e
+-5 --batch_size 1 --log_interval 10 --save_in
+terval 10000 --kl_model checkpoint/kl-1.4.pt 
+--resume_checkpoint checkpoint/ema_0.9999_100
+000.pt --actual_image_size 512 --lr_warmup_st
+eps 10000 --ema_rate 0.9999 --attention_resol
+utions 64,32,16 --class_cond False --diffusio
+n_steps 1000 --image_size 64 --learn_sigma Fa
+lse --noise_schedule linear --num_channels 32
+0 --num_heads 8 --num_res_blocks 2 --resblock
+_updown False --use_fp16 True --use_scale_shi
+ft_norm False --lr_anneal_steps 15000 结束步数
+
+
+OPENAI_
+LOGDIR=./logs_inpaint1/ python scripts/image_tr
+ain_inpaint.py --data_dir datasets/mydata --lr 5e
+-5 --batch_size 1 --log_interval 10 --save_in
+terval 10000 --kl_model checkpoint/kl-1.4.pt 
+--resume_checkpoint checkpoint/ema_0.9999_100
+000.pt --actual_image_size 512 --lr_warmup_st
+eps 10000 --ema_rate 0.9999 --attention_resol
+utions 64,32,16 --class_cond False --diffusio
+n_steps 1000 --image_size 64 --learn_sigma Fa
+lse --noise_schedule linear --num_channels 32
+0 --num_heads 8 --num_res_blocks 2 --resblock
+_updown False --use_fp16 True --use_scale_shi
+ft_norm False --lr_anneal_steps 15000 结束步数
 
 
 
