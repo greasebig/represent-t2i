@@ -103,7 +103,49 @@ diffusers加载扩散模型
 
 
 
+
+
+输入正方形的商品图报错
+
+1.
+permute(sparse_coo): number of dimensions in the tensor input does not match the length of the desired ordering of dimensions i.e. input.dim() = 2 is not equal to len(dims) = 3
+
+
+2.
+
+    img,mask = self.moMA_generator.generate_with_MoMA(batch,llava_emb=llava_emb,seed=sample_id+seed,device=self.args.device)                            
+        152     self.reset()
+        153     ###
+
+    File ~/miniconda3/envs/llava/lib/python3.10/site-packages/torch/utils/_contextlib.py:115, in context_decorator.<locals>.decorate_context(*args, **kwargs)
+        112 @functools.wraps(func)
+        113 def decorate_context(*args, **kwargs):
+        114     with ctx_factory():
+    --> 115         return func(*args, **kwargs)
+
+    File /teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/MoMA/model_lib/moMA_generator.py:201, in MoMA_generator.generate_with_MoMA(self, batch, llava_emb, seed, device)
+    ...
+        455                     _pair(0), self.dilation, self.groups)
+    --> 456 return F.conv2d(input, weight, bias, self.stride,
+        457                 self.padding, self.dilation, self.groups)
+
+    RuntimeError: Given groups=1, weight of size [128, 3, 3, 3], expected input[1, 4, 512, 512] to have 3 channels, but got 4 channels instead
+
+
+
+
+
+
+
+
+
+
+
+
+
 # 代码
+
+## 初始化 加载
 
     class MoMA_generator:
         def __init__(self, device,args):
@@ -133,6 +175,8 @@ diffusers加载扩散模型
             self.image_proj_model = self.init_proj()
 
 
+## ip_adapter
+
     def set_ip_adapter(self):
         unet = self.unet
         attn_procs = {}
@@ -157,6 +201,11 @@ diffusers加载扩散模型
 ![alt text](assets/MOMA/image-10.png)
 
 
+### IPAttnProcessor_Self
+
+    class IPAttnProcessor_Self(nn.Module):
+        r"""
+        Attention processor for IP-Adapater. (But for self attention)
 
 
 
@@ -165,6 +214,168 @@ diffusers加载扩散模型
 
 
 
+
+
+
+
+
+### IPAttnProcessor
+
+    class IPAttnProcessor(nn.Module):
+        r"""
+        Attention processor for IP-Adapater.
+        Args:
+            hidden_size (`int`):
+                The hidden size of the attention layer.
+            cross_attention_dim (`int`):
+                The number of channels in the `encoder_hidden_states`.
+            scale (`float`, defaults to 1.0):
+                the weight scale of image prompt.
+            num_tokens (`int`, defaults to 4 when do ip_adapter_plus it should be 16):
+                The context length of the image features.
+        """
+
+        self.to_k_ip = nn.Linear(cross_attention_dim or hidden_size, hidden_size, bias=False)
+        self.to_v_ip = nn.Linear(cross_attention_dim or hidden_size, hidden_size, bias=False)
+
+call 
+
+        query = attn.to_q(hidden_states)
+        
+        if encoder_hidden_states is None:
+            encoder_hidden_states = hidden_states
+        else:
+            # get encoder_hidden_states, ip_hidden_states
+            end_pos = encoder_hidden_states.shape[1] - self.num_tokens
+            encoder_hidden_states, ip_hidden_states = encoder_hidden_states[:, :end_pos, :], encoder_hidden_states[:, end_pos:, :]
+            if attn.norm_cross:
+                encoder_hidden_states = attn.norm_encoder_hidden_states(encoder_hidden_states)
+
+        key = attn.to_k(encoder_hidden_states)
+        value = attn.to_v(encoder_hidden_states)
+
+        query = attn.head_to_batch_dim(query)
+        key = attn.head_to_batch_dim(key)
+        value = attn.head_to_batch_dim(value)
+
+        attention_probs = attn.get_attention_scores(query, key, attention_mask)
+        hidden_states = torch.bmm(attention_probs, value)
+        hidden_states = attn.batch_to_head_dim(hidden_states)
+
+
+        # for ip-adapter
+        if self.enabled:
+            if self.mode == 'inject' or self.mode == 'masked_generation':
+                ip_key = self.to_k_ip(ip_hidden_states.to(torch.float16))
+                ip_value = self.to_v_ip(ip_hidden_states.to(torch.float16))
+                ip_key = attn.head_to_batch_dim(ip_key)
+                ip_value = attn.head_to_batch_dim(ip_value)
+                ip_attention_probs = attn.get_attention_scores(query, ip_key.to(torch.float32), None)
+                ip_hidden_states = torch.bmm(ip_attention_probs, ip_value.to(torch.float32))
+                ip_hidden_states = attn.batch_to_head_dim(ip_hidden_states)
+                if (self.mask_ig_prev is not None) and self.mode == 'masked_generation': 
+                    mask_ig_prev = rearrange(F.interpolate(self.mask_ig_prev,size=int(math.sqrt(query.shape[1]))),"b c h w -> b (h w) c")
+                    if not mask_ig_prev.shape[0]==ip_hidden_states.shape[0]: mask_ig_prev = mask_ig_prev.repeat(2,1,1)
+                    ip_hidden_states = ip_hidden_states * mask_ig_prev
+                hidden_states = hidden_states + self.scale * ip_hidden_states
+                !!!!!!!!!!!!!!!!!!1
+
+            if self.mode == 'extract' or self.mode == 'masked_generation':
+                subject_idxs = self.subject_idxs*2 if not (hidden_states.shape[0] == len(self.subject_idxs)) else self.subject_idxs
+                assert (hidden_states.shape[0] == len(subject_idxs))
+                attentions = rearrange(attention_probs, '(b h) n d -> b h n d', h=8).mean(1)
+                attn_extracted = [attentions[i, :, subject_idxs[i]].sum(-1) for i in range(hidden_states.shape[0])]  
+                attn_extracted = [(atn-atn.min())/(atn.max()-atn.min()) for atn in attn_extracted]
+                attn_extracted = torch.stack(attn_extracted, dim=0)
+                attn_extracted = rearrange(attn_extracted, 'b (h w) -> b h w', h=int(math.sqrt(attention_probs.shape[1])))
+                attn_extracted = torch.clamp(F.interpolate(attn_extracted.unsqueeze(1),size=512),min=0,max=1)
+                self.mask_i = attn_extracted
+
+        # linear proj
+        hidden_states = attn.to_out[0](hidden_states)
+        # dropout
+        hidden_states = attn.to_out[1](hidden_states)
+
+        if input_ndim == 4:
+            hidden_states = hidden_states.transpose(-1, -2).reshape(batch_size, channel, height, width)
+
+        return hidden_states
+
+
+
+
+
+
+## 推理
+
+    @torch.no_grad()
+    def generate_with_MoMA(
+        self,
+        batch,
+        llava_emb=None,
+        seed=None,
+        device='cuda',
+    ):
+        self.reset_all()
+        img_ig,mask_id,subject,prompt = batch['image'].half().to(device),batch['mask'].half().to(device),batch['label'][0],batch['text'][0]
+
+        prompt = [f"photo of a {subject}. "+ prompt]
+
+        prompt注入方式     
+
+        subject_idx = get_subject_idx(self.pipe,prompt,[subject],self.device)
+        negative_prompt = None 
+            
+        # get context-cross-attention feature (from MLLM decoder)
+        cond_llava_embeds, uncond_llava_embeds = self.get_image_crossAttn_feature(llava_emb,num_samples=1)
+        # get subject-cross-attention feature (from Unet)
+        self.get_image_selfAttn_feature(img_ig,subject) # features are stored in attn_processors
+
+        获取 上下文 和 目标物体 特征
+
+        with torch.inference_mode():
+            prompt_embeds = self.pipe._encode_prompt(
+                prompt, device=self.device, num_images_per_prompt=1, do_classifier_free_guidance=True, negative_prompt=negative_prompt)
+            negative_prompt_embeds_, prompt_embeds_ = prompt_embeds.chunk(2)
+            prompt_embeds = torch.cat([prompt_embeds_, cond_llava_embeds], dim=1)
+            negative_prompt_embeds = torch.cat([negative_prompt_embeds_, uncond_llava_embeds], dim=1)
+            prompt_embeds = torch.cat([negative_prompt_embeds, prompt_embeds])
+
+        generator = torch.Generator(self.device).manual_seed(seed) if seed is not None else None
+        
+        self.set_self_mask('eraseAll')
+        self.toggle_enable_flag('all')
+        self.toggle_extract_inject_flag('all','masked_generation')
+        self.set_self_mask('self','id',mask_id) 
+        self.set_cross_subject_idxs(subject_idx)
+        
+        images, mask = self.pipe.generate_with_adapters(
+            self.pipe,
+            prompt_embeds,
+            50,
+            generator,
+        )
+        images = torch.clip((images+1)/2.0,min=0.0,max=1.0)
+
+        return images.cpu(), mask.cpu()
+
+
+## get_subject_idx
+
+注入subject信息二次验证后获得
+
+    def get_subject_idx(model,prompt,src_subject,device):
+        tokenized_prompt = model.tokenizer(prompt,padding="max_length",max_length=model.tokenizer.model_max_length,truncation=True,return_tensors="pt",).to(device)
+        input_ids = tokenized_prompt['input_ids']
+        src_subject_idxs = []
+        for subject,input_id in zip(src_subject,input_ids):
+            src_subject_token_id = [model.tokenizer.encode(i, add_special_tokens=False)[0] for i in subject.split(' ')]
+            src_subject_idxs = [i for i, x in enumerate(input_id.tolist()) if x in src_subject_token_id]
+        return [src_subject_idxs]
+
+
+## 分析
+内部开启ip_adapter
 
 
 

@@ -204,5 +204,50 @@ Relightful Harmonization: Lighting-aware Portrait Background Replacement
 
 
 
+## Photon (sd1.5底模)
+Photon aims to generate photorealistic and visually appealing images effortlessly.
+
+Recommendation for generating the first image with Photon:
+
+Prompt: A simple sentence in natural language describing the image.
+
+Negative: "cartoon, painting, illustration, (worst quality, low quality, normal quality:2)"
+
+Sampler: DPM++ 2M Karras | Steps: 20 | CFG Scale: 6
+
+Size: 512x768 or 768x512
+
+Hires.fix: R-ESRGAN 4x+ | Steps: 10 | Denoising: 0.45 | Upscale x 2
+
+(avoid using negative embeddings unless absolutely necessary)
+
+
+### development
+The development process was somewhat chaotic but essentially:
+
+It started from an old mix.
+
+LORAs were trained on various topics using AI-generated photorealistic images.
+
+These LORAs were mixed within the model using different weights.
+
+In the midst of this mixing, hand generation broke.
+
+LORAs were generated and remixed in an attempt to fix hand generation (not entirely successful).
+
+### limit
+In future versions, I will try to:
+
+Completely eliminate the need for a negative prompt to generate high-quality images.
+
+Fix the hand generation issue to minimize instances of poorly drawn hands.
+
+Explore more automated training processes. I would love to have 5,000 or 50,000 high-quality AI-generated photorealistic images for training purposes.
+
+
+
+
+
+
 
 # 结尾
