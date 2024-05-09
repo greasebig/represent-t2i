@@ -92,6 +92,34 @@ the blending of appearances of different light sources is equivalent to the appe
 
 
 
+## 运行
+
+    File "/root/miniconda3/envs/iclight/lib/python3.10/site-packages/torch/cuda/__init__.py", line 293, in _lazy_init
+        torch._C._cuda_init()
+    RuntimeError: The NVIDIA driver on your system is too old (found version 11040). Please update your GPU driver by downloading and installing a new version from the URL: http://www.nvidia.com/Download/index.aspx Alternatively, go to: https://pytorch.org to install a PyTorch version that has been compiled with your version of the CUDA driver.
+
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121    
+
+torch                     2.3.0+cu121        
+torchvision               0.18.0+cu121
+
+不匹配        
+nvcc 11.8        
+
+nvidia-smi CUDA 11.4        
+
+
+
+pip install torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 --index-url https://download.pytorch.org/whl/cu118
+
+
+
+可以了
+
+
+
+
+
 
 
 
