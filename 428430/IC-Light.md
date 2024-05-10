@@ -1,4 +1,12 @@
+Impose Constant Light
+
+
+
+
 # 论文信息：
+controlnet作者
+
+
 
 IC-Light 是一个控制图像照明的项目。
 
@@ -91,8 +99,145 @@ the blending of appearances of different light sources is equivalent to the appe
 
 
 
+# 代码
 
-## 运行
+## 内部
+算法流程：输入参考图 -> RMBG-1.4 前景提取 -> i2i -> i2i
+
+打光方向原理
+the "Lighting Preference" are just initial latents - eg., if the Lighting Preference is "Left" then initial latent is left white right black.
+
+模型细节
+we release two types of models: text-conditioned relighting model and background-conditioned model. Both types take foreground images as inputs.
+作者给了两种unet模型，使用时分别融合到底模中
+sd_merged = {k: sd_origin[k] + sd_offset[k] for k in sd_origin.keys()}
+unet.load_state_dict(sd_merged, strict=True)
+unet模型结构轻微修改
+
+
+光方向初始latent 线性关系
+
+    if bg_source == BGSource.NONE:
+            pass
+        elif bg_source == BGSource.LEFT:
+            gradient = np.linspace(255, 0, image_width)
+            image = np.tile(gradient, (image_height, 1))
+            input_bg = np.stack((image,) * 3, axis=-1).astype(np.uint8)
+        elif bg_source == BGSource.RIGHT:
+            gradient = np.linspace(0, 255, image_width)
+            image = np.tile(gradient, (image_height, 1))
+            input_bg = np.stack((image,) * 3, axis=-1).astype(np.uint8)
+        elif bg_source == BGSource.TOP:
+            gradient = np.linspace(255, 0, image_height)[:, None]
+            image = np.tile(gradient, (1, image_width))
+            input_bg = np.stack((image,) * 3, axis=-1).astype(np.uint8)
+        elif bg_source == BGSource.BOTTOM:
+            gradient = np.linspace(0, 255, image_height)[:, None]
+            image = np.tile(gradient, (1, image_width))
+            input_bg = np.stack((image,) * 3, axis=-1).astype(np.uint8)
+        else:
+            raise 'Wrong initial latent!'
+
+
+
+
+conds, unconds = encode_prompt_pair(positive_prompt=prompt + ', ' + a_prompt, negative_prompt=n_prompt)
+
+
+    fg = resize_and_center_crop(input_fg, image_width, image_height)
+
+    concat_conds = numpy2pytorch([fg]).to(device=vae.device, dtype=vae.dtype)
+    concat_conds = vae.encode(concat_conds).latent_dist.mode() * vae.config.scaling_factor
+
+
+第一阶段 i2i ：Lighting Preference latent 作为初始化 latent    
+第二阶段 i2i ：根据Highres scale放大
+
+第一阶段
+
+    bg = resize_and_center_crop(input_bg, image_width, image_height)
+    bg_latent = numpy2pytorch([bg]).to(device=vae.device, dtype=vae.dtype)
+    bg_latent = vae.encode(bg_latent).latent_dist.mode() * vae.config.scaling_factor
+    latents = i2i_pipe(
+        image=bg_latent,
+        strength=lowres_denoise,
+        prompt_embeds=conds,
+        negative_prompt_embeds=unconds,
+        width=image_width,
+        height=image_height,
+        num_inference_steps=int(round(steps / lowres_denoise)),
+        整个表达式的作用就是对 steps 除以 lowres_denoise 的结果进行四舍五入，返回最接近的整数值。
+        num_images_per_prompt=num_samples,
+        generator=rng,
+        output_type='latent',
+        guidance_scale=cfg,
+        cross_attention_kwargs={'concat_conds': concat_conds},
+        这个地方类似controlnet     
+    ).images.to(vae.dtype) / vae.config.scaling_factor
+
+    pixels = vae.decode(latents).sample
+    pixels = pytorch2numpy(pixels)
+    pixels = [resize_without_crop(
+        image=p,
+        target_width=int(round(image_width * highres_scale / 64.0) * 64),
+        target_height=int(round(image_height * highres_scale / 64.0) * 64))
+    for p in pixels]
+    pixel空间进行图片放大，resize    
+
+
+    pixels = numpy2pytorch(pixels).to(device=vae.device, dtype=vae.dtype)
+    latents = vae.encode(pixels).latent_dist.mode() * vae.config.scaling_factor
+    latents = latents.to(device=unet.device, dtype=unet.dtype)
+
+    image_height, image_width = latents.shape[2] * 8, latents.shape[3] * 8 
+    这个操作不明白      
+
+    fg = resize_and_center_crop(input_fg, image_width, image_height)
+    concat_conds = numpy2pytorch([fg]).to(device=vae.device, dtype=vae.dtype)
+    concat_conds = vae.encode(concat_conds).latent_dist.mode() * vae.config.scaling_factor
+
+    没有必要做两次
+
+
+
+第二阶段
+
+    latents = i2i_pipe(
+        image=latents,
+        strength=highres_denoise,
+        prompt_embeds=conds,
+        negative_prompt_embeds=unconds,
+        width=image_width,
+        height=image_height,
+        num_inference_steps=int(round(steps / highres_denoise)),
+        num_images_per_prompt=num_samples,
+        generator=rng,
+        output_type='latent',
+        guidance_scale=cfg,
+        cross_attention_kwargs={'concat_conds': concat_conds},
+    ).images.to(vae.dtype) / vae.config.scaling_factor
+
+    pixels = vae.decode(latents).sample
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## gradio运行错误解决
+
+### 第一个错误
 
     File "/root/miniconda3/envs/iclight/lib/python3.10/site-packages/torch/cuda/__init__.py", line 293, in _lazy_init
         torch._C._cuda_init()
@@ -104,8 +249,7 @@ torch                     2.3.0+cu121
 torchvision               0.18.0+cu121
 
 不匹配        
-nvcc 11.8        
-
+nvcc 11.8         
 nvidia-smi CUDA 11.4        
 
 
@@ -113,8 +257,43 @@ nvidia-smi CUDA 11.4
 pip install torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 --index-url https://download.pytorch.org/whl/cu118
 
 
+降低torch版本可以了
 
-可以了
+### 第二次错误
+推理时候。    
+Segmentation fault (core dumped)     
+应该是c++ c层面的错误，空指针，堆栈溢出,tensor问题等      
+
+以前在jetson上使用c++程序也遇到过    
+
+换机器重装
+
+Nvidia-smi CUDA Version: 12.2     
+Nvcc 11.8   
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121     
+可以了   
+
+
+
+
+
+
+## comfyui 运行
+
+Chilloutmix-Ni-pruned-fp16-fix.safetensors底模     
+生图很花     
+
+Photon_v1_fp16.safetensors第一次下载中断续下，读取时header有问题
+
+第二次完整下载
+
+!!! Exception during processing!!! With local_files_only set to False, you must first locally save the configuration in the following path: 'openai/clip-vit-large-patch14'.
+
+Photon_v1_fp16不含clip，需要调用 Chilloutmix-Ni-pruned-fp16-fix.safetensors 的 clip
+
+生成质量较差
+
+插件作者还在修改，打补丁      
 
 
 
@@ -125,7 +304,134 @@ pip install torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 --index-url https
 
 
 # 其他
-## fooocus
+## controlnet作者
+https://github.com/lllyasviel
+
+张吕敏（LyuminZhang）是一名博士。自2022年起，他在斯坦福大学Maneesh Agrawala教授的指导下攻读计算机科学专业。在此之前，他自2021年起在香港中文大学黄天进教授实验室担任研究助理。他还与教授合作埃德加·西莫-塞拉 (Edgar Simo-Serra)参与了许多有趣的项目。他获得了工程学学士学位。 2021年于苏州大学获得博士学位，导师为季毅教授和 刘春平教授。
+
+闲暇时，吕敏喜欢开发游戏。 Lvmin 是一款名为 YGOPro2 的 Unity 卡牌游戏的作者。如果你在Google或YouTube上搜索这个游戏，你会发现它很受欢迎。该游戏已被翻译成多种语言，在世界各地拥有粉丝。
+
+![alt text](assets/IC-Light/image-12.png)
+
+
+### PaintingLight
+
+Generating Digital Painting Lighting Effects via RGB-space Geometry (SIGGRAPH2020/TOG2020)
+
+
+ACM Transactions on Graphics (Presented in ACM SIGGRAPH 2020), January 2020
+
+Lvmin Zhang, Edgar Simo-Serra, Yi Ji, and Chunping Liu
+
+
+打光方向另一种实现     
+
+ic-light最大的特色是光种，光方向的多样性，充分体现扩散模型的特点，control的特色      
+controlnet也可以简单实现打光方向     
+
+
+旨在寻找一种操纵数字绘画中的照明的方法。该项目于2019年1月左右启动，核心算法于2020年被ACM Transitions on Graphics接受。
+
+由于数字绘画光照数据不易获得，因此该算法没有使用深度学习。核心思想是利用颜色几何来构建一个感知上可行的重新照明系统。这种重新照明可能在物理上不准确，但对于艺术用例来说已经足够好了。     
+Because digital painting illumination data is not easy to obtain, this algorithm does not use deep learning. The core idea is to make use of `color geometry to build up a perceptually workable relighting system`. Such relighting may not be physically accurate, but are good enough for artistic use cases.     
+
+![alt text](assets/IC-Light/image-15.png)
+
+Q: It is mentioned that this project does not using 
+   deep learning, then why it is still required to install tensorflow?
+
+A: This is because we use SRCNN, a tensorflow neural network, to 
+   pre-process input images in order to remove JPEG artifacts. Therefore 
+   you still need to install tensorflow with a proper version.
+
+
+
+
+
+
+我们提出了一种从单个图像生成数字绘画照明效果的算法。我们的算法基于一个关键的观察：艺术家使用许多重叠的笔画来绘制照明效果，即具有密集笔画历史的像素往往会收集更多的照明笔画。基于这一观察，我们设计了一种算法，既可以使用颜色几何来估计数字绘画中的笔画密度，然后通过模仿艺术家从粗到细的工作流程来生成新颖的灯光效果。首先使用波形变换生成粗略的灯光效果，然后根据原始插图的笔划密度修饰为可用的灯光效果。
+我们的算法是内容感知的，生成的灯光效果自然适应图像结构，并且可以用作交互式工具来简化当前为数字和哑光绘画生成灯光效果的劳动密集型工作流程。此外，我们的算法还可以为照片或 3D 渲染图像生成可用的灯光效果。我们通过深入的定性和定量分析（包括感知用户研究）来评估我们的方法。结果表明，我们提出的方法不仅能够相对于现有方法产生良好的照明效果，而且还能够显着减少所需的交互时间。
+
+
+
+
+
+
+
+
+### Stable Diffusion WebUI Forge
+
+Stable Diffusion WebUI Forge 是一个基于Stable Diffusion WebUI（基于Gradio）的平台，可简化开发、优化资源管理并加快推理速度。
+
+“Forge”这个名字的灵感来自于“Minecraft Forge”。该项目旨在成为 SD WebUI 的 Forge。
+
+与原始 WebUI（针对 1024 像素的 SDXL 推理）相比，您可以期待以下加速：
+
+如果您使用常见的 GPU（如 8GB vram），您可以预期推理速度（it/s）会提高约30~45%，GPU 内存峰值（在任务管理器中）将下降约 700MB 至 1.3GB，最大扩散分辨率（不会 OOM）将增加约 2 倍到 3 倍，最大扩散批量大小（不会 OOM）将增加约 4 倍到 6 倍。
+
+如果您使用功能较弱的 GPU（例如 6GB vram），则预计推理速度（it/s）将提高约 60~75%，GPU 内存峰值（在任务管理器中）将下降约 800MB 至 1.5GB（最大）扩散分辨率（不会 OOM）将增加约 3 倍，最大扩散批量大小（不会 OOM）将增加约 4 倍。
+
+如果您使用像 4090 这样具有 24GB vram 的强大 GPU，您可以预期推理速度 (it/s) 会提高约3~6%，GPU 内存峰值（在任务管理器中）将下降约 1GB 至 1.4GB，最大扩散分辨率（不会 OOM）将增加约 1.6 倍，最大扩散批量大小（不会 OOM）将增加约 2 倍。
+
+如果使用 ControlNet for SDXL，最大 ControlNet 数量（不会 OOM）将增加约 2 倍，使用 SDXL+ControlNet 的速度将加快约 30~45%。
+
+Forge 带来的另一个非常重要的变化是Unet Patcher。使用 Unet Patcher，Self-Attention Guidance、Kohya High Res Fix、FreeU、StyleAlign、Hypertile 等方法都可以在大约 100 行代码中实现。
+
+多亏了 Unet Patcher，许多新的东西现在都可以在 Forge 中实现并得到支持，包括 SVD、Z123、masked Ip-adapter、masked controlnet、photomaker 等。
+
+无需再对 UNet 进行 Monkeypatch 并与其他扩展发生冲突！
+
+Forge 还添加了一些采样器，包括但不限于 DDPM、DDPM Karras、DPM++ 2M Turbo、DPM++ 2M SDE Turbo、LCM Karras、Euler A Turbo 等（LCM 从 1.7.0 开始就已经在原始 webui 中）。
+
+最后，Forge 承诺我们只会做好我们的工作。 Forge 永远不会对用户界面添加不必要的主观更改。您仍在使用 100% 自动 1111 WebUI。
+
+
+
+
+### Style2Paints
+sketch + style = paints 🎨 (TOG2018/SIGGRAPH2018ASIA)
+
+![alt text](assets/IC-Light/image-8.png)
+
+非扩散模型    
+
+
+    2022.08.15 - Lvmin's article is accepted to SIGGRAPH ASIA 2022, journal track.
+    2022.06.15 - See some recent announcements of Style2Paints (Project SEPA) here.
+    2022.01.09 - See some recent announcements of Style2Paints (Project SEPA) here.
+    2021.06.09 - An article on shadow drawing is accepted to ICCV 2021 as Oral.
+    2021.06.01 - The Project SEPA is decided to be released before 2022.
+    2021.03.22 - The next version of Style2Paints will be called Project SEPA. See also the twitter post.
+
+
+
+
+
+Help human in their standard coloring workflow!
+Most human artists are familiar with this workflow:
+
+sketching -> color filling/flattening -> gradients/details adding -> shading
+And the corresponding layers are:
+
+lineart layers + flat color layers + gradient layers + shading layers
+Style2paints V4 is designed for this standard coloring workflow! In style2paints V4, you can automatically get separated results from each step!
+
+![alt text](assets/IC-Light/image-9.png)
+
+![alt text](assets/IC-Light/image-10.png)
+
+![alt text](assets/IC-Light/image-11.png)
+
+
+![alt text](assets/IC-Light/image-13.png)
+
+![alt text](assets/IC-Light/image-14.png)
+
+
+
+### fooocus
+
+
 https://github.com/lllyasviel/Fooocus
 
 
@@ -141,6 +447,14 @@ Fooocus is a rethinking of Stable Diffusion and Midjourney’s designs:
 Learned from Stable Diffusion, the software is offline, open source, and free.
 
 Learned from Midjourney, the manual tweaking is not needed, and users only need to focus on the prompts and images.
+
+
+
+
+
+
+
+
 
 
 
@@ -181,7 +495,7 @@ SIGGRAPH 2000 会议论文集
 
 
 
-## GeoWizard
+### GeoWizard
 GeoWizard: Unleashing the Diffusion Priors for 3D Geometry Estimation from a Single Image    
 
 [Submitted on 18 Mar 2024]     
@@ -201,13 +515,13 @@ https://github.com/fuxiao0719/GeoWizard
 
 
 
-## switchlight
+### switchlight
 https://arxiv.org/pdf/2402.18848
 
 
 
 
-## Total Relighting:
+### Total Relighting:
 Learning to Relight Portraits for Background Replacement   
 https://augmentedperception.github.io/total_relighting/   
 SIGGRAPH 2021 技术视频
@@ -223,7 +537,7 @@ SIGGRAPH 2021 技术视频
 
 
 
-## Relightful Harmonization
+### Relightful Harmonization
 [Submitted on 11 Dec 2023 (v1), last revised 7 Apr 2024 (this version, v2)]      
 Relightful Harmonization: Lighting-aware Portrait Background Replacement
 
@@ -271,6 +585,79 @@ Completely eliminate the need for a negative prompt to generate high-quality ima
 Fix the hand generation issue to minimize instances of poorly drawn hands.
 
 Explore more automated training processes. I would love to have 5,000 or 50,000 high-quality AI-generated photorealistic images for training purposes.
+
+
+
+
+## mask获取
+comfyui sam mask     
+
+
+
+## 前景提取工具 briaai/RMBG-1.4 
+
+BRIA Background Removal v1.4 
+
+
+![alt text](assets/IC-Light/image-16.png)
+
+MBG v1.4 是我们最先进的背景去除模型，旨在有效地将各种类别和图像类型的前景与背景分开。该模型已经在精心挑选的数据集上进行了训练，其中包括：一般库存图像、电子商务、游戏和广告内容，使其适合支持大规模企业内容创建的商业用例。其准确性、效率和多功能性可与目前领先的可用源模型相媲美。当内容安全、合法许可的数据集和偏见缓解至关重要时，它是理想的选择。
+
+
+Bria-RMBG 模型使用超过 12,000 张高质量、高分辨率、手动标记（像素精度）、完全许可的图像进行训练。我们的基准包括平衡的性别、平衡的种族和不同类型的残疾人。
+
+图片分布：
+
+类别	分配
+仅对象	45.11%
+有物体/动物的人	25.24%
+仅限人	17.35%
+带有文字的人/物体/动物	8.52%
+纯文本	2.52%
+仅限动物	1.89%
+
+类别	分配
+逼真	87.70%
+非真实感	12.30%
+
+类别	分配
+非纯色背景	52.05%
+纯色背景	47.95%
+
+类别	分配
+单个主要前景对象	51.42%
+前景中有多个对象	48.58%
+
+Architecture
+
+RMBG v1.4 is developed on the IS-Net enhanced with our unique training scheme and proprietary dataset. These modifications significantly improve the model’s accuracy and effectiveness in diverse image-processing scenarios.
+
+RMBG v1.4 是在IS-Net上开发的，并通过我们独特的训练方案和专有数据集进行了增强。这些修改显着提高了模型在不同图像处理场景中的准确性和有效性。
+
+### Dichotomous Image Segmentation (DIS)
+https://github.com/xuebinqin/DIS
+
+这是我们新项目高精度二分图像分割的存储库
+
+高精度二分图像分割（ECCV 2022）    
+秦学斌、戴航、胡晓斌、范邓平*、邵凌、Luc Van Gool。
+
+![alt text](assets/IC-Light/image-17.png)
+
+![alt text](assets/IC-Light/image-18.png)
+
+
+![alt text](assets/IC-Light/image-19.png)
+
+
+![alt text](assets/IC-Light/image-20.png)
+
+我们之前的作品：U 2 -Net，BASNet。
+
+
+
+
+
 
 
 

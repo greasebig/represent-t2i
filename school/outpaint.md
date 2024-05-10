@@ -484,7 +484,7 @@ mask1
 ![alt text](assets/outpaint/mask1.png)     
 512*512     
 
-
+左黑右白可用     
 
 按照32扩展    
 python sample.py --model_path inpaint.pt --edit 1.png --text "explosion black white" --outpaint left --kl_path kl.pt --mask mask1.png --negative "color object human" --seed 0 --prefix "explosion" --guidance_scale 5.0     
@@ -521,6 +521,8 @@ cv2.imwrite('mask-white.png', mask1)
 0黑，255是白      
 灰度图和彩色图区别为：组成不同、通道不同、表示不同。      
 
+
+## mask代码
 推理代码处理 
 
     input_image = torch.zeros(1, 4, im.shape[2], im.shape[3]+32, device=device)
@@ -894,11 +896,187 @@ ft_norm False --lr_anneal_steps 15000 结束步数
 
 
 
+## 扩图方向增加
+这个guidance diffusion模型应该在 webui inpaint 用不了，现在都是直接支持sd1.5 或者 sdxl类型的，这个早版本的架构没人用的。应该不支持    
+
+
+
+
+
+
+
+
+# 通用训练 inpaint
+使用sd1.5 sdxl框架     
+然后用webui     
+
+
+## train_dreambooth_inpaint_lora
+diffusers/examples/research_projects/dreambooth_inpaint/train_dreambooth_inpaint_lora.py
+
+diffusers还算注释详细，有点良心的      
+功能较齐全     
+
+### glid代码mask处理
+
+    input_image = torch.zeros(1, 4, im.shape[2], im.shape[3]+32, device=device)
+    input_image[:,:,:,32:32+im.shape[3]] = im
+    input_image_mask = torch.zeros(1, 1, im.shape[2], im.shape[3]+32, device=device, dtype=torch.bool)
+    input_image_mask[:,:,:,32:32+im.shape[3]] = True
+    这行代码创建了一个全零的张量（tensor），使用了 torch.zeros 函数。该张量是一个布尔类型（torch.bool），并且被设定在特定的 device 上（这个设备由代码中的变量 device 决定，可能是 GPU 或 CPU）。
+    这段代码的作用是创建一个和输入图像同样大小的掩码，这个掩码的宽度比输入图像的宽度大 32 个像素，掩码中除了与输入图像宽度相同的部分外，其余部分都被标记为无效。
+
+    mask1 = (mask > 0.5)
+    input_image_mask *= mask1
+
+
+### mask准备     
+
+    def prepare_mask_and_masked_image(image, mask):
+        image = np.array(image.convert("RGB"))
+        image = image[None].transpose(0, 3, 1, 2)
+        image = torch.from_numpy(image).to(dtype=torch.float32) / 127.5 - 1.0
+
+        mask = np.array(mask.convert("L"))
+        mask = mask.astype(np.float32) / 255.0
+        mask = mask[None, None]
+        mask[mask < 0.5] = 0
+        mask[mask >= 0.5] = 1
+        mask = torch.from_numpy(mask)
+
+        masked_image = image * (mask < 0.5)
+        逻辑与glid相反，左黑右白可用。也就是glid白色才是正确mask原图位置。glid逻辑比较多，负负得正的效果，比较乱     
+        
+
+        return mask, masked_image
+
+
+    # generate random masks
+    def random_mask(im_shape, ratio=1, mask_full_image=False):
+        mask = Image.new("L", im_shape, 0)
+        draw = ImageDraw.Draw(mask)
+        size = (random.randint(0, int(im_shape[0] * ratio)), random.randint(0, int(im_shape[1] * ratio)))
+        随机size
+        # use this to always mask the whole image
+        if mask_full_image:
+            size = (int(im_shape[0] * ratio), int(im_shape[1] * ratio))
+        limits = (im_shape[0] - size[0] // 2, im_shape[1] - size[1] // 2)
+        控制 center 范围不要超出
+        center = (random.randint(size[0] // 2, limits[0]), random.randint(size[1] // 2, limits[1]))
+        随机 center
+        draw_type = random.randint(0, 1)
+        if draw_type == 0 or mask_full_image: 长方形
+            draw.rectangle(
+                (center[0] - size[0] // 2, center[1] - size[1] // 2, center[0] + size[0] // 2, center[1] + size[1] // 2),
+                fill=255,
+            )
+        else: 画椭圆
+            draw.ellipse(
+                (center[0] - size[0] // 2, center[1] - size[1] // 2, center[0] + size[0] // 2, center[1] + size[1] // 2),
+                fill=255,
+            )
+
+        return mask
+
+        glid中好像是有1-4个正方形，随机遮
+
+
+### mask collate_fn
+
+    def collate_fn(examples):
+        input_ids = [example["instance_prompt_ids"] for example in examples]
+        pixel_values = [example["instance_images"] for example in examples]
+
+        # Concat class and instance examples for prior preservation.
+        # We do this to avoid doing two forward passes.
+        if args.with_prior_preservation:
+            input_ids += [example["class_prompt_ids"] for example in examples]
+            pixel_values += [example["class_images"] for example in examples]
+            pior_pil = [example["class_PIL_images"] for example in examples]
+
+        masks = []
+        masked_images = []
+        for example in examples:
+            pil_image = example["PIL_images"]
+            # generate a random mask
+            mask = random_mask(pil_image.size, 1, False)
+            # prepare mask and masked image
+            mask, masked_image = prepare_mask_and_masked_image(pil_image, mask)
+
+            masks.append(mask)
+            masked_images.append(masked_image)
+
+        if args.with_prior_preservation:
+            for pil_image in pior_pil:
+                # generate a random mask
+                mask = random_mask(pil_image.size, 1, False)
+                # prepare mask and masked image
+                mask, masked_image = prepare_mask_and_masked_image(pil_image, mask)
+
+                masks.append(mask)
+                masked_images.append(masked_image)
+
+        pixel_values = torch.stack(pixel_values)
+        pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
+
+        input_ids = tokenizer.pad({"input_ids": input_ids}, padding=True, return_tensors="pt").input_ids
+        masks = torch.stack(masks)
+        masked_images = torch.stack(masked_images)
+        batch = {"input_ids": input_ids, "pixel_values": pixel_values, "masks": masks, "masked_images": masked_images}
+        return batch
+
+    train_dataloader = torch.utils.data.DataLoader(
+        train_dataset, batch_size=args.train_batch_size, shuffle=True, collate_fn=collate_fn
+    )        
+
+
+
+
+
+
+
+### mask使用
+
+    # Convert masked images to latent space
+    masked_latents = vae.encode(
+        batch["masked_images"].reshape(batch["pixel_values"].shape).to(dtype=weight_dtype)
+    ).latent_dist.sample()
+    masked_latents = masked_latents * vae.config.scaling_factor
+
+    masks = batch["masks"]
+    # resize the mask to latents shape as we concatenate the mask to the latents
+    mask = torch.stack(
+        [
+            torch.nn.functional.interpolate(mask, size=(args.resolution // 8, args.resolution // 8))
+            for mask in masks
+        ]
+    ).to(dtype=weight_dtype)
+    mask = mask.reshape(-1, 1, args.resolution // 8, args.resolution // 8)
+
+    # concatenate the noised latents with the mask and the masked latents
+    latent_model_input = torch.cat([noisy_latents, mask, masked_latents], dim=1)
+
+
+
+
+## train_dreambooth_inpaint
+diffusers/examples/research_projects/dreambooth_inpaint/train_dreambooth_inpaint.py
+
+
+
+
+
+
+
+
 
 
 
 
 # stable-diffusion-infinity-xl
+这个应该可以的，因为是sd1.5 sdxl框架      
+
+
 装环境可以，运行app.py报错：   
 
     (sd-inf) root@q1yOYo:/private/lujunda/stable-diffusion-infinity-xl-main# python app.py
@@ -989,6 +1167,17 @@ https://youtube.com/shorts/Erju6TzEAEM?feature=share
 
 3. 另一个是画板形式插件，类似stable-diffusion-infinity-xl   
 但是还不了解如何作画，使用    
+
+
+
+
+
+
+
+
+
+
+
 
 
 

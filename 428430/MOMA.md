@@ -561,6 +561,17 @@ https://github.com/lm-sys/FastChat
     [2023/07] We released Chatbot Arena Conversations, a dataset containing 33k conversations with human preferences. Download it here.
 
 
+## diffusers现成sd1.5底模
+![alt text](assets/MOMA/image-11.png)
+
+
+
+
+
+
+
+
+
 
 
 
