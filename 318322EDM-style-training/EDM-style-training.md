@@ -488,6 +488,346 @@ animals fid 62.29403569758563
 
 
 
+# 这份代码是不是传统意义的 dreambooth_lora ?
+可以dreambooth_lora      
+但是我运行的示例命令只是lora      
+
+
+Training with text encoder(s)
+
+Alongside the UNet, LoRA fine-tuning of the text encoders is also supported. In addition to the text encoder optimization available with train_dreambooth_lora_sdxl_advanced.py, in the advanced script pivotal tuning is also supported. pivotal tuning combines Textual Inversion with regular diffusion fine-tuning
+
+To do so, just specify --train_text_encoder_ti while launching training (for regular text encoder optimizations, use --train_text_encoder). Please keep the following points in mind:
+
+SDXL has two text encoders. So, we fine-tune both using LoRA.      
+When not fine-tuning the text encoders, we ALWAYS precompute the text embeddings to save memory.
+
+有train_text_encoder_ti         
+但没有开启dreambooth的arg
+
+    export MODEL_NAME="stabilityai/stable-diffusion-xl-base-1.0"
+    export DATASET_NAME="./3d_icon"
+    export OUTPUT_DIR="3d-icon-SDXL-LoRA"
+    export VAE_PATH="madebyollin/sdxl-vae-fp16-fix"
+
+    accelerate launch train_dreambooth_lora_sdxl_advanced.py \
+    --pretrained_model_name_or_path=$MODEL_NAME \
+    --pretrained_vae_model_name_or_path=$VAE_PATH \
+    --dataset_name=$DATASET_NAME \
+    --instance_prompt="3d icon in the style of TOK" \
+    --validation_prompt="a TOK icon of an astronaut riding a horse, in the style of TOK" \
+    --output_dir=$OUTPUT_DIR \
+    --caption_column="prompt" \
+    --mixed_precision="bf16" \
+    --resolution=1024 \
+    --train_batch_size=3 \
+    --repeats=1 \
+    --report_to="wandb"\
+    --gradient_accumulation_steps=1 \
+    --gradient_checkpointing \
+    --learning_rate=1.0 \
+    --text_encoder_lr=1.0 \
+    --optimizer="prodigy"\
+    --train_text_encoder_ti\
+    --train_text_encoder_ti_frac=0.5\
+    --snr_gamma=5.0 \
+    --lr_scheduler="constant" \
+    --lr_warmup_steps=0 \
+    --rank=8 \
+    --max_train_steps=1000 \
+    --checkpointing_steps=2000 \
+    --seed="0" \
+    --push_to_hub
+
+
+
+推理   
+
+    text_encoders = [pipe.text_encoder, pipe.text_encoder_2]
+    tokenizers = [pipe.tokenizer, pipe.tokenizer_2]
+
+    embedding_path = hf_hub_download(repo_id=repo_id, filename="3d-icon-SDXL-LoRA_emb.safetensors", repo_type="model")
+
+    state_dict = load_file(embedding_path)
+    # load embeddings of text_encoder 1 (CLIP ViT-L/14)
+    pipe.load_textual_inversion(state_dict["clip_l"], token=["<s0>", "<s1>"], text_encoder=pipe.text_encoder, tokenizer=pipe.tokenizer)
+    # load embeddings of text_encoder 2 (CLIP ViT-G/14)
+    pipe.load_textual_inversion(state_dict["clip_g"], token=["<s0>", "<s1>"], text_encoder=pipe.text_encoder_2, tokenizer=pipe.tokenizer_2)
+
+webui
+
+    You can then run inference by prompting a y2k_emb webpage about the movie Mean Girls <lora:y2k:0.9>. You can use the y2k_emb token normally, including increasing its weight by doing (y2k_emb:1.2).
+
+
+
+comfyui
+
+You can then include it in your models/Lora directory. Then you will load the LoRALoader node and hook that up with your model and CLIP. Official guide for loading LoRAs
+
+and include it in your models/embeddings directory and use it in your prompts like embedding:y2k_emb. Official guide for loading embeddings.
+
+
+## 新出功能
+### LoRA training of Targeted U-net Blocks    
+
+The advanced script now supports custom choice of U-net blocks to train during Dreambooth LoRA tuning.
+
+Note
+
+This feature is still experimental
+
+Recently, works like B-LoRA showed the potential advantages of learning the LoRA weights of specific U-net blocks, not only in speed & memory, but also in reducing the amount of needed data, improving style manipulation and overcoming overfitting issues. In light of this, we're introducing a new feature to the advanced script to allow for configurable U-net learned blocks.
+
+Usage Configure LoRA learned U-net blocks adding a lora_unet_blocks flag, with a comma seperated string specifying the targeted blocks. e.g:
+
+--lora_unet_blocks="unet.up_blocks.0.attentions.0,unet.up_blocks.0.attentions.1"
+
+
+Note
+
+if you specify both --use_blora and --lora_unet_blocks, values given in --lora_unet_blocks will be ignored. When enabling --use_blora, targeted U-net blocks are automatically set to be "unet.up_blocks.0.attentions.0,unet.up_blocks.0.attentions.1" as discussed in the paper. If you wish to experiment with different blocks, specify --lora_unet_blocks only.
+
+Inference    
+Inference is the same as for B-LoRAs, except the input targeted blocks should be modified based on your training configuration.
+
+
+    import torch
+    from diffusers import StableDiffusionXLPipeline, AutoencoderKL
+
+    # taken & modified from B-LoRA repo - https://github.com/yardenfren1996/B-LoRA/blob/main/blora_utils.py
+    def is_belong_to_blocks(key, blocks):
+        try:
+            for g in blocks:
+                if g in key:
+                    return True
+            return False
+        except Exception as e:
+            raise type(e)(f'failed to is_belong_to_block, due to: {e}')
+        
+    def lora_lora_unet_blocks(lora_path, alpha, target_blocks):  
+    state_dict, _ = pipeline.lora_state_dict(lora_path)
+    filtered_state_dict = {k: v * alpha for k, v in state_dict.items() if is_belong_to_blocks(k, target_blocks)}
+    return filtered_state_dict
+
+    vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16)
+    pipeline = StableDiffusionXLPipeline.from_pretrained(
+        "stabilityai/stable-diffusion-xl-base-1.0",
+        vae=vae,
+        torch_dtype=torch.float16,
+    ).to("cuda")
+
+    lora_path  = "lora-library/B-LoRA-pen_sketch"
+
+    state_dict = lora_lora_unet_blocks(content_B_lora_path,alpha=1,target_blocks=["unet.up_blocks.0.attentions.0"])
+
+    # Load traine dlora layers into the unet
+    pipeline.load_lora_into_unet(state_dict, None, pipeline.unet)
+
+    #generate
+    prompt = "a dog in [v30] style"
+    pipeline(prompt, num_images_per_prompt=4).images
+
+
+
+### B-LoRA training
+
+The advanced script now supports B-LoRA training too!
+
+Proposed in Implicit Style-Content Separation using B-LoRA, B-LoRA is a method that leverages LoRA to implicitly separate the style and content components of `a single image`. It was shown that learning the LoRA weights of two specific blocks (referred to as B-LoRAs) achieves style-content separation that cannot be achieved by training each B-LoRA independently. Once trained, the two B-LoRAs can be used as independent components to allow various image stylization tasks
+
+Usage Enable B-LoRA training by adding this flag
+
+--use_blora
+
+
+You can train a B-LoRA with as little as 1 image, and 1000 steps. Try this default configuration as a start:
+
+Inference The inference is a bit different:
+
+we need load specific unet layers (as opposed to a regular LoRA/DoRA)    
+the trained layers we load, changes based on our objective (e.g. style/content)
+
+    import torch
+    from diffusers import StableDiffusionXLPipeline, AutoencoderKL
+
+    # taken & modified from B-LoRA repo - https://github.com/yardenfren1996/B-LoRA/blob/main/blora_utils.py
+    def is_belong_to_blocks(key, blocks):
+        try:
+            for g in blocks:
+                if g in key:
+                    return True
+            return False
+        except Exception as e:
+            raise type(e)(f'failed to is_belong_to_block, due to: {e}')
+        
+    def lora_lora_unet_blocks(lora_path, alpha, target_blocks):  
+    state_dict, _ = pipeline.lora_state_dict(lora_path)
+    filtered_state_dict = {k: v * alpha for k, v in state_dict.items() if is_belong_to_blocks(k, target_blocks)}
+    return filtered_state_dict
+
+    vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16)
+    pipeline = StableDiffusionXLPipeline.from_pretrained(
+        "stabilityai/stable-diffusion-xl-base-1.0",
+        vae=vae,
+        torch_dtype=torch.float16,
+    ).to("cuda")
+
+    # pick a blora for content/style (you can also set one to None) 
+    content_B_lora_path  = "lora-library/B-LoRA-teddybear"
+    style_B_lora_path= "lora-library/B-LoRA-pen_sketch"
+
+
+    content_B_LoRA = lora_lora_unet_blocks(content_B_lora_path,alpha=1,target_blocks=["unet.up_blocks.0.attentions.0"])
+    style_B_LoRA = lora_lora_unet_blocks(style_B_lora_path,alpha=1.1,target_blocks=["unet.up_blocks.0.attentions.1"])
+    combined_lora = {**content_B_LoRA, **style_B_LoRA}
+
+    # Load both loras
+    pipeline.load_lora_into_unet(combined_lora, None, pipeline.unet)
+
+    #generate
+    prompt = "a [v18] in [v30] style"
+    pipeline(prompt, num_images_per_prompt=4).images
+
+## 代码内部
+
+    parser.add_argument("--repeats", type=int, default=1, help="How many times to repeat the training data.")
+
+    parser.add_argument(
+        "--class_data_dir",
+        type=str,
+        default=None,
+        required=False,
+        help="A folder containing the training data of class images.",
+    )
+
+    parser.add_argument(
+        "--class_prompt",
+        type=str,
+        default=None,
+        help="The prompt to specify images in the same class as provided instance images.",
+    )
+
+    parser.add_argument(
+        "--token_abstraction",
+        type=str,
+        default="TOK",
+        help="identifier specifying the instance(or instances) as used in instance_prompt, validation prompt, "
+        "captions - e.g. TOK. To use multiple identifiers, please specify them in a comma seperated string - e.g. "
+        "'TOK,TOK2,TOK3' etc.",
+    )
+
+    parser.add_argument(
+        "--num_new_tokens_per_abstraction",
+        type=int,
+        default=2,
+        help="number of new tokens inserted to the tokenizers per token_abstraction identifier when "
+        "--train_text_encoder_ti = True. By default, each --token_abstraction (e.g. TOK) is mapped to 2 new "
+        "tokens - <si><si+1> ",
+    )
+
+    parser.add_argument(
+        "--with_prior_preservation",
+        default=False,
+        action="store_true",
+        help="Flag to add prior preservation loss.",
+    )
+
+我忘记开with_prior_preservation       
+代码是支持训练的    
+
+    parser.add_argument("--prior_loss_weight", type=float, default=1.0, help="The weight of prior preservation loss.")
+    parser.add_argument(
+        "--num_class_images",
+        type=int,
+        default=100,
+        help=(
+            "Minimal class images for prior preservation loss. If there are not enough images already present in"
+            " class_data_dir, additional images will be sampled with class_prompt."
+        ),
+    )
+
+    parser.add_argument(
+        "--dataloader_num_workers",
+        type=int,
+        default=0,
+        help=(
+            "Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process."
+        ),
+    )
+
+
+    parser.add_argument(
+        "--lora_unet_blocks",
+        type=str,
+        default=None,
+        help=(
+            "the U-net blocks to tune during training. please specify them in a comma separated string, e.g. `unet.up_blocks.0.attentions.0,unet.up_blocks.0.attentions.1` etc."
+            "NOTE: By default (if not specified) - regular LoRA training is performed. "
+            "if --use_blora is enabled, this arg will be ignored, since in B-LoRA training, targeted U-net blocks are `unet.up_blocks.0.attentions.0` and `unet.up_blocks.0.attentions.1`"
+        ),
+    )
+    parser.add_argument(
+        "--use_blora",
+        action="store_true",
+        help=(
+            "Whether to train a B-LoRA as proposed in- Implicit Style-Content Separation using B-LoRA https://arxiv.org/abs/2403.14572. "
+        ),
+    )
+
+
+    parser.add_argument(
+        "--cache_latents",
+        action="store_true",
+        default=False,
+        help="Cache the VAE latents",
+    )
+
+    if args.with_prior_preservation:
+        if args.class_data_dir is None:
+            raise ValueError("You must specify a data directory for class images.")
+        if args.class_prompt is None:
+            raise ValueError("You must specify prompt for class images.")
+
+自动生成需要数量的class图片     
+只需要提供文件夹路径，空的也行     
+
+    def main(args):
+        # Generate class images if prior preservation is enabled.
+        if args.with_prior_preservation:
+            class_images_dir = Path(args.class_data_dir)
+            if not class_images_dir.exists():
+                class_images_dir.mkdir(parents=True)
+            cur_class_images = len(list(class_images_dir.iterdir()))
+
+            if cur_class_images < args.num_class_images:
+
+                num_new_images = args.num_class_images - cur_class_images
+                logger.info(f"Number of class images to sample: {num_new_images}.")
+
+                sample_dataset = PromptDataset(args.class_prompt, num_new_images)
+                sample_dataloader = torch.utils.data.DataLoader(sample_dataset, batch_size=args.sample_batch_size)
+
+class PromptDataset(Dataset):
+
+    "A simple dataset to prepare the prompts to generate class images on multiple GPUs."
+
+    def __init__(self, prompt, num_samples):
+        self.prompt = prompt
+        self.num_samples = num_samples
+
+    def __len__(self):
+        return self.num_samples
+
+    def __getitem__(self, index):
+        example = {}
+        example["prompt"] = self.prompt
+        example["index"] = index
+        return example
+
+
+
+
+
 
 
 

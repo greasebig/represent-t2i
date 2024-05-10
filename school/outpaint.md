@@ -1056,6 +1056,180 @@ diffusers还算注释详细，有点良心的
     # concatenate the noised latents with the mask and the masked latents
     latent_model_input = torch.cat([noisy_latents, mask, masked_latents], dim=1)
 
+### Training with prior-preservation loss
+Prior-preservation is used to avoid overfitting and language-drift.
+
+For prior-preservation we first generate images using the model with a class prompt and then use those during training along with our data.        
+According to the paper, it's recommended to generate num_epochs * num_samples images for prior-preservation. 200-300 works well for most cases.
+
+
+Training with gradient checkpointing and 8-bit optimizer:       
+With the help of gradient checkpointing and the 8-bit optimizer from bitsandbytes it's possible to run train dreambooth on a 16GB GPU.
+
+
+Fine-tune text encoder with the UNet.       
+The script also allows to fine-tune the text_encoder along with the unet. It's been observed experimentally that fine-tuning text_encoder gives much better results especially on faces. Pass the --train_text_encoder argument to the script to enable training text_encoder.
+
+
+### loss
+
+    # Convert images to latent space
+    # Convert masked images to latent space
+    # resize the mask to latents shape as we concatenate the mask to the latents
+
+    mask = torch.stack(
+        [
+            torch.nn.functional.interpolate(mask, size=(args.resolution // 8, args.resolution // 8))
+            for mask in masks
+        ]
+    ).to(dtype=weight_dtype)
+    mask = mask.reshape(-1, 1, args.resolution // 8, args.resolution // 8)
+
+    noise = torch.randn_like(latents)
+
+    # Add noise to the latents according to the noise magnitude at each timestep
+    # (this is the forward diffusion process)
+    noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
+
+    # concatenate the noised latents with the mask and the masked latents
+    latent_model_input = torch.cat([noisy_latents, mask, masked_latents], dim=1)
+
+    # Get the text embedding for conditioning
+    encoder_hidden_states = text_encoder(batch["input_ids"])[0]
+
+    # Predict the noise residual
+    noise_pred = unet(latent_model_input, timesteps, encoder_hidden_states).sample
+
+
+    # Get the target for loss depending on the prediction type
+    if noise_scheduler.config.prediction_type == "epsilon":
+        target = noise
+    elif noise_scheduler.config.prediction_type == "v_prediction":
+        target = noise_scheduler.get_velocity(latents, noise, timesteps)
+    else:
+        raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
+
+    if args.with_prior_preservation:
+        # Chunk the noise and noise_pred into two parts and compute the loss on each part separately.
+        noise_pred, noise_pred_prior = torch.chunk(noise_pred, 2, dim=0)
+        target, target_prior = torch.chunk(target, 2, dim=0)
+
+        # Compute instance loss
+        loss = F.mse_loss(noise_pred.float(), target.float(), reduction="none").mean([1, 2, 3]).mean()
+        reduction="none" 参数指定了不进行降维操作，因此它会返回一个与输入相同形状的张量，其中每个元素代表对应位置的损失值。接着使用 .mean([1, 2, 3]) 对每个样本的损失进行求均值，最后再使用 .mean() 对所有样本的损失值再进行一次求均值，得到最终的损失值。
+        .mean([1, 2, 3]) 表示在指定的维度上求均值。在PyTorch中，对张量调用 .mean() 方法时可以传入一个维度参数，该参数告诉函数在哪些维度上计算均值。在这种情况下，传入 [1, 2, 3] 表示在第1、2、3个维度上分别求均值。
+
+        假设你有一个4维张量，形状为 [batch_size, channels, height, width]，那么 .mean([1, 2, 3]) 就会在通道、高度和宽度三个维度上分别计算均值，最终得到每个样本的均值。
+
+
+
+        # Compute prior loss
+        prior_loss = F.mse_loss(noise_pred_prior.float(), target_prior.float(), reduction="mean")
+        通过 reduction="mean" 参数对所有元素的损失值进行求均值，得到最终的损失值。
+
+        # Add the prior loss to the instance loss.
+        loss = loss + args.prior_loss_weight * prior_loss
+
+        好简单，就一个scale控制
+    else:
+        loss = F.mse_loss(noise_pred.float(), target.float(), reduction="mean")
+    
+直接就是 noisy_latent(加噪的latent)和mask和mask_latent 一起丢入unet，预测噪声，然后于真实噪声算mse            
+mask_latent是没有加噪的。     
+
+
+### 保存权重
+    # Save the lora layers
+    if accelerator.is_main_process:
+        unet = unet.to(torch.float32)
+        unet.save_attn_procs(args.output_dir)
+
+
+### lora初始化
+
+    # We only train the additional adapter LoRA layers
+    vae.requires_grad_(False)
+    text_encoder.requires_grad_(False)
+    unet.requires_grad_(False)
+
+    weight_dtype = torch.float32
+    if args.mixed_precision == "fp16":
+        weight_dtype = torch.float16
+    elif args.mixed_precision == "bf16":
+        weight_dtype = torch.bfloat16
+
+
+    # Move text_encode and vae to gpu.
+    # For mixed precision training we cast the text_encoder and vae weights to half-precision
+    # as these models are only used for inference, keeping weights in full precision is not required.
+    经验之谈
+    unet.to(accelerator.device, dtype=weight_dtype)
+    vae.to(accelerator.device, dtype=weight_dtype)
+    text_encoder.to(accelerator.device, dtype=weight_dtype)
+
+
+    if args.enable_xformers_memory_efficient_attention:
+        if is_xformers_available():
+            unet.enable_xformers_memory_efficient_attention()
+        else:
+            raise ValueError("xformers is not available. Make sure it is installed correctly")
+    好像comfyui是给vae用xformers
+
+    # now we will add new LoRA weights to the attention layers
+    # It's important to realize here how many attention weights will be added and of which sizes
+    # The sizes of the attention layers consist only of two different variables:
+    # 1) - the "hidden_size", which is increased according to `unet.config.block_out_channels`.
+    # 2) - the "cross attention size", which is set to `unet.config.cross_attention_dim`.
+
+    # Let's first see how many attention processors we will have to set.
+    # For Stable Diffusion, it should be equal to:
+    # - down blocks (2x attention layers) * (2x transformer layers) * (3x down blocks) = 12
+    # - mid blocks (2x attention layers) * (1x transformer layers) * (1x mid blocks) = 2
+    # - up blocks (2x attention layers) * (3x transformer layers) * (3x down blocks) = 18
+    # => 32 layers
+
+    # Set correct lora layers
+    lora_attn_procs = {}
+    for name in unet.attn_processors.keys():
+        cross_attention_dim = None if name.endswith("attn1.processor") else unet.config.cross_attention_dim
+        这些个不是很理解
+        if name.startswith("mid_block"):
+            hidden_size = unet.config.block_out_channels[-1]
+        elif name.startswith("up_blocks"):
+            block_id = int(name[len("up_blocks.")])
+            这些个不是很理解
+            hidden_size = list(reversed(unet.config.block_out_channels))[block_id]
+        elif name.startswith("down_blocks"):
+            block_id = int(name[len("down_blocks.")])
+            hidden_size = unet.config.block_out_channels[block_id]
+    这个代码写法很像MoMA的set_ip_adapter
+
+
+        lora_attn_procs[name] = LoRAAttnProcessor(hidden_size=hidden_size, cross_attention_dim=cross_attention_dim)
+
+    unet.set_attn_processor(lora_attn_procs)
+    lora_layers = AttnProcsLayers(unet.attn_processors)
+
+    accelerator.register_for_checkpointing(lora_layers)
+
+
+
+
+
+
+
+
+
+### 学习目标：dreambooth 和 dreambooth_lora 和 lora 训练的区别
+
+dreambooth先验保留的图片如何生成
+
+dreambooth_lora: 我理解是使用 dreambooth 损失训练lora, 这样可能稍微好一些    
+
+
+
+
+
 
 
 
@@ -1063,7 +1237,191 @@ diffusers还算注释详细，有点良心的
 diffusers/examples/research_projects/dreambooth_inpaint/train_dreambooth_inpaint.py
 
 
+### 训练命令
 
+    export MODEL_NAME="runwayml/stable-diffusion-inpainting"
+    export INSTANCE_DIR="path-to-instance-images"
+    export CLASS_DIR="path-to-class-images"
+    export OUTPUT_DIR="path-to-save-model"
+
+    accelerate launch train_dreambooth_inpaint.py \
+    --pretrained_model_name_or_path=$MODEL_NAME  \
+    --train_text_encoder \
+    --instance_data_dir=$INSTANCE_DIR \
+    --class_data_dir=$CLASS_DIR \
+    --output_dir=$OUTPUT_DIR \
+    --with_prior_preservation --prior_loss_weight=1.0 \
+    --instance_prompt="a photo of sks dog" \
+    --class_prompt="a photo of dog" \
+    --resolution=512 \
+    --train_batch_size=1 \
+    --use_8bit_adam \
+    --gradient_checkpointing \
+    --learning_rate=2e-6 \
+    --lr_scheduler="constant" \
+    --lr_warmup_steps=0 \
+    --num_class_images=200 \
+    --max_train_steps=800
+
+dreambooth读数据      
+
+
+
+相关输入参数
+
+    parser.add_argument(
+        "--instance_data_dir",
+        type=str,
+        default=None,
+        required=True,
+        help="A folder containing the training data of instance images.",
+    )
+    parser.add_argument(
+        "--class_data_dir",
+        type=str,
+        default=None,
+        required=False,
+        help="A folder containing the training data of class images.",
+    )
+    parser.add_argument(
+        "--instance_prompt",
+        type=str,
+        default=None,
+        help="The prompt with identifier specifying the instance",
+    )
+    parser.add_argument(
+        "--class_prompt",
+        type=str,
+        default=None,
+        help="The prompt to specify images in the same class as provided instance images.",
+    )
+    parser.add_argument(
+        "--with_prior_preservation",
+        default=False,
+        action="store_true",
+        help="Flag to add prior preservation loss.",
+    )
+    parser.add_argument("--prior_loss_weight", type=float, default=1.0, help="The weight of prior preservation loss.")
+
+    parser.add_argument(
+        "--num_class_images",
+        type=int,
+        default=100,
+        help=(
+            "Minimal class images for prior preservation loss. If not have enough images, additional images will be"
+            " sampled with class_prompt."
+        ),
+    )
+
+就是说如果没有准备够，模型会先自己采样的，其实也不需要额外手动准备        
+
+class DreamBoothDataset(Dataset):
+
+    """
+    A dataset to prepare the instance and class images with the prompts for fine-tuning the model.
+    It pre-processes the images and the tokenizes prompts.
+    """
+
+    def __init__(
+        self,
+        instance_data_root,
+        instance_prompt,
+        tokenizer,
+        class_data_root=None,
+        class_prompt=None,
+        size=512,
+        center_crop=False,
+    ):
+
+        if class_data_root is not None:
+            self.class_data_root = Path(class_data_root)
+            self.class_data_root.mkdir(parents=True, exist_ok=True)
+            self.class_images_path = list(self.class_data_root.iterdir())
+            self.num_class_images = len(self.class_images_path)
+            self._length = max(self.num_class_images, self.num_instance_images)
+            self.class_prompt = class_prompt
+        else:
+            self.class_data_root = None
+
+    def __getitem__(self, index):
+        if self.class_data_root:
+            class_image = Image.open(self.class_images_path[index % self.num_class_images])
+            if not class_image.mode == "RGB":
+                class_image = class_image.convert("RGB")
+            class_image = self.image_transforms_resize_and_crop(class_image)
+            example["class_images"] = self.image_transforms(class_image)
+            example["class_PIL_images"] = class_image
+            example["class_prompt_ids"] = self.tokenizer(
+                self.class_prompt,
+                padding="do_not_pad",
+                truncation=True,
+                max_length=self.tokenizer.model_max_length,
+            ).input_ids
+
+        return example
+
+
+
+### class文件夹不够数量自动生成
+
+
+    if args.with_prior_preservation:
+        class_images_dir = Path(args.class_data_dir)
+        if not class_images_dir.exists():
+            class_images_dir.mkdir(parents=True)
+        cur_class_images = len(list(class_images_dir.iterdir()))
+
+        if cur_class_images < args.num_class_images:
+
+
+            num_new_images = args.num_class_images - cur_class_images
+
+            sample_dataset = PromptDataset(args.class_prompt, num_new_images)
+            sample_dataloader = torch.utils.data.DataLoader(
+                sample_dataset, batch_size=args.sample_batch_size, num_workers=1
+            )
+
+            for example in tqdm(
+                sample_dataloader, desc="Generating class images", disable=not accelerator.is_local_main_process
+            ):
+
+            这个是inpaint训练代码，生成的竟然还要做mask？？？？
+            没有mask还能理解dreambooth，这有了之后就不理解了
+                bsz = len(example["prompt"])
+                fake_images = torch.rand((3, args.resolution, args.resolution))
+                transform_to_pil = transforms.ToPILImage()
+                fake_pil_images = transform_to_pil(fake_images)
+
+                fake_mask = random_mask((args.resolution, args.resolution), ratio=1, mask_full_image=True)
+            
+            全部mask掉，不就是输入空的latent吗，为了统一模型的输入吧
+            和后面的统一
+
+
+                images = pipeline(prompt=example["prompt"], mask_image=fake_mask, image=fake_pil_images).images
+
+                for i, image in enumerate(images):
+                    hash_image = insecure_hashlib.sha1(image.tobytes()).hexdigest()
+                    image_filename = class_images_dir / f"{example['index'][i] + cur_class_images}-{hash_image}.jpg"
+                    image.save(image_filename)
+
+            del pipeline
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+
+### 保存权重
+这个脚本才能训练unet和text_encoder       
+上个脚本只有个lora   
+
+    # Create the pipeline using using the trained modules and save it.
+    if accelerator.is_main_process:
+        pipeline = StableDiffusionPipeline.from_pretrained(
+            args.pretrained_model_name_or_path,
+            unet=accelerator.unwrap_model(unet),
+            text_encoder=accelerator.unwrap_model(text_encoder),
+        )
+        pipeline.save_pretrained(args.output_dir)
 
 
 
