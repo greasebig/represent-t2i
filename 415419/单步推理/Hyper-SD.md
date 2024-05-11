@@ -15,7 +15,7 @@ Hyper-SD: Trajectory Segmented Consistency Model for Efficient Image Synthesis
 
 
 Introduction    
-Hyper-SD is one of the new State-of-the-Art diffusion model acceleration techniques. In this repository, we release the models distilled from SDXL Base 1.0 and Stable-Diffusion v1-5。
+Hyper-SD is one of the new State-of-the-Art diffusion model acceleration techniques. In this repository, we release `the models distilled from SDXL Base 1.0 and Stable-Diffusion v1-5。`
 
 
 
@@ -137,6 +137,46 @@ Same way you'd change any other word weight, <lora:$NAME:0.8>
 
 
 
+## UniFL
+
+[Submitted on 8 Apr 2024]    
+UniFL: Improve Stable Diffusion via Unified Feedback Learning
+
+扩散模型彻底改变了图像生成领域，导致高质量模型和多样化下游应用的激增。然而，尽管取得了这些重大进步，当前的竞争解决方案仍然存在一些局限性，包括视觉质量差、缺乏美感、推理效率低，而且还没有全面的解决方案。为了应对这些挑战，我们提出了 UniFL，这是一个利用反馈学习来全面增强扩散模型的统一框架。 UniFL 是一种通用、有效且可推广的解决方案，适用于各种扩散模型，例如 SD1.5 和 SDXL。值得注意的是，UniFL 包含三个关键组成部分：感知反馈学习，提高视觉质量；解耦反馈学习，提高审美吸引力；以及对抗性反馈学习，可优化推理速度。深入的实验和广泛的用户研究验证了我们提出的方法在提高生成模型的质量及其加速方面的卓越性能。例如，UniFL 在生成质量方面超过 ImageReward 17% 用户偏好，并在 4 步推理中比 LCM 和 SDXL Turbo 分别高出 57% 和 20%。此外，我们还验证了我们的方法在下游任务中的有效性，包括 Lora、ControlNet 和 AnimateDiff。
+
+
+
+
+## CreaPrompt Lightning
+
+![alt text](assets/Hyper-SD/image-3.png)
+
+![alt text](assets/Hyper-SD/image-4.png)
+
+
+
+
+
+## SDXL-Lightning
+
+ByteDance/SDXL-Lightning
+
+[Submitted on 21 Feb 2024 (v1), last revised 2 Mar 2024 (this version, v3)]   
+SDXL-Lightning: Progressive Adversarial Diffusion Distillation
+
+SDXL-Lightning：渐进式对抗扩散蒸馏
+
+我们提出了一种扩散蒸馏方法，该方法在基于 SDXL 的一步/少步 1024px 文本到图像生成中实现了新的最先进技术。我们的方法结合了渐进式和对抗式蒸馏，以实现质量和模式覆盖范围之间的平衡。在本文中，我们讨论了理论分析、鉴别器设计、模型制定和训练技术。我们将经过精炼的 SDXL-Lightning 模型作为 LoRA 和完整的 UNet 权重进行开源。
+
+
+
+
+## sdxl-turbo
+stabilityai/sdxl-turbo
+
+SDXL-Turbo 是SDXL 1.0的精炼版本，经过实时合成训练。 SDXL-Turbo 基于一种称为对抗扩散蒸馏 (ADD) 的新颖训练方法（请参阅技术报告），该方法允许在高图像质量下以 1 到 4 个步骤对大规模基础图像扩散模型进行采样。这种方法使用分数蒸馏来利用大规模现成的图像扩散模型作为教师信号，并将其与对抗性损失相结合，以确保即使在一个或两个采样步骤的低步骤状态下也能确保高图像保真度。
+
+使用完整模型comfyui仿佛没办法识别文字
 
 
 
