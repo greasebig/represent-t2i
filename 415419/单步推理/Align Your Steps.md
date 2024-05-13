@@ -1,4 +1,3 @@
-
 Align Your Steps:    
 Optimizing Sampling Schedules in Diffusion Models
 
@@ -50,6 +49,27 @@ Assuming that 𝑃𝑡𝑟𝑢𝑒 represents the distribution of running the 
 这些示例说明了在给定相同数量的前向评估 (NFE) 的情况下，如何使用优化的计划生成具有更多视觉细节和更好文本对齐的图像。我们将优化的计划与实践中使用的两种最流行的计划（EDM 和 Time-Uniform）进行并排比较。所有图像都是用随机或确定性 版本的 DPM-Solver++(2M)，有 10 个步骤。
 
 
+
+
+原理：   
+Optimizing Sampling Schedules in Diffusion Models    
+基于karras优化 DM 采样计划以获得高质量输出的通用且有原则的方法     
+即在scheduler上做改进。类似于most popular schedules used in practice (EDM and Time-Uniform).    
+
+例如：   
+英伟达在DPM-Solver++(2M) karras上算出AYS采样timesteps为    
+timesteps = [999, 845, 730, 587, 443, 310, 193, 116, 53, 13, 0]    
+其他和正常采样一样    
+
+
+
+
+
+
+
+
+
+
 # 实践
 https://research.nvidia.com/labs/toronto-ai/AlignYourSteps/     
 https://research.nvidia.com/labs/toronto-ai/AlignYourSteps/howto.html     
@@ -59,7 +79,8 @@ https://research.nvidia.com/labs/toronto-ai/AlignYourSteps/howto.html
 可以取更广范围     
 
 
-
+10步推理采用AYS效果比Karras稍好，AYS偶尔效果不好。    
+AYS和sgm-uniform效果相近。少步和多步的生成质量感觉还可以。    
 
 
 # 其他知识

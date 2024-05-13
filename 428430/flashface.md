@@ -1,4 +1,4 @@
-Flashface
+# Flashface
 
 flashface-sd1.5模型本身的质量不好，生成的图片质量低    
 相似度也没有比instantID高
@@ -24,4 +24,25 @@ flashface-sd1.5模型本身的质量不好，生成的图片质量低
 
 
 
+# PuLID
+PuLID的推理速度比InstantID快一些     
+PuLID耗时：7s，InstantID耗时：10s    
+PuLID的效果更自然     
+无法控制人脸的方向    
+眼镜很少能保留，表情也不能控制    
 
+
+## 原理
+![alt text](assets/flashface/image-2.png)
+
+PuLID是一种类似于 ip 适配器的方法来恢复面部身份。它使用 Insightface 嵌入和 CLIP 嵌入，类似于 ip-adapterfaceid plus 模型的做法。然而，在将图像传递到 CLIP 之前，有一个额外的过程，即使用 Facexlib 从背景环境中屏蔽脸部。 PuLID 还使用 Eva CLIP 代替普通 CLIP。在 attn 覆盖中，PuLID 还比 IPAdapter 做更多的事情，因为它对张量进行零填充并添加到隐藏状态的正交。如果您有兴趣，可以阅读他们关于如何处理此问题的论文。   
+
+PuLID is an ip-adapter alike method to restore facial identity. It uses both insightface embedding and CLIP embedding similar to what ip-adapter faceid plus model does. However, there is an extra process of masking out the face from background environment using facexlib before passing image to CLIP. PuLID also uses Eva CLIP instead of normal CLIP. In the attn overrides, PuLID also does something more than IPAdapter, as it zero pads the tensor and adds to ortho of hidden states. If you are interested you can read their paper on how this is handled.
+
+
+
+
+
+
+
+# 结尾

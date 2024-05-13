@@ -40,6 +40,20 @@ iclight_sd15_fbc.safetensors - 以文本、前景和背景为条件的重新照�
 
 
 
+
+[火]5.13更新   
+Currently ComfyUI and Forge versions are available:     
+● https://github.com/huchenlei/ComfyUI-IC-Light-Native   
+● https://github.com/huchenlei/sd-forge-ic-light    
+● https://github.com/kijai/ComfyUI-IC-Light   
+I will work on A1111 extension soon.    
+
+
+
+
+
+
+
 # 原理
 
 换背景，换灯光方向（四个：上下左右）     

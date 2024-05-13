@@ -57,14 +57,19 @@ Checkpoints
 
 Hyper-SD is one of the new State-of-the-Art diffusion model acceleration techniques. In this repository, we release the models distilled from SDXL Base 1.0 and Stable-Diffusion v1-5。    
 
-
+![alt text](assets/Hyper-SD/image-2.png)    
 
 # 原理
 Hyper-SD 采用两阶段渐进稠度蒸馏。第一阶段涉及两个独立时间段的一致性蒸馏：[0，T/2]和[T/2，T]以获得两个段的一致性ODE。然后，采用该ODE轨迹在后续阶段训练全局一致性模型     
 ![alt text](assets/Hyper-SD/image.png)     
 
 
-![alt text](assets/Hyper-SD/image-2.png)    
+原理：
+Hyper-SD协同地融合了 ODE 轨迹保存和重构的优点，同时在步骤压缩期间保持近乎无损的性能。
+1. 引入轨迹分段一致性蒸馏，在预定义的时间步段内逐步进行一致性蒸馏，这有利于从高阶角度保存原始 ODE 轨迹。
+Trajectory Segmented Consistency Distillation （TSCD）
+2. 结合人类反馈学习来提高模型在低步状态下的性能，并减轻蒸馏过程带来的性能损失。
+3. 集成了分数蒸馏，以进一步提高模型的低步生成能力
 
 
 
@@ -90,6 +95,42 @@ lcm
 ![alt text](assets/Hyper-SD/image-2.jpeg)    
 
 TCD
+
+
+## lora
+1. lora加速   
+lora加速生成的人物图片的美观度和清晰度普遍降低。受蒸馏底模影响。     
+lora加速生成，在4步以内优势明显，超过8步后不如现在常用的采样方法使用高效采样计划进行采样。
+Hyper-SDXL-1step-lora可以和社区底模搭配使用，由TCD改进而来。结合汉服模型1步可以生成，但是画质较差，4步以内生成最好在1024*1024分辨率上使用，否则人物畸形严重。8步生成图片有小的瑕疵。cfg取1附近的值。    
+搭配公司底模，换不同prompt会产生人脸很像的情况    
+这个lora在使用在1024*1024分辨率效果比较好    
+sdxl_lighrning_2step_lora至少需要2步生成。    
+LCM&TurboMix LoRA 至少需要6步生成，CFG为2.0时效果最好。4步时图片相当模糊。     
+lcm-lora-sdxl 至少需要4步生成，CFG为2.0时效果最好。    
+lcm-lora-sdxl人物没那么像。其他不同prompt都挺像    
+sdxl_lightning_2step_lora稍微没那么像，但是质感是sdxl base经典的卡通质感    
+
+2. 以上这些加速lora的cfg都比较小     
+Hyper-LORA系列有一个 Hyper-SDXL-8steps-CFG-lora 少步推理条件下支持大cfg: 5-8。可以与AYS等加速采样方式对比。   
+生成质量差，眼睛一般有问题   
+
+
+3. 蒸馏主模型    
+Hyper-SDXL-1step-Unet效果比lightning好一些，比turbo好。    
+文字生成优于另外两种     
+lightning偏向卡通和畸形和模糊    
+
+
+4. 公司已有模型加速采样推荐采用两种方法，这两种都能比较好保留原模型质量   
+4.1 自己蒸馏主模型。   
+4.2 高效采样计划进行10步或15步采样。如AYS, sgm_uniform。少数情况会出不好的图。   
+
+
+
+
+
+
+
 
 
 
@@ -168,6 +209,10 @@ SDXL-Lightning：渐进式对抗扩散蒸馏
 
 我们提出了一种扩散蒸馏方法，该方法在基于 SDXL 的一步/少步 1024px 文本到图像生成中实现了新的最先进技术。我们的方法结合了渐进式和对抗式蒸馏，以实现质量和模式覆盖范围之间的平衡。在本文中，我们讨论了理论分析、鉴别器设计、模型制定和训练技术。我们将经过精炼的 SDXL-Lightning 模型作为 LoRA 和完整的 UNet 权重进行开源。
 
+有lora和unet     
+
+
+
 
 
 
@@ -177,6 +222,13 @@ stabilityai/sdxl-turbo
 SDXL-Turbo 是SDXL 1.0的精炼版本，经过实时合成训练。 SDXL-Turbo 基于一种称为对抗扩散蒸馏 (ADD) 的新颖训练方法（请参阅技术报告），该方法允许在高图像质量下以 1 到 4 个步骤对大规模基础图像扩散模型进行采样。这种方法使用分数蒸馏来利用大规模现成的图像扩散模型作为教师信号，并将其与对抗性损失相结合，以确保即使在一个或两个采样步骤的低步骤状态下也能确保高图像保真度。
 
 使用完整模型comfyui仿佛没办法识别文字
+
+只能512*512左右      
+
+
+
+
+
 
 
 

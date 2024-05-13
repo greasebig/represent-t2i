@@ -101,9 +101,13 @@ diffusers加载扩散模型
         Multi-modal LLM: MoMA_llava_7b (13 GB)
         Attentions and mappings: attn_adapters_projectors.th (151 Mb)
 
+使用方法：输入原图，mask图，prompt和subject(目标物体)       
 
+prompt = [f"photo of a {subject}. "+ prompt]    
+另外还注入subject
 
-
+原理：    
+sd1.5架构
 
 输入正方形的商品图报错
 
