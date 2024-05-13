@@ -111,6 +111,41 @@ python launch.py
 而comfyui会自动调用xformers
 
 
+
+
+# 安装方式
+不知道为什么首选方法：venv安装一直安装不了venv        
+每次都得launch安装，   
+forge也是      
+
+
+
+# url安装插件报错 gnutls_handshake() failed: The TLS connection was non-properly terminated. '
+    GitCommandError: Cmd('git') failed due to: exit code(128) cmdline: git clone -v --filter=blob:none -- https://github.com/huchenlei/sd-forge-ic-light /teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/stable-diffusion-webui-forge/tmp/sd-forge-ic-light stderr: 'Cloning into '/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/stable-diffusion-webui-forge/tmp/sd-forge-ic-light'... fatal: unable to access 'https://github.com/huchenlei/sd-forge-ic-light/': gnutls_handshake() failed: The TLS connection was non-properly terminated. '
+
+git config --global http.sslVerify false
+
+ 如上图，从 socks5:// 改为 socks5h:// 后访问正常。
+
+改http https all_proxy也没用
+
+git config --global  --unset https.https://github.com.proxy     
+git config --global  --unset http.https://github.com.proxy 
+
+
+最后发现是节点问题。万分傻逼
+
+
+
+
+
+
+
+
+
+
+
+
 # hires 精绘
 
 在comfyui的实现也是对latant做最近邻差值再采样一次    
