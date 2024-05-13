@@ -2,9 +2,6 @@ Align Your Steps:
 Optimizing Sampling Schedules in Diffusion Models
 
 
-
-
-
 # 论文信息
 英伟达多伦多ai实验室     
 1 NVIDIA2 University of Toronto3 Vector Institute    

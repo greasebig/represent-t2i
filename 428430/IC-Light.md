@@ -50,6 +50,13 @@ I will work on A1111 extension soon.
 
 
 
+fbc比fc多一个图像输入通道，网络的输入输出部分不太一样
+
+
+    File "/root/miniconda3/envs/comfy/lib/python3.11/site-packages/torch/nn/modules/conv.py", line 456, in _conv_forward
+        return F.conv2d(input, weight, bias, self.stride,
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    RuntimeError: Given groups=1, weight of size [320, 8, 3, 3], expected input[8, 12, 96, 96] to have 8 channels, but got 12 channels instead
 
 
 
