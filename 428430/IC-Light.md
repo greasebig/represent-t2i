@@ -317,7 +317,134 @@ Photon_v1_fp16不含clip，需要调用 Chilloutmix-Ni-pruned-fp16-fix.safetenso
 插件作者还在修改，打补丁      
 
 
+# forge
+## 报错
+推理出现 Segmentation fault (core dumped)
 
+并且这个平台不会返回具体错误信息     
+
+卡在反向推理。中断
+
+    torch                     2.2.2+cu118
+    torchaudio                2.2.2+cu118
+    torchdiffeq               0.2.3
+    torchmetrics              1.4.0
+    torchsde                  0.2.6
+    torchvision               0.17.2+cu118
+
+
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121     
+
+
+open-clip-torch 2.20.0 requires protobuf<4, but you have protobuf 4.25.3 which is incompatible.
+
+
+ile "/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/stable-diffusion-webui-forge/modules/launch_utils.py", line 431, in prepare_environment
+    raise RuntimeError(
+RuntimeError: Torch is not able to use GPU; add --skip-torch-cuda-test to COMMANDLINE_ARGS variable to disable this check
+
+
+pip install -U open-clip-torch
+
+Successfully installed open-clip-torch-2.24.0
+
+还是启动不了launch 
+
+    File "/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/stable-diffusion-webui-forge/launch.py", line 39, in main
+        prepare_environment()
+    File "/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/stable-diffusion-webui-forge/modules/launch_utils.py", line 431, in prepare_environment
+        raise RuntimeError(
+    RuntimeError: Torch is not able to use GPU; add --skip-torch-cuda-test to COMMANDLINE_ARGS variable to disable this check
+
+
+File "/root/miniconda3/envs/iclight/lib/python3.10/site-packages/torch/cuda/__init__.py", line 293, in _lazy_init
+    torch._C._cuda_init()
+RuntimeError: The NVIDIA driver on your system is too old (found version 11040). Please update your GPU driver by downloading and installing a new version from the URL: http://www.nvidia.com/Download/index.aspx Alternatively, go to: https://pytorch.org to install a PyTorch version that has been compiled with your version of the CUDA driver.
+
+
+nvcc 11.8     
+CUDA Version: 11.4    
+
+我给忘记2机是个问题机了            
+
+
+始终是机子和CUDA和torch的傻逼问题
+
+换机器直接launch一键成功
+
+
+## 性能
+forge闲时加载sd1.5显存2.5g   
+![alt text](assets/IC-Light/image-23.png)     
+![alt text](assets/IC-Light/image-24.png)
+
+
+
+
+## 权重
+权重使用方式和正常的略有不同   
+In order to load it with UnetLoader in Forge, state_dict keys need to convert to ldm format. You can download models with ldm keys here: https://huggingface.co/huchenlei/IC-Light-ldm/tree/main    
+There are 2 models:   
+● iclight_sd15_fc_unet_ldm: Use this in FG workflows   
+● iclight_sd15_fbc_unet_ldm: Use this in BG workflows
+
+
+## 特点
+UNet Patcher    
+Note that Forge does not use any other software as backend. The full name of the backend is Stable Diffusion WebUI with Forge backend, or for simplicity, the Forge backend. The API and python symbols are made similar to previous software only for reducing the learning cost of developers.
+
+Now developing an extension is super simple. We finally have a patchable UNet.
+
+Below is using one single file with 80 lines of codes to support FreeU:
+
+extensions-builtin/sd_forge_freeu/scripts/forge_freeu.py
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 同类已有产品比较
+Portrait Light on Google Pixel phones
+
+![alt text](assets/IC-Light/image-21.png)    
+![alt text](assets/IC-Light/image-22.png)     
+
+
+
+# a1111插件编写
+https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/Developing-extensions     
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## a1111 webui架构
+![alt text](assets/IC-Light/229259967-15556a72-774c-44ba-bab5-687f854a0fc7.png)
 
 
 
@@ -325,6 +452,41 @@ Photon_v1_fp16不含clip，需要调用 Chilloutmix-Ni-pruned-fp16-fix.safetenso
 
 
 # 其他
+
+## SD.Next
+SD.Next: Advanced Implementation of Stable Diffusion and other Diffusion-based generative image models
+
+制作人员   
+主要归功于Automatic1111 WebUI 的原始代码库   
+额外学分列于学分中   
+模块的许可证在许可证中列出   
+
+
+
+![alt text](assets/IC-Light/image-25.png)
+
+https://github.com/vladmandic/automatic
+
+https://github.com/vladmandic/automatic/wiki/Diffusers
+
+
+SD.Next supports two main backends: Diffusers and Original:
+
+Diffusers: Based on new Huggingface Diffusers implementation   
+Supports all models listed below  
+This backend is set as default for new installations  
+See wiki article for more information  
+
+Original: Based on [LDM](https://github.com/Stability-AI/stablediffusion) reference implementation and significantly expanded on by A1111   
+This backend and is fully compatible with most existing functionality and extensions written for A1111 SDWebUI
+Supports SD 1.x and SD 2.x models   
+All other model types such as SD-XL, LCM, PixArt, Segmind, Kandinsky, etc. require backend Diffusers
+
+
+
+
+
+
 ## controlnet作者
 https://github.com/lllyasviel
 

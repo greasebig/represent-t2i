@@ -490,7 +490,7 @@ animals fid 62.29403569758563
 
 # 这份代码是不是传统意义的 dreambooth_lora ?
 可以dreambooth_lora      
-但是我运行的示例命令只是lora      
+但是我运行的示例命令只是lora + embeddings 一起训练的结果      
 
 
 Training with text encoder(s)
