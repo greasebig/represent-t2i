@@ -228,6 +228,18 @@ Soft inpainting allows the denoiser to work directly with soft-edged (i.e. non-b
 
 
 
+# debug
+webui.py设置了5秒间隔，用处是在程序运行时候每5秒监听一次服务器端的输入，5秒的时间段里面则在跑代码，如推理     
+比较蠢的进去具体县城方法是，在跑的那5秒快速暂停，然后到进程那里点下一步。但是这样会每跳一步回到时间监听程序一次     
+
+这样调试太慢了。    
+每次只能积累到正好所停步的堆栈查看   
+
+比如这次    
+正好停到前向传播的unet的SpatialTransformer    
+
+
+
 
 
 

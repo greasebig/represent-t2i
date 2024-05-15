@@ -423,9 +423,227 @@ Portrait Light on Google Pixel phones
 https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/Developing-extensions     
 
 
+## a1111 和 forge
+forge根目录多两个文件夹     
+ldm_patched和modules_forge   
+模型加载可能略不同     
+forge   
+
+    from ldm_patched.modules.utils import load_torch_file
+    from ldm_patched.modules.model_patcher import ModelPatcher
+    from ldm_patched.modules.sd import VAE
+a1111
+
+    from modules import images, sd_samplers, processing, sd_models, sd_vae, sd_samplers_kdiffusion, errors
+    from modules.processing import process_images, Processed, StableDiffusionProcessingTxt2Img
+    from modules.shared import opts, state
+    import modules.shared as shared
+    import modules.sd_samplers
+    import modules.sd_models
+    import modules.sd_vae
+
+
+Stable Diffusion WebUI Forge 是一个基于Stable Diffusion WebUI（基于Gradio）的平台，可简化开发、优化资源管理并加快推理速度。      
+stable diffusion webui是基于gradio框架构建，gradio是一个开源的python库，它用于帮助科研与机器学习、深度学习工作者快速的演示应用，使用者仅需要几行代码，就可以快速构造一个简单、丰富的HTML界面，不需要有前端开发基础，仅需要python基础就行。    
+https://github.com/gradio-app/gradio     
 
 
 
+
+
+Forge 带来的另一个非常重要的变化是Unet Patcher。使用 Unet Patcher，Self-Attention Guidance、Kohya High Res Fix、FreeU、StyleAlign、Hypertile 等方法都可以在大约 100 行代码中实现。
+
+感谢 Unet Patcher，许多新的东西现在都可以在 Forge 中实现并得到支持，包括 SVD、Z123、masked Ip-adapter、masked controlnet、photomaker 等。
+
+无需再对 UNet 进行 Monkeypatch 并与其他扩展发生冲突！
+
+Forge还添加了一些采样器，包括但不限于DDPM、DDPM Karras、DPM++ 2M Turbo、DPM++ 2M SDE Turbo、LCM Karras、Euler A Turbo等（LCM从1.7.0开始就已经在原始webui中）。
+
+
+
+您可以看到 Forge 不会更改 WebUI 结果。安装 Forge 并不是一个重大改变。
+
+即使对于最复杂的提示（例如fantasy landscape with a [mountain:lake:0.25] and [an oak:a christmas tree:0.75][ in foreground::0.6][ in background:0.25] [shoddy:masterful:0.5].
+
+您之前的所有作品仍然可以在 Forge 中使用！
+
+
+Forge backend removes all WebUI's codes related to resource management and reworked everything. All previous CMD flags like medvram, lowvram, medvram-sdxl, precision full, no half, no half vae, attention_xxx, upcast unet, ... are all REMOVED. Adding these flags will not cause error but they will not do anything now. We highly encourage Forge users to remove all cmd flags and let Forge to decide how to load models.
+
+没有任何 cmd 标志，Forge 可以运行具有 4GB vram 的 SDXL 和具有 2GB vram 的 SD1.5。
+
+再次强调，Forge 不建议用户使用任何 cmd 标志，除非您非常确定确实需要这些标志。
+
+
+UNet Patcher
+
+新功能（原始 WebUI 中没有的）    
+感谢 Unet Patcher，许多新的东西现在都可以在 Forge 中实现并得到支持，包括 SVD、Z123、masked Ip-adapter、masked controlnet、photomaker 等。
+
+
+
+然而，如果较新的扩展使用 Forge，它们的代码可能会短得多。
+
+Usually if an old extension rework using Forge's unet patcher, 通常，如果使用 Forge 的unet patcher 对旧扩展进行返工，80% 的代码可以被删除，特别是当它们需要调用controlnet 时。
+
+
+
+## 开发对比
+comfyui 2023.1.17首次发布     
+
+forge主页好像是两年发布      
+
+但是forge复用了comfyui的代码，有些就是很像      
+
+    # 1st edit by https://github.com/comfyanonymous/ComfyUI
+    # 2nd edit by Forge Official
+
+
+
+
+
+
+
+
+
+
+● https://github.com/huchenlei/sd-forge-ic-light   
+
+● https://github.com/kijai/ComfyUI-IC-Light   
+
+已经有作者的gradio     
+插件已经有forge和comfyui    
+comfyui甚至有两个版本了      
+
+而且comfyui给的example还支持动图，动态修改light preference     
+但是forge版本的就差一些，使用体验上还不如gradio。gradio还能选择多种example呢。     
+
+forge和comfyui都有各自的模型patcher。用以节省内存加速？       
+gradio基本都是用safetensor.loadfile和diffusers.from_pretrain     
+forge大部分在复用gradio代码。因为本一家      
+
+comfyui上没看见前景提取使用RMBG。有点奇怪      
+其在使用上是直接将原图resize过vae encoder输入到fg节点    
+
+● https://github.com/kijai/ComfyUI-IC-Light       
+输入的包装
+
+    for conditioning in [positive, negative]:
+        c = []
+        for t in conditioning:
+            d = t[1].copy()
+            d["concat_latent_image"] = concat_latent * multiplier
+            n = [t[0], d]
+            c.append(n)
+        out.append(c)
+    return (out[0], out[1], {"samples": out_latent})
+
+实现方法      
+实在是没看懂他的前景是怎么提取的，        
+用了ip2p的方法？？？     
+
+        #Patch ComfyUI's LoRA weight application to accept multi-channel inputs. Thanks @huchenlei
+        try:
+            ModelPatcher.calculate_weight = calculate_weight_adjust_channel(ModelPatcher.calculate_weight)
+        except:
+            raise Exception("IC-Light: Could not patch calculate_weight")
+        # Mimic the existing IP2P class to enable extra_conds
+        def bound_extra_conds(self, **kwargs):
+                return ICLight.extra_conds(self, **kwargs)
+        new_extra_conds = types.MethodType(bound_extra_conds, model_clone.model)
+        model_clone.add_object_patch("extra_conds", new_extra_conds)
+
+        return (model_clone, )
+
+    import comfy
+    class ICLight:
+        def extra_conds(self, **kwargs):
+            out = {}
+            
+            image = kwargs.get("concat_latent_image", None)
+            noise = kwargs.get("noise", None)
+            device = kwargs["device"]
+
+            if image is None:
+                image = torch.zeros_like(noise)
+
+            if image.shape[1:] != noise.shape[1:]:
+                image = comfy.utils.common_upscale(image.to(device), noise.shape[-1], noise.shape[-2], "bilinear", "center")
+
+            image = comfy.utils.resize_to_batch_size(image, noise.shape[0])
+
+            process_image_in = lambda image: image
+            out['c_concat'] = comfy.conds.CONDNoiseShape(process_image_in(image))
+            
+            adm = self.encode_adm(**kwargs)
+            if adm is not None:
+                out['y'] = comfy.conds.CONDRegular(adm)
+            return out
+
+
+
+
+
+
+
+
+
+
+
+## comfyui插件huchenlei
+https://github.com/huchenlei/ComfyUI-IC-Light-Native
+
+[Important!] Required nodes     
+You MUST install following nodes first for IC light to work properly.
+
+ComfyUI-layerdiffuse: Although not used in the workflow, the patching of weight load in layerdiffuse is a dependency for IC-Light nodes to work properly.
+
+Recommended nodes    
+
+    ComfyUI-KJNodes: Provides various mask nodes to create light map.
+    ComfyUI-Easy-Use: A giant node pack of everything. The remove bg node used in workflow comes from this pack.
+    ComfyUI_essentials: Many useful tooling nodes. Image resize node used in the workflow comes from this pack.
+
+这个插件倒是使用了RMBG      
+原理应该和gradio差不多      
+
+实现上看上去比上一个comfyui方法简洁
+
+
+
+## a1111 webui 调试确定过程
+webui.py设置了5秒间隔，用处是在程序运行时候每5秒监听一次服务器端的输入，5秒的时间段里面则在跑代码，如推理     
+比较蠢的进去具体县城方法是，在跑的那5秒快速暂停，然后到进程那里点下一步。但是这样会每跳一步回到时间监听程序一次     
+
+这样调试太慢了。    
+每次只能积累到正好所停步的堆栈查看   
+
+比如这次    
+正好停到前向传播的unet的SpatialTransformer    
+
+samples_ddim = p.sample(conditioning=p.c, unconditional_conditioning=p.uc, seeds=p.seeds, subseeds=p.subseeds, subseed_strength=p.subseed_strength, prompts=p.prompts)
+
+具体来说还包装了很多东西。每一层实现一些功能。如cfg dpm++等   
+
+forge实现 
+
+    work_model: ModelPatcher = p.sd_model.forge_objects.unet.clone()
+    vae: VAE = p.sd_model.forge_objects.vae.clone()
+    unet_path = os.path.join(models_path, "unet", args.model_type.model_name)
+    ic_model_state_dict = load_torch_file(unet_path, device=device)
+    node = ICLight()
+
+    patched_unet: ModelPatcher = node.apply(
+        model=work_model,
+        ic_model_state_dict=ic_model_state_dict,
+        c_concat=args.get_c_concat(input_rgb, vae, p, device=device),
+    )[0]
+
+    p.sd_model.forge_objects.unet = patched_unet
+
+a1111
+
+![alt text](assets/IC-Light/WeChatc551c99e3a70f40a6a597427e9b4f761.jpg)
 
 
 
@@ -452,6 +670,20 @@ https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/Developing-extensio
 
 
 # 其他
+
+## webui组件
+GfpGAN, 这个是腾讯推出的一款基于生成对抗网络模型的用于人脸修复的优秀组件
+
+pyngrok, ngrok的python封装库，用于网络通信，可以实现内网穿透    
+系统核心功能组件安装，如果已下载，会忽略下载和安装。里面主要涉及到的核心组件有：   
+2、taming transformers, 一套用于高分辨率图像合成的Transformer   
+3、k-diffusion, 可以理解它是各种扩散模型的包装器   
+4、CodeFormer，一套很棒的图像修复，视频去码的Python工具库   
+
+
+
+
+
 
 ## SD.Next
 SD.Next: Advanced Implementation of Stable Diffusion and other Diffusion-based generative image models

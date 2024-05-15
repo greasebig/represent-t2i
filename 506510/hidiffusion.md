@@ -74,6 +74,12 @@ hibli style beautiful Caribbean beach tropical (sunset) - Negative prompt: soft 
 
 
 
+## image3 imageFX
+![alt text](assets/hidiffusion/image-4.png)    
+![alt text](assets/hidiffusion/image-5.png)    
+
+
+
 
 
 # 结尾
