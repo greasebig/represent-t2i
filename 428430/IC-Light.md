@@ -624,10 +624,22 @@ webui.py设置了5秒间隔，用处是在程序运行时候每5秒监听一次�
 samples_ddim = p.sample(conditioning=p.c, unconditional_conditioning=p.uc, seeds=p.seeds, subseeds=p.subseeds, subseed_strength=p.subseed_strength, prompts=p.prompts)
 
 具体来说还包装了很多东西。每一层实现一些功能。如cfg dpm++等   
+sample_dpmpp_sde    
+cfg_denoiser     
+epsddpm_denoiser   
+latentdiffusion     
+diffusionwarpper     
+
+p虽然只有4层包装。但不是进去每一个函数都解开。   
+
+
 
 forge实现 
 
     work_model: ModelPatcher = p.sd_model.forge_objects.unet.clone()
+    它创建了一个名为 work_model 的变量，该变量被赋予了一个值，这个值是使用某种模型库（可能是 PyTorch 或 TensorFlow 等）中的 ModelPatcher 类的方法来创建的。在这个例子中，ModelPatcher 可能是一个用于修改或创建深度学习模型的工具类或函数。
+
+
     vae: VAE = p.sd_model.forge_objects.vae.clone()
     unet_path = os.path.join(models_path, "unet", args.model_type.model_name)
     ic_model_state_dict = load_torch_file(unet_path, device=device)
@@ -641,12 +653,15 @@ forge实现
 
     p.sd_model.forge_objects.unet = patched_unet
 
+
+
+
 a1111
 
 ![alt text](assets/IC-Light/WeChatc551c99e3a70f40a6a597427e9b4f761.jpg)
 
 
-
+UnetModel
 
 
 
