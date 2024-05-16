@@ -453,6 +453,8 @@ https://github.com/gradio-app/gradio
 
 Forge 带来的另一个非常重要的变化是Unet Patcher。使用 Unet Patcher，Self-Attention Guidance、Kohya High Res Fix、FreeU、StyleAlign、Hypertile 等方法都可以在大约 100 行代码中实现。
 
+这个在comfyui也有
+
 感谢 Unet Patcher，许多新的东西现在都可以在 Forge 中实现并得到支持，包括 SVD、Z123、masked Ip-adapter、masked controlnet、photomaker 等。
 
 无需再对 UNet 进行 Monkeypatch 并与其他扩展发生冲突！
@@ -634,7 +636,7 @@ p虽然只有4层包装。但不是进去每一个函数都解开。
 
 
 
-forge实现 
+### forge实现 
 
     work_model: ModelPatcher = p.sd_model.forge_objects.unet.clone()
     它创建了一个名为 work_model 的变量，该变量被赋予了一个值，这个值是使用某种模型库（可能是 PyTorch 或 TensorFlow 等）中的 ModelPatcher 类的方法来创建的。在这个例子中，ModelPatcher 可能是一个用于修改或创建深度学习模型的工具类或函数。
@@ -653,22 +655,299 @@ forge实现
 
     p.sd_model.forge_objects.unet = patched_unet
 
+![alt text](assets/IC-Light/WeChatd8abbe999aee08e8ecb66c0a10728b40.jpg)   
+![alt text](assets/IC-Light/image-26.png)
+
+调试太方便了。不会跳来跳去
+
+![alt text](assets/IC-Light/image-27.png)
+
+![alt text](assets/IC-Light/image-28.png)    
+![alt text](assets/IC-Light/image-29.png)
+他与a1111的区别真的太小。不仅repo文件夹只是新增，而且所用的堆栈和变量内部，也只是新增。     
+比如 forge_objects: 只是在原本基础上新增了 `forge_objects，unet_patcher, BaseModel`(这个来源于新增ldm模块的 module) 替换了diffusion_wrapper, 
+
+可能得在wrapper这个地方换，然后调用apply方法    
+
+虽然，这种重构还是很厉害的，前后，中间
+
+这个debug实在太方便了     
+
+samples_ddim = p.sample(conditioning=p.c, unconditional_conditioning=p.uc, seeds=p.seeds, subseeds=p.subseeds, subseed_strength=p.subseed_strength, prompts=p.prompts)    
+启动运行
+
+
+进入这里
+
+
+module的process.py
+
+    class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
+
+    def sample(self, conditioning, unconditional_conditioning, seeds, subseeds, subseed_strength, prompts):
 
 
 
-a1111
+        if self.scripts is not None:
+                    self.scripts.process_before_every_sampling(self,
+                                                            x=x,
+                                                            noise=x,
+                                                            c=conditioning,
+                                                            uc=unconditional_conditioning)
+
+![alt text](assets/IC-Light/image-30.png)      
+插件加载
+
+
+    samples = self.sampler.sample(self, x, conditioning, unconditional_conditioning, image_conditioning=self.txt2img_image_conditioning(x))
+
+
+这个的好处还在于它是在主线程推理。
+
+a1111则在主线程进行时间监听。
+
+好像对于cn支持更好      
+预先加载    
+
+![alt text](assets/IC-Light/WeChat5c0fcd512f33bda79f408c044457888e.jpg)
+
+![alt text](assets/IC-Light/WeChate71984368ee0d20bf2c69ed4c3710d74.jpg)
+
+到这里之后基本是和a1111一致的
+
+![alt text](assets/IC-Light/image-37.png)
+
+
+
+
+
+
+
+
+
+
+
+### a1111
 
 ![alt text](assets/IC-Light/WeChatc551c99e3a70f40a6a597427e9b4f761.jpg)
 
+![alt text](assets/IC-Light/WeChate2115b0d48c0e6bc846b21cd6ce7f1a4.jpg)
+
+![alt text](assets/IC-Light/WeChat110ad86b1ba569be5b154b895127809c.jpg)
 
 UnetModel
 
+a1111用来debug确实会在shared_state和推理代码之间跳来跳去   
+最差劲的还会回跳回上次运行    
+而且还需要打断点在内部才能自己跳进线程里面    
+
+就是会在 main_tread 和 anyio_worker_thread 跳来跳去    
+
+很严重的问题是会卡住很久     
+
+把等待五秒改成0.05秒后连启动界面都很难    
+感觉就是很卡很慢   
+
+
+上百次点击都加载不出界面     
+
+主要还是断点老师在监听位置跳，不会进去推理函数   
+代码还没注释    
+
+内部又分出小线程    
+
+取消主线程的断点，只打分支线程断点，就可以在里面看了   
+
+
+
+使用了treading包的 _bootstrap     
+
+但是这样调试会卡住      
+
+代码是能进去看但是总是很卡，麻烦，不能流畅de地一步步来  
+
+不在等待时间那里打断点，就会生成一张图片后卡住   
+并不是卡住，只是在等待网页端的命令，然后推理执行    
+八个线程全都在等待     
+
+执行过程可以点暂停进入查看    
+
+这个时候可以正常运行断点进入一步步查看，这时候是正常使用的，主线程停住，然后程序里面一步步    
+
+
+这是如果网页点暂停，是没有反应的，好像是因为等待5秒   
+
+好像运行过程中采样的timesteps被转成了sigmas    
+取值范围0-15    
+
+所以ays在comfyui使用时候也是专门搞了一个sigmas输出的模块    
+为什么要这样抽象化     
+
+![alt text](assets/IC-Light/image-38.png)
+
+sigmas既作为模型输入，也用以在sampler中计算噪声   
+
+![alt text](assets/IC-Light/image-40.png)
+
+    m_sigma_min, m_sigma_max = self.model_wrap.sigmas[0].item(), self.model_wrap.sigmas[-1].item()
+    sigma_min, sigma_max = (0.1, 10) if opts.use_old_karras_scheduler_sigmas else (m_sigma_min, m_sigma_max)
+
+
+运行一次推理后，暂停终于相应了，整个代码显示正运行，但没有堆栈信息    
+
+
+有时还需要重新刷新界面，才能从网页端传输过服务器    
+
+断点位置最好就打在等待函数前面。     
+具体进入就按暂停     
 
 
 
 
 
 
+
+## forge调试
+进入网页端没那么麻烦。不需要监听时间就渲染出了界面     
+![alt text](assets/IC-Light/WeChatd8abbe999aee08e8ecb66c0a10728b40.jpg)
+
+通过调用tread.py的TASK类进行每个功能实现，如加载 推理    
+
+    while True:
+        time.sleep(0.01)
+        if len(waiting_list) > 0:
+
+监听时间太短      
+需要将近十次才反应过来-进入函数：       
+
+
+
+
+## forge插件代码修改过程 
+
+    """ Convert diffusers weight to ldm weight. """
+
+    import os
+    import folder_paths
+    import safetensors.torch
+
+    from comfy.diffusers_convert import convert_unet_state_dict
+
+
+    def convert_weight():
+        src = "iclight_sd15_fbc.safetensors"
+        dest = "iclight_sd15_fbc_unet_ldm.safetensors"
+
+        ic_light_root = os.path.join(folder_paths.models_dir, "ic_light")
+        model_path = os.path.join(ic_light_root, src)
+
+        sd_dict = convert_unet_state_dict(safetensors.torch.load_file(model_path))
+        sd_dict = {key: sd_dict[key].half() for key in sd_dict.keys()}
+        safetensors.torch.save_file(sd_dict, dest)
+
+所以cn作者开源的是diffusers类型的unet，也是从那里训练来的   
+cn作者的gradio      
+从diffusers.from_pretrain加载底模，直接去除里面的unet  
+
+    unet = UNet2DConditionModel.from_pretrained(sd15_name, subfolder="unet")
+
+    # Change UNet
+
+    with torch.no_grad():
+        new_conv_in = torch.nn.Conv2d(8, unet.conv_in.out_channels, unet.conv_in.kernel_size, unet.conv_in.stride, unet.conv_in.padding)
+        new_conv_in.weight.zero_()
+        new_conv_in.weight[:, :4, :, :].copy_(unet.conv_in.weight)
+        new_conv_in.bias = unet.conv_in.bias
+        unet.conv_in = new_conv_in
+
+    unet_original_forward = unet.forward
+
+
+    def hooked_unet_forward(sample, timestep, encoder_hidden_states, **kwargs):
+        c_concat = kwargs['cross_attention_kwargs']['concat_conds'].to(sample)
+        c_concat = torch.cat([c_concat] * (sample.shape[0] // c_concat.shape[0]), dim=0)
+        new_sample = torch.cat([sample, c_concat], dim=1)
+        kwargs['cross_attention_kwargs'] = {}
+        return unet_original_forward(new_sample, timestep, encoder_hidden_states, **kwargs)
+
+
+    unet.forward = hooked_unet_forward
+
+
+    # Load
+
+    model_path = '/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/ComfyUI/models/unet/iclight_sd15_fc.safetensors'
+
+    if not os.path.exists(model_path):
+        download_url_to_file(url='https://huggingface.co/lllyasviel/ic-light/resolve/main/iclight_sd15_fc.safetensors', dst=model_path)
+
+    sd_offset = sf.load_file(model_path)
+    sd_origin = unet.state_dict()
+    keys = sd_origin.keys()
+    sd_merged = {k: sd_origin[k] + sd_offset[k] for k in sd_origin.keys()}
+    unet.load_state_dict(sd_merged, strict=True)
+    del sd_offset, sd_origin, sd_merged, keys
+
+
+![alt text](assets/IC-Light/image-41.png)
+
+
+
+
+vae =      p.sd_model.p.sd_model.first_stage_model    
+clip =     p.sd_model.cond_stage_model   
+warpper_unet = p.sd_model.model   
+
+
+关于DiffusionWrapper实现     
+modules/models/diffusion/ddpm_edit.py    
+
+    """
+    wild mixture of
+    https://github.com/lucidrains/denoising-diffusion-pytorch/blob/7706bdfc6f527f58d33f84b7b522e61e6e3164b3/denoising_diffusion_pytorch/denoising_diffusion_pytorch.py
+    好像是老代码
+    https://github.com/openai/improved-diffusion/blob/e94489283bb876ac1477d5dd7709bbbd2d9902ce/improved_diffusion/gaussian_diffusion.py
+    DALLE2经典结构trick，超分 
+    https://github.com/CompVis/taming-transformers
+    高效transformers
+    -- merci
+    """
+
+    # File modified by authors of InstructPix2Pix from original (https://github.com/CompVis/stable-diffusion).
+    # See more details in LICENSE.
+
+
+    import pytorch_lightning as pl
+
+    class DiffusionWrapper(pl.LightningModule):
+        def __init__(self, diff_model_config, conditioning_key):
+            super().__init__()
+            self.diffusion_model = instantiate_from_config(diff_model_config)
+            self.conditioning_key = conditioning_key
+            assert self.conditioning_key in [None, 'concat', 'crossattn', 'hybrid', 'adm']
+        前两个就是sd经典模式，最后是unclip模式    
+        下面已经写得很清楚了，主要是指定条件注入的一般性方法   
+
+        def forward(self, x, t, c_concat: list = None, c_crossattn: list = None):
+            if self.conditioning_key is None:
+                out = self.diffusion_model(x, t)
+            elif self.conditioning_key == 'concat':
+                xc = torch.cat([x] + c_concat, dim=1)
+                out = self.diffusion_model(xc, t)
+            elif self.conditioning_key == 'crossattn':
+                cc = torch.cat(c_crossattn, 1)
+                out = self.diffusion_model(x, t, context=cc)
+            elif self.conditioning_key == 'hybrid':
+                xc = torch.cat([x] + c_concat, dim=1)
+                cc = torch.cat(c_crossattn, 1)
+                out = self.diffusion_model(xc, t, context=cc)
+            elif self.conditioning_key == 'adm':
+                cc = c_crossattn[0]
+                out = self.diffusion_model(x, t, y=cc)
+            else:
+                raise NotImplementedError()
+
+            return out
 
 
 
@@ -1086,9 +1365,291 @@ https://github.com/xuebinqin/DIS
 
 
 
+## GLIDE
+
+
+GLIDE
+
+GLIDE[1] 是 OpenAI 在 2021 年底推出的文本引导图像生成的扩散模型。GLIDE 沿用了 ADM[2] 架构，但是更大，有 2.3 billion 参数。
+
+GLIDE 沿用了 ADM[2] 架构，但是更大，有 2.3 billion 参数。为了向其中注入文本条件，作者首先将输入文本通过 BPE tokenizer 编码成了 个 tokens，然后经由一个有 1.2 billion 参数的 Transformer 得到 个 token embeddings，它们被融入了 UNet 的每一个 Attention Block 之中（如下图所示）；另外，取最后一个 token embedding 经过维度映射后与 time embedding 相加，融入 UNet 的每一个 ResBlock 之中，相当于替换了 ADM 中的 class embedding. 
+
+简而言之，除了使用 AdaGN，GLIDE 还在每个注意力层融入了文本条件。另外，上述 3.5 billion 参数（2.3+1.2=3.5）的模型只生成 64x64 图像，作者还构建了另一个类似的、有 1.5 billion 参数的模型把图像上采样至 256x256.
+
+关于文本引导，作者尝试了两种方法——CLIP guidance 和 classifier-free guidance，实验发现后者效果更好。
+
+![alt text](assets/IC-Light/image-31.png)
+
+
+## unclip
+2022.3
+
+虽然有了 GLIDE，但 OpenAI 还不满足，四个月后又推出了另一个文本引导图像生成模型 unCLIP[3]，也称作 DALL·E 2.
+
+DALL·E 2 是一个 two-stage 模型：首先使用一个 prior 从 text embedding 生成对应的 image embedding；然后使用一个 decoder 根据 image embedding 生成图像，如下图虚线以下部分所示：
+
+![alt text](assets/IC-Light/v2-c7a5595ef3927b800bf602fcb7ada16b_720w.webp)
+
+
+下面我们分别就 prior 和 decoder 做进一步的说明。
+
+Decoder
+
+Decoder 是一个以 CLIP image embedding 为条件的扩散模型，其融入条件的方式是在 GLIDE 的基础上修改而来：
+
+这里是讲训练过程。非推理
+
+    将 image embedding 投影后与 time embedding 相加；
+    将 image embedding 投影为四个额外的 tokens，concatenate 到 GLIDE text encoder 的输出序列之后。作者保留了 GLIDE 的 text conditioning pathway，希望能为模型带来 CLIP 不具备的性质（如 variable binding），但实验发现这并没有发挥作用。
+
+另外，作者也采取了 classifier-free guidance，在训练时以 10% 的概率将 image embedding 置零（或置为一个可学习的 embedding），并以 50% 的概率丢弃 text caption.
+
+为了生成高分辨率图像，作者还用了两个上采样扩散模型，64x64 → 256x256 → 1024x1024. 同 SR3[4] 和 CDM[5] 一样，作者先将低分辨率图略微退化后再给到超分模型。具体而言，作者对第一个上采样阶段使用高斯模糊，对第二个上采样阶段使用更多样的 BSR 退化。值得注意的是，这两个超分模型只用了纯卷积而没用 attention layers，所以训练时可以只对 1/4 大小的 random crops 训练来减小计算量并保证数值稳定性，推断时改用完整大小。
+
+意义？？
+
+由于 decoder 可以看作是从 image embedding 得到图像，和 CLIP 从图像得到 image embedding 正好是相反的过程，所以作者将整个文生图模型命名为 unCLIP.
+
+
+不太敢确定这个的训练方式。把原图输入？？？      
+
+
+Prior
+
+用户输入文本（text caption）后，我们可以通过 pretrained CLIP 得到 text embedding，但是由于 decoder 的输入是 image embedding，所以我们需要训练一个 prior 模型从 text embedding 预测 image embedding.
+作者尝试了两种方案：
+
+    自回归模型：将 image embedding 转换为一列离散编码，然后用自回归的方式逐个预测；
+    扩散模型：以 text embedding 为条件，用扩散模型对 image embedding 建模。
+
+
+实验发现使用扩散模型效果更佳。关于如何融入条件的具体细节有亿些繁琐，感兴趣的读者直接看论文吧。
+
+一个自然的问题是，prior 是否是必要的？我们为什么不直接把 CLIP text embedding、甚至是 text caption 给到 decoder 做生成呢？其实这样做也没毛病，不过作者做了一个 ablation study，发现用 prior 来预测 image embedding 效果更好。
+
+
+好像有后人评价过会确实一些复杂逻辑语义     
+
+![alt text](assets/IC-Light/image-32.png)
+
+操作manipulations 
+
+![alt text](assets/IC-Light/image-33.png)
+
+最后，作者也发现 DALL·E 2 的一些问题，比如在物体-属性的对应关系上往往不如 GLIDE. 例如，输入文本为“一个红色方块在一个蓝色方块之上”，DALL·E 2 生成的结果不是把位置搞错，就是把颜色搞错，但 GLIDE 就靠谱很多。作者推测这与 CLIP embedding 本身没有显式地绑定物体与属性有关。
+
+
+## Stable unCLIP 2.1
+2023.3
+
+分辨率为768x768，基于SD2.1-768。
+
+这个模型允许图像变化，以及混合操作。
+
+由于其模块化，可以与其他模型，如KARLO，进行结合。这里面有两个变体：Stable unCLIP-L和Stable unCLIP-H，它们分别以CLIP ViT-L和ViT-H图像嵌入为条件。
 
 
 
+
+
+
+
+
+## StableStudio
+自从Stable Diffusion发布以来，DreamStudio就是StabilityAI最主要的应用，用来展示最新的模型和功能。     
+追溯起DreamStudio的起源，它最初是Disco Diffusion下的一个动画工作室。随着去年夏天Stable Diffusion的发布，Disco Diffusion的重点也从动画转到了图像生成。    
+
+
+
+
+
+
+
+
+
+
+
+
+## Imagen
+https://www.assemblyai.com/blog/how-imagen-actually-works/    
+
+2022.5
+
+看到 OpenAI 又是 GLIDE 又是 DALL·E 2 的，Google 这边终于坐不住了，推出了更强的文本生成图像大模型——Imagen    
+
+
+现在已经有image fx和 veo
+
+相比 DALL·E 2，Imagen 的整体思路更简单一些：先用一个大语言模型将输入文本编码为 text embedding，然后以此为条件并利用 classifier-free guidance 指导一个扩散模型生成 64x64 大小的图像，随后用两个上采样扩散模型（也加入了文本条件并使用了 classifier-free guidance）将图像上采样至 256x256 和 1024x1024，如下图所示：
+
+
+![alt text](assets/IC-Light/v2-12063fe936c47c103e479c7687e6e3be_720w.webp)
+
+
+Pretrained text encoders
+
+与 GLIDE 不同的是，Imagen 采用预训练好且固定不动的文本编码器而非从头训练。常见的 LLM，包括 BERT、CLIP、T5 都是可行的选择，作者发现 T5 效果最佳。有趣的是，作者发现扩大 text encoder 的规模比扩大 image diffusion model 的规模显著更有效。
+
+![alt text](assets/IC-Light/image-34.png)
+
+![alt text](assets/IC-Light/v2-d747c24036762d93021acf4e6e76c9ed_r.png)
+
+
+Cascaded diffusion models
+
+同 SR3、CDM、DALL·E 2 等一样，Imagen 作者也发现对超分模型而言，将低分辨率图像做一定的增强（高斯噪声）后作为超分模型的条件，能让模型更鲁棒。
+
+
+Network architecture
+
+对于第一个扩散模型，作者除了将 text embedding 与 time embedding 相加来融入条件，还采用了 cross attention.
+
+对于两个上采样扩散模型，作者提出了更简单、收敛更快、更 memory efficient 的 Efficient U-Net. 相比常用的 U-Net，Efficient U-Net 做了如下改变：
+
+
+![alt text](assets/IC-Light/image-35.png)
+
+与 DALL·E 2 类似，第二个超分模型是在 image crops 上训练的，因此没有使用 self-attention layers，但是保留了 text cross-attention layers. 更多细节可以在论文的 Appendix F 中找到。
+
+以上就是 Imagen 的基本内容，更多细节请参阅原论文。事实上，作者还在论文中还提出了 DrawBench 评测指标，这里按下不表。
+
+
+
+## eDiff-I
+在 OpenAI 和 Google 打得有来有回之际，NVIDIA 终于也参与了进来，推出了 eDiff-I. 
+
+通过分析文生图模型的去噪过程，作者发现：在去噪前期，模型非常依赖于文本条件来生成符合描述的图像；而在去噪后期，模型会几乎忽略文本，关注于生成高质量图像。
+
+tgate以及社区的技巧    
+
+因此，现有的方法在不同去噪阶段都使用同一个 UNet 模型也许并不好（尽管 time embedding 指示了去噪时间步）。于是，eDiff-I 对不同去噪阶段采用了多个专家去噪模型。
+
+英伟达这两年好像都在关注效率的事情，在加速上做工作，分析去噪加噪过程，没有特别高质量生成的模型     
+如ays，tensorrt     
+包括微软，都在研究一些基建架构加速，cnn层间高效通信什么的，结果是没有什么大突破
+
+MoE
+
+为了训练效率的考虑，作者先只训练一个模型，然后逐渐将其分解为各个阶段的专家模型。值得注意的是，尽管模型多了，但推理时间还是不变的。   
+包括现在的分阶段lora也是这种思想     
+那么训练是不是麻烦，加载模型多，转换又需要时间    
+
+另外，作者还研究了不同条件的作用，包括 T5 text embedding、CLIP text embedding 和 CLIP image embedding. 其中，CLIP image embedding 可以用来迁移参考图像的风格。最后，作者还展示了 “paint-with-words” 功能，即在画布上标注区域和文字，那么模型能在指定区域上依照对应文字作图。
+
+![alt text](assets/IC-Light/v2-13a9b00bb62a5ece71c3dd14f1526055_720w.png)
+
+现在老喜欢画这个噪声流，至今没看懂    
+意思是正常高斯噪声采样出各种高斯组合吗？？？    
+
+如图所示，eDiff-I 由一个基础模型和两个超分模型构成，这一点与 Imagen 完全一致。每个分辨率下的模型都由多个专家模型组成。
+
+多个text_encoder的方法也早期就流行起来了啊。应该都有论文分析的。     
+
+这种还是取决于公司水平，才能支撑员工去关注什么。
+
+![alt text](assets/IC-Light/image-36.png)
+
+由于文本并不好描述物体的位置，作者提出了 “paint-with-words” 技术，通过指定区域和对应文本来控制位置。这个方法并不需要训练，主要思路是修改 attention map，这其实与很多图像编辑工作（如 Prompt-to-Prompt）的做法相同，具体如下图所示：
+
+![alt text](assets/IC-Light/v2-24486958ef9522e65f0bed23cd375d5b_720w.webp)
+
+
+## DeepFloyd IF
+DeepFloyd IF 是 DeepFloyd Lab 和 StabilityAI 开源的文生图大模型，整体沿用 Imagen 的技术路线，可以看作是 Imagen 的开源版本。因此本身没有什么值得多说的。
+
+![alt text](assets/IC-Light/v2-a6c38191e913db87c47f85c1a8009e2c_720w.webp)
+
+DeepFloyd IF是一款像素级AI文生图扩散模型。该模型解决了准确绘制文字、准确理解空间关系等AI文生图难题，支持非商业、研究用途。
+
+可以看到确实与 Imagen 是差不多的，不过 DeepFloyd IF 在每个阶段都有不同大小的模型可以选择。
+
+编辑于 2023-11-09 20:54
+
+
+### 模型list
+
+图生图与图像恢复
+xyfJASON：扩散模型应用·图生图与图像恢复45 赞同 · 1 评论文章
+
+    SR3
+    SDEdit
+    ILVR
+    Palette
+    RePaint
+    DDRM
+    DDIB
+    DDNM
+
+文生图大模型
+xyfJASON：扩散模型应用·文生图大模型5 赞同 · 0 评论文章
+
+    GLIDE
+    DALL·E 2 (unCLIP)
+    Imagen
+    Stable Diffusion
+    eDiff-I
+    RAPHAEL
+    DeepFloyd IF
+    DALL·E 3
+
+基于文本的图像编辑
+xyfJASON：扩散模型应用·基于文本的图像编辑23 赞同 · 3 评论文章
+
+    DiffusionCLIP
+    Blended Diffusion
+    SDG (Semantic Diffusion Guidance)
+    Prompt-to-Prompt
+    DiffuseIT
+    Imagic
+    DiffEdit
+    Null-text Inversion
+    InstructPix2Pix
+    Pix2pix-zero
+
+寻找语义空间
+
+    Diffusion Autoencoders
+    Asyrp
+
+个性化生成
+xyfJASON：扩散模型应用·个性化生成8 赞同 · 0 评论文章
+
+    Textual Inversion
+    DreamBooth
+    DreamBooth + LoRA
+    Custom Diffusion
+    SuTI
+    HyperDreamBooth
+
+可控生成
+
+    ControlNet
+    T2I-Adapter
+    Mixture of Diffusers
+    MultiDiffusion
+    Composer
+
+
+
+
+## Daemon线程 JVM
+
+什么是Daemon线程
+
+Daemon线程也是守护线程，它是一种支持型的线程，主要用在程序的后台调度以及一些支持性（服务性）的工作，常见的例子：JVM中垃圾回收线程就是典型的守护线程
+
+二、守护线程和用户线程的区别
+
+守护线程与用户线程的区别发生在JVM的离开：
+
+    可以说JVM想要运行，用户线程也必须运行
+    守护线程是服务于用户线程的，如果用户线程不在了，那么守护线程的存在是没有意义的，此时该程序（进程）就没有运行的必要了，JVM也就退出了
+    守护线程的优先级是低于用户线程的
+
+
+JVM是Java Virtual Machine(Java虚拟机)的缩写，JVM是一种用于计算设备的规范，它是一个虚构出来的计算机，是通过在实际的计算机上仿真模拟各种计算机功能来实现的。
+
+Java语言的一个非常重要的特点就是与平台的无关性。而使用Java虚拟机是实现这一特点的关键。一般的高级语言如果要在不同的平台上运行，至少需要编译成不同的目标代码。而引入Java语言虚拟机后，Java语言在不同平台上运行时不需要重新编译。Java语言使用Java虚拟机屏蔽了与具体平台相关的信息，使得Java语言编译程序只需生成在Java虚拟机上运行的目标代码(字节码)，就可以在多种平台上不加修改地运行。Java虚拟机在执行字节码时，把字节码解释成具体平台上的机器指令执行。这就是Java的能够"一次编译，到处运行"的原因。
 
 
 

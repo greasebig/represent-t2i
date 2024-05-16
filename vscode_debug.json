@@ -18,7 +18,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "justMyCode": true
+            "justMyCode": false
         },
         {
             "name": "PVRCNN",
@@ -73,9 +73,13 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": false,
+            "subProcess": true,
+            "stopOnEntry": false,
         }
     ]
 }
+这个在使用debug按钮的时候有时读不到current文件夹的模块
+
 
 
 pip install debugpy
@@ -93,6 +97,8 @@ pip install debugpy
             // "program": "${file}",
             // "console": "integratedTerminal",
             "justMyCode": false,
+            "subProcess": true,
+            "stopOnEntry": false,
             "connect": {
                 "host": "localhost", 
                 "port": 50678 
