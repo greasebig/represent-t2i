@@ -44,6 +44,17 @@ dpm 2m 3m都会有这个问题
 sdxl私人摄影也是   
 ![alt text](assets/webui/image-4.png)   
 
+
+有些模型是这样的     
+爆uint8错误    
+记忆里面vae训练也是用fp32才不容易出问题    
+
+可以使用修复的vae      
+
+
+
+
+### 解决方法
 网上说可能是显卡半精度问题    
 需要在启动webui时候 no half, full   
 --precision full --no-half   
@@ -146,7 +157,7 @@ git config --global  --unset http.https://github.com.proxy
 
 
 
-# hires 精绘
+# hires 精绘 高修
 
 在comfyui的实现也是对latant做最近邻差值再采样一次    
 相当于refiner模型变异    

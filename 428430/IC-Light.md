@@ -451,13 +451,18 @@ https://github.com/gradio-app/gradio
 
 
 
-Forge 带来的另一个非常重要的变化是Unet Patcher。使用 Unet Patcher，Self-Attention Guidance、Kohya High Res Fix、FreeU、StyleAlign、Hypertile 等方法都可以在大约 100 行代码中实现。
+Forge 带来的另一个非常重要的变化是`Unet Patcher`。使用 Unet Patcher，Self-Attention Guidance、Kohya High Res Fix、FreeU、StyleAlign、Hypertile 等方法都可以在大约 100 行代码中实现。
 
 这个在comfyui也有
 
 感谢 Unet Patcher，许多新的东西现在都可以在 Forge 中实现并得到支持，包括 SVD、Z123、masked Ip-adapter、masked controlnet、photomaker 等。
 
 无需再对 UNet 进行 Monkeypatch 并与其他扩展发生冲突！
+
+我认为谷歌的定义是有用且最通用的：Monkey patching is a technique to add, modify, or suppress the default behavior of a piece of code at runtime without changing its original source code.
+
+MonkeyPatch 是一段 Python 代码，它在运行时（通常在启动时）扩展或修改其他代码。
+
 
 Forge还添加了一些采样器，包括但不限于DDPM、DDPM Karras、DPM++ 2M Turbo、DPM++ 2M SDE Turbo、LCM Karras、Euler A Turbo等（LCM从1.7.0开始就已经在原始webui中）。
 
@@ -894,9 +899,138 @@ cn作者的gradio
 
 
 
-vae =      p.sd_model.p.sd_model.first_stage_model    
+vae =      p.sd_model.first_stage_model    
 clip =     p.sd_model.cond_stage_model   
-warpper_unet = p.sd_model.model   
+DiffusionWrapper = p.sd_model.model   
+UNet_Model   = p.sd_model.model.diffusion_model   
+
+## forge对比
+
+
+    def load_checkpoint_guess_config(sd, output_vae=True, output_clip=True, output_clipvision=False, embedding_directory=None, output_model=True):
+
+        sd_keys = sd.keys()
+
+        model_config = model_detection.model_config_from_unet(sd, "model.diffusion_model.", unet_dtype)
+        model_config.set_manual_cast(manual_cast_dtype)
+
+        if model_config is None:
+            raise RuntimeError("ERROR: Could not detect model type")
+
+
+        if model_config.clip_vision_prefix is not None:
+            if output_clipvision:
+                clipvision = ldm_patched.modules.clip_vision.load_clipvision_from_sd(sd, model_config.clip_vision_prefix, True)
+
+        if output_model:
+            inital_load_device = model_management.unet_inital_load_device(parameters, unet_dtype)
+            offload_device = model_management.unet_offload_device()
+            model = model_config.get_model(sd, "model.diffusion_model.", device=inital_load_device)
+            model.load_model_weights(sd, "model.diffusion_model.")
+            名字一致的
+
+        if output_vae:
+            vae_sd = ldm_patched.modules.utils.state_dict_prefix_replace(sd, {"first_stage_model.": ""}, filter_keys=True)
+            名字一致的
+            vae_sd = model_config.process_vae_state_dict(vae_sd)
+            vae = VAE(sd=vae_sd)
+
+        if output_clip:
+            w = WeightsLoader()
+            clip_target = model_config.clip_target()
+            if clip_target is not None:
+                clip = CLIP(clip_target, embedding_directory=embedding_directory)
+                w.cond_stage_model = clip.cond_stage_model
+                sd = model_config.process_clip_state_dict(sd)
+                名字一致的
+                load_model_weights(w, sd)
+
+        left_over = sd.keys()
+        if len(left_over) > 0:
+            print("left over keys:", left_over)
+
+        if output_model:
+            model_patcher = UnetPatcher(model, load_device=load_device, offload_device=model_management.unet_offload_device(), current_device=inital_load_device)
+            if inital_load_device != torch.device("cpu"):
+                print("loaded straight to GPU")
+                model_management.load_model_gpu(model_patcher)
+
+        return ForgeSD(model_patcher, clip, vae, clipvision)
+
+clipvision这个东西也没有和clip分清   
+
+在a1111没找到sd.keys()    
+可能是内置方法    
+
+
+    class ModelPatcher:
+        def __init__(self, model, load_device, offload_device, size=0, current_device=None, weight_inplace_update=False):
+            self.size = size
+            self.model = model
+            self.patches = {}
+            self.backup = {}
+            self.object_patches = {}
+            self.object_patches_backup = {}
+            self.model_options = {"transformer_options":{}}
+            self.model_size()
+            self.load_device = load_device
+            self.offload_device = offload_device
+            if current_device is None:
+                self.current_device = self.offload_device
+            else:
+                self.current_device = current_device
+
+            self.weight_inplace_update = weight_inplace_update
+
+
+插件代码 
+
+    existing_wrapper = work_model.model_options.get(
+            "model_function_wrapper", unet_dummy_apply
+        )
+
+这段代码的作用是从字典 work_model.model_options 中获取键 "model_function_wrapper" 对应的值。如果该键在字典中不存在，则返回默认值 unet_dummy_apply。
+
+
+
+forge_objects
+
+    def load_model_for_a1111(timer, checkpoint_info=None, state_dict=None):
+
+    forge_objects = load_checkpoint_guess_config(
+            state_dict,
+            output_vae=True,
+            output_clip=True,
+            output_clipvision=True,
+            embedding_directory=cmd_opts.embeddings_dir,
+            output_model=True
+        )
+        sd_model.forge_objects = forge_objects
+        sd_model.forge_objects_original = forge_objects.shallow_copy()
+        sd_model.forge_objects_after_applying_lora = forge_objects.shallow_copy()
+        timer.record("forge load real models")
+
+
+
+ForgeSD结构     
+
+    class ForgeSD:
+        def __init__(self, unet, clip, vae, clipvision):
+            self.unet = unet
+            self.clip = clip
+            self.vae = vae
+            self.clipvision = clipvision
+
+        def shallow_copy(self):
+            return ForgeSD(
+                self.unet,
+                self.clip,
+                self.vae,
+                self.clipvision
+            )
+
+
+
 
 
 关于DiffusionWrapper实现     
@@ -1045,6 +1179,195 @@ modules/models/diffusion/ddpm_edit.py
 
 
 
+## 缺少一些patcher组件和函数
+不太好搞，模型的patcher不太一样啊，调用也不同     
+
+考虑退回到gradio类似的实现     
+但是还需要兼容非diffusers模型的限制     
+
+继续使用已有的patcher代码    
+但是需要找到一些属性的实现，以及webui的常用函数设置    
+
+从通用型来讲，后者比较好，迁移性很强，不需要diffusers这种中间件    
+
+内部有这个
+
+
+
+    def add_patches(self, patches, strength_patch=1.0, strength_model=1.0):
+        p = set()
+        for k in patches:
+            if k in self.model_keys:
+                p.add(k)
+                current_patches = self.patches.get(k, [])
+                current_patches.append((strength_patch, patches[k], strength_model))
+                self.patches[k] = current_patches
+
+        self.patches_uuid = uuid.uuid4()
+        return list(p)
+
+    work_model.add_patches(
+            patches={
+                ("diffusion_model." + key): (value.to(dtype=dtype, device=device),)
+                for key, value in ic_model_state_dict.items()
+            }
+        )
+
+估计在模型加载时候会自动把patch加上去      
+
+这部分自动化比较内置    
+
+另一个comfyui实现直接加载原始模型。     
+https://github.com/kijai/ComfyUI-IC-Light/blob/main/nodes.py    
+但是也用了patcher    
+model_clone.add_patches({key: (iclight_state_dict[key],)}, 1.0, 1.0)     
+对模型修改另外写了一个比较长的文件   
+
+
+## 原始gradio不使用patcher实现
+直接就是搭好框架后，   
+sd_merged = {k: sd_origin[k] + sd_offset[k] for k in sd_origin.keys()}    
+unet.load_state_dict(sd_merged, strict=True)
+
+    unet = UNet2DConditionModel.from_pretrained(sd15_name, subfolder="unet")
+    rmbg = BriaRMBG.from_pretrained("/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/IC-Light/RMBG-1.4")
+
+    # Change UNet
+
+    with torch.no_grad():
+        new_conv_in = torch.nn.Conv2d(8, unet.conv_in.out_channels, unet.conv_in.kernel_size, unet.conv_in.stride, unet.conv_in.padding)
+        new_conv_in.weight.zero_()
+        new_conv_in.weight[:, :4, :, :].copy_(unet.conv_in.weight)
+        new_conv_in.bias = unet.conv_in.bias
+        unet.conv_in = new_conv_in
+
+    unet_original_forward = unet.forward
+
+
+    def hooked_unet_forward(sample, timestep, encoder_hidden_states, **kwargs):
+        c_concat = kwargs['cross_attention_kwargs']['concat_conds'].to(sample)
+        c_concat = torch.cat([c_concat] * (sample.shape[0] // c_concat.shape[0]), dim=0)
+        new_sample = torch.cat([sample, c_concat], dim=1)
+        kwargs['cross_attention_kwargs'] = {}
+        return unet_original_forward(new_sample, timestep, encoder_hidden_states, **kwargs)
+
+
+    unet.forward = hooked_unet_forward
+
+    # Load
+
+    model_path = '/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/ComfyUI/models/unet/iclight_sd15_fc.safetensors'
+
+    if not os.path.exists(model_path):
+        download_url_to_file(url='https://huggingface.co/lllyasviel/ic-light/resolve/main/iclight_sd15_fc.safetensors', dst=model_path)
+
+    sd_offset = sf.load_file(model_path)
+    sd_origin = unet.state_dict()
+    keys = sd_origin.keys()
+    sd_merged = {k: sd_origin[k] + sd_offset[k] for k in sd_origin.keys()}
+    unet.load_state_dict(sd_merged, strict=True)
+    del sd_offset, sd_origin, sd_merged, keys
+
+
+不太一样啊
+
+![alt text](assets/IC-Light/image-42.png)
+
+![alt text](assets/IC-Light/image-43.png)
+
+sd_origin = unet.state_dict()还有这一步
+
+
+state_dict()应该是torch内置方法吧    
+直接读出module    
+
+state_dict()
+
+state_dict() 是 PyTorch
+
+中用于获取模型参数状态的方法。它返回一个包含整个模型状态的字典，其中包含了模型的参数和缓冲区，如运行平均值等。字典的键对应参数和缓冲区的名字，而值则是对应的张量（tensors）。这个字典对象可以作为模型参数的保存和加载的基础。12
+
+具体来说，state_dict() 函数将每一层的参数映射成tensor张量，这些参数通常包括权重
+
+和偏置系数。在包含batchnorm层的网络结构中，如VGG网络，state_dict() 还会包含batchnorm层的running_mean。
+
+此外，state_dict() 不仅限于模型的参数，它还可以包含优化器（如torch.optim模块中的Optimizer对象）的状态。优化器的state_dict() 包含state和param_groups的字典对象，其中param_groups键对应的值是一个包含学习率、动量等参数的字典对象。
+
+由于state_dict()返回的是Python字典对象，它可以很好地进行保存、更新、修改和恢复操作，这为PyTorch模型和优化器提供了模块化。这些操作可以通过Python字典的特性来实现，使得模型和优化器的状态管理更加灵活。
+
+
+感觉上就是在获取UNet2DConditionModel的_module
+
+![alt text](assets/IC-Light/image-44.png)
+
+![alt text](assets/IC-Light/image-45.png)   
+![alt text](assets/IC-Light/image-46.png)   
+
+命名不一样   
+
+搞错了，一个是转成ldm的iclight    
+对比错误     
+
+
+
+还有个hook设置   
+
+![alt text](assets/IC-Light/image-47.png)   
+没少timeembedding   
+排序不一样而已    
+区别在于输入的通道数    
+![alt text](assets/IC-Light/image-48.png)   
+
+diffusers_ic_model_state_dict = load_torch_file(unet_path, device=device)    
+内部是    
+sd = safetensors.torch.load_file(ckpt, device=device.type)
+
+
+
+p.sd_model.model._modules    
+这个是    
+![alt text](assets/IC-Light/image-49.png)
+
+
+
+p.sd_model.model.diffusion_model._modules     
+![alt text](<assets/IC-Light/截屏2024-05-17 17.55.25.png>)    
+
+![alt text](assets/IC-Light/image-50.png)
+
+和自己读出来的ldm_iclight还是一致的
+
+![alt text](assets/IC-Light/image-51.png)   
+![alt text](assets/IC-Light/image-52.png)   
+
+
+dict结构，而且用,分隔键和值   
+
+
+## forward需要wrap或适配a1111的封装
+
+    unet_original_forward = unet.forward
+
+
+    def hooked_unet_forward(sample, timestep, encoder_hidden_states, **kwargs):
+        c_concat = kwargs['cross_attention_kwargs']['concat_conds'].to(sample)
+        c_concat = torch.cat([c_concat] * (sample.shape[0] // c_concat.shape[0]), dim=0)
+        new_sample = torch.cat([sample, c_concat], dim=1)
+        kwargs['cross_attention_kwargs'] = {}
+        return unet_original_forward(new_sample, timestep, encoder_hidden_states, **kwargs)
+
+
+    unet.forward = hooked_unet_forward
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1052,14 +1375,118 @@ modules/models/diffusion/ddpm_edit.py
 
 
 ## a1111 webui架构
-![alt text](assets/IC-Light/229259967-15556a72-774c-44ba-bab5-687f854a0fc7.png)
-
+![alt text](assets/IC-Light/229259967-15556a72-774c-44ba-bab5-687f854a0fc7.png)   
 
 
 
 
 
 # 其他
+
+
+## Accelerated Diffusers with PyTorch 2.0
+### ACCELERATING TRANSFORMER BLOCKS
+
+SDP
+
+PyTorch 2.0 includes a `scaled dot-product attention `function as part of torch.nn.functional. This function encompasses several implementations that can be applied depending on the inputs and the hardware in use. 
+
+
+    unet.set_attn_processor(AttnProcessor2_0())
+    vae.set_attn_processor(AttnProcessor2_0())
+
+Before PyTorch 2.0, you had to search for third-party implementations and install separate packages in order to take advantage of memory optimized algorithms, such as FlashAttention. The available implementations are:
+
+    FlashAttention, from the official FlashAttention project.
+    Memory-Efficient Attention, from the xFormers project.
+    A native C++ implementation suitable for non-CUDA devices or when high-precision is required.
+
+
+sdp缺陷在于只对CUDA加速
+
+忽然看见了加速的作用和需求      
+
+The incorporation of Accelerated PyTorch 2.0 Transformer attention to the Diffusers library was achieved through the use of the set_attn_processor method, 
+
+which allows for pluggable attention modules to be configured. In this case, a new attention processor was created, which is enabled by default when PyTorch 2.0 is available. For clarity, this is how you could enable it manually (but it’s usually not necessary since diffusers will automatically take care of it):
+
+
+会自动启用     
+
+所以xformers在diffusers开启没作用     
+用了自动的torch2_0加速     
+
+我们将结果与传统注意力实现diffusers（如下所述vanilla）以及 2.0 之前的 PyTorch 中性能最佳的解决方案进行了比较：安装了 xFormers 软件包（v0.0.16）的 PyTorch 1.13.1。
+
+但是这种加速都太老了       
+
+我们发现，与普通注意力相比，性能有了非常显着的提升，甚至无需使用torch.compile(). PyTorch 2.0 和扩散器的开箱即用安装可在 A100 上实现约 50% 的加速，在 4090 GPU 上实现 35% 到 50% 的加速，具体取决于批量大小。对于 Ada (4090) 或 Ampere (A100) 等现代 CUDA 架构来说，性能改进更为明显，但对于仍在云服务中大量使用的旧架构来说，性能改进仍然非常重要。
+
+不仅torch2_0落后，diffusers也是     
+
+要利用这些速度和内存改进，您所需要做的就是升级到 PyTorch 2.0 并使用扩散器 >= 0.13.0。
+
+PyTorch 2.0 刚刚发布。其旗舰新功能是torch.compile()单行代码更改，有望自动提高跨代码库的性能。我们之前已经在 Hugging Face Transformers 和 TIMM 模型中检查过这一承诺，并深入研究了它的动机、架构和未来的道路。
+
+尽管很重要torch.compile()，PyTorch 2.0 还有更多功能。
+
+值得注意的是，PyTorch 2.0 结合了多种加速 Transformer 模块的策略，这些改进也与扩散模型非常相关。例如， FlashAttention等技术由于能够显着加速稳定扩散并实现更大的批量大小，因此在扩散社区中变得非常流行，并且它们现在已成为 PyTorch 2.0 的一部分。
+
+甚至于flax可能都比torch先进？？？
+
+
+
+## flax
+
+Flax：JAX 的神经网络库和生态系统，专为灵活性而设计
+
+Flax 最初由 Google Research Brain 团队的工程师和研究人员发起（与 JAX 团队密切合作），现在与开源社区联合开发。
+
+
+Flax 是 JAX 的高性能神经网络库和生态系统，旨在实现灵活性：通过分叉示例和修改训练循环来尝试新形式的训练，而不是向框架添加功能。
+
+Flax 是与 JAX 团队密切合作开发的，并配备了开始研究所需的一切，包括：
+
+神经网络 API ( flax.linen)：Dense、Conv、{Batch|Layer|Group} Norm、Attention、Pooling、{LSTM|GRU} Cell、Dropout
+
+实用程序和模式：复制训练、序列化和检查点、指标、设备上预取
+
+开箱即用的教育示例：MNIST、LSTM seq2seq、图神经网络、序列标签
+
+快速、经过调整的大规模端到端示例：CIFAR10、ImageNet 上的 ResNet、Transformer LM1b
+
+
+抱脸
+用于训练和评估用于自然语言处理、计算机视觉和语音识别的各种 Flax 模型的详细示例在🤗 Transformers 存储库中积极维护。
+
+截至 2021 年 10 月， Flax 支持19 个最常用的 Transformer 架构，并且 Flax 中超过 5000 个预训练检查点已上传到🤗 Hub。
+
+
+Flax是一个开源项目，由Google Research的专门团队维护，但不是Google的官方产品。
+
+Flax是Google开源的一个强大的、灵活且可扩展的神经网络框架，它基于JAX，专门为高性能计算和深度学习研究而设计。本文将深入探讨Flax的基本原理、技术特性，以及如何利用它来进行高效的机器学习开发。
+
+基于JAX
+
+Flax建立在JAX之上，一个用于自动微分、矢量化和并行化计算的库。JAX不仅提供了一种优雅的方式进行数值运算，还通过vmap，pmap和jit等函数实现了自动向量化和并行化，从而提高了计算效率。
+
+
+和NumPy兼容
+
+Flax的API设计与NumPy类似，因此对于熟悉NumPy的开发者来说，上手Flax非常容易。这种设计使得学习曲线平缓，降低了新用户的入门难度。
+
+
+JAX 是机器学习 (ML) 领域的新生力量，它有望使 ML 编程更加直观、结构化和简洁。
+
+JAX 的前身是 Autograd，其借助 Autograd 的更新版本，并且结合了 XLA，可对 Python 程序与 NumPy 运算执行自动微分，支持循环、分支、递归、闭包函数求导，也可以求三阶导数；依赖于 XLA，JAX 可以在 GPU 和 TPU 上编译和运行 NumPy 程序；通过 grad，可以支持自动模式反向传播和正向传播，且二者可以任意组合成任何顺序。
+
+开发 JAX 的出发点是什么？说到这，就不得不提 NumPy。NumPy 是 Python 中的一个基础数值运算库，被广泛使用。但是 numpy 不支持 GPU 或其他硬件加速器，也没有对反向传播的内置支持，此外，Python 本身的速度限制阻碍了 NumPy 使用，所以少有研究者在生产环境下直接用 numpy 训练或部署深度学习模型。   
+在此情况下，出现了众多的深度学习框架，如 PyTorch、TensorFlow 等。但是 numpy 具有灵活、调试方便、API 稳定等独特的优势。而 JAX 的主要出发点就是将 numpy 的以上优势与硬件加速结合。
+
+
+
+
+
 
 ## webui组件
 GfpGAN, 这个是腾讯推出的一款基于生成对抗网络模型的用于人脸修复的优秀组件

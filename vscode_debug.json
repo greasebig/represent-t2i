@@ -112,5 +112,16 @@ python3 -m debugpy --listen 50678  --wait-for-client train.py
 
 F5
 
+这个方法好像能让我的win7进行debug     
+不需要勾选服务器环境，再按debug     
+直接在终端配置环境     
+就是要多装一个debugpy     
+
+缺点就是有时候会忘记按下f5，一直傻等
 
 
+
+
+现在远程端口连接都好方便     
+新版vscode可以自己就映射端口    
+另外这个debug也可以设置端口    
