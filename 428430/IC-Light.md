@@ -2235,6 +2235,10 @@ BaseModel绑定方法
 好像不是在那里插入
 
 
+
+self, self.init_latent, x, conditioning, unconditional_conditioning, image_conditioning=self.image_conditioning
+
+
 都在module中但不确定是否更改
 
 @dataclass(repr=False)    
