@@ -1453,35 +1453,131 @@ class DreamBoothDataset(Dataset):
 作者已经不维护   
 
 
-## webui inpaint script
+# prompt
+--text "explosion black white" --negative "color object human"
+
+
+
+# webui inpaint script 局限
 https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/Features#inpainting-model-sd2     
 https://github.com/runwayml/stable-diffusion#inpainting-with-stable-diffusion
 
+功能里面没有image_condition的设置，全图输入，这个局限太大了   
+
 
 v1.5    
-### 1. 直接resize大小，往左右两边扩展       
+## 1. 直接resize大小，往左右两边扩展       
 但这不是需求  
 
-### 2. poor man's outpainting   
+## 2. poor man's outpainting   
 可以选择方向    
 ![alt text](assets/README/431712639349_.pic-1.jpg)    
 ![alt text](assets/README/631712642102_.pic.jpg)    
 ![alt text](assets/README/image.png)    
 ![alt text](assets/README/image-1.png)   
 
-### 3. outpainting mk2   
+## 3. outpainting mk2   
 ![alt text](assets/README/image-2.png)    
 ![alt text](assets/README/image-3.png)    
 ![alt text](assets/README/image-4.png)     
 ![alt text](assets/README/image-5.png)   
 参数比较难调   
 
-采用专门对inpaint优化的模型   
+### 采用专门对inpaint优化的模型   
 sd2.1基准    
 https://huggingface.co/webui/stable-diffusion-2-inpainting/tree/main    
 ![alt text](assets/outpaint/image.png)
 
-controlnet：   
+也有   
+https://huggingface.co/webui/stable-diffusion-inpainting/tree/main
+
+这两个都是2023.1.26的
+
+#### 复现
+
+原图   
+371 × 681像素     
+![alt text](assets/outpaint/下载.jpeg)    
+
+##### 结果一
+
+
+explosion black white   
+Negative prompt: color object human     
+Steps: 20, Sampler: DPM++ 2M Karras, CFG scale: 7, Seed: 3527031196, Size: 512x704, Model hash: b29e2ed9a8, Model: 512-inpainting-ema, Denoising strength: 0.75, Conditional mask weight: 1.0, Version: f0.0.17v1.8.0rc-latest-276-g29be1da7   
+Time taken: 3.5 sec.
+
+A: 3.31 GB, R: 3.68 GB, Sys: 8.3/23.6914 GB (34.9%)   
+
+
+512 × 681像素     
+![alt text](assets/outpaint/image-14.png)
+
+
+left   
+pixel expand 128 
+mask blur  8   
+fall off exponent 1     
+color variation 0.05     
+
+Recommended settings: Sampling Steps: 80-100, Sampler: Euler a, Denoising strength: 0.8      
+
+
+接续扩展      
+640 × 681像素     
+![alt text](assets/outpaint/image-15.png)
+
+
+
+##### 结果二
+一次性扩展最大256       
+640 × 681像素      
+![alt text](assets/outpaint/image-16.png)
+
+Time taken: 2.3 sec.
+
+A: 3.31 GB, R: 3.68 GB, Sys: 8.3/23.6914 GB (35.0%)
+
+再二次扩展可能需要根据黑边prompt作为输入，具体看需求
+
+###### 二次扩展
+896 × 681像素    
+![alt text](assets/outpaint/image-17.png)
+
+
+black white,  black background   
+![alt text](assets/outpaint/image-18.png)
+
+black white,  ((black background))     
+![alt text](assets/outpaint/image-19.png)   
+
+black white,  ((pure black background))    
+color object human, explosion    
+![alt text](assets/outpaint/image-20.png)    
+
+((pure black background))   
+color object human, explosion   
+![alt text](assets/outpaint/image-21.png)    
+
+((pure black background))   
+color object human, explosion, smoke    
+![alt text](assets/outpaint/image-22.png)    
+
+((pure black background))   
+color object human, (explosion, smoke), white    
+![alt text](assets/outpaint/image-23.png)    
+
+
+
+
+
+
+
+
+
+# controlnet优化模型：   
+局限，没有参照框限制重绘和参考区域
+
 https://huggingface.co/lllyasviel/control_v11p_sd15_inpaint   
 sd1.5基准   
 ![alt text](assets/outpaint/image-1.png)    
@@ -1489,7 +1585,20 @@ ControlNet插件inpaint局部重绘模型对于接缝处的处理 确实比图�
 https://zhuanlan.zhihu.com/p/633750880?utm_id=0    
 
 
-### webui插件支持outpaint
+![alt text](assets/outpaint/image-24.png)
+
+
+
+
+
+
+
+
+
+
+
+
+# webui插件支持outpaint
 
 
 比较难以安装    
@@ -1501,7 +1610,7 @@ https://zhuanlan.zhihu.com/p/633750880?utm_id=0
 
 
 装插件    
-1. masoic    
+## masoic    
 16步，比较模糊   
 原理扩展加masoic然后又有另一张mask图片，通过这些去做inpaint   
 我的理解是输入前处理latent，生图。获取的结果通过mask过滤   
@@ -1517,13 +1626,14 @@ https://zhuanlan.zhihu.com/p/633750880?utm_id=0
 
 
 
-2. 另一个是infinite zoom   
+## infinite zoom   
 介绍是生视频的，生出五张图，没有方向控制    
 https://youtube.com/shorts/Erju6TzEAEM?feature=share   
 
 
 
-3. 另一个是画板形式插件，类似stable-diffusion-infinity-xl   
+## 另一个是画板形式插件
+类似stable-diffusion-infinity-xl   
 但是还不了解如何作画，使用    
 
 

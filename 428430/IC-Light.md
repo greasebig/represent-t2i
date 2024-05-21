@@ -668,7 +668,7 @@ p虽然只有4层包装。但不是进去每一个函数都解开。
 ![alt text](assets/IC-Light/image-27.png)
 
 ![alt text](assets/IC-Light/image-28.png)    
-![alt text](assets/IC-Light/image-29.png)
+![alt text](assets/IC-Light/image-29.png)        
 他与a1111的区别真的太小。不仅repo文件夹只是新增，而且所用的堆栈和变量内部，也只是新增。     
 比如 forge_objects: 只是在原本基础上新增了 `forge_objects，unet_patcher, BaseModel`(这个来源于新增ldm模块的 module) 替换了diffusion_wrapper, 
 
@@ -732,7 +732,7 @@ a1111则在主线程进行时间监听。
 
 
 
-### a1111
+### a1111模型包装信息
 
 ![alt text](assets/IC-Light/WeChatc551c99e3a70f40a6a597427e9b4f761.jpg)
 
@@ -1361,10 +1361,869 @@ dict结构，而且用,分隔键和值
 
 
 
+![alt text](assets/IC-Light/image-53.png)
+
+diffusers和webui的unet很像但不完全命名相同      
+
+![alt text](assets/IC-Light/image-54.png)
+
+![alt text](assets/IC-Light/image-55.png)
+
+webui封装的功能稍微多一些   
+
+
+    def hooked_unet_forward(sample, timestep, encoder_hidden_states, **kwargs):
+    
+    这是一个函数定义，它接受四个参数：sample（输入样本），timestep（时间步），encoder_hidden_states（编码器隐藏状态），以及任意数量的关键字参数（**kwargs）。
+
+
+        c_concat = kwargs['cross_attention_kwargs']['concat_conds'].to(sample)
+        这一行代码从关键字参数中提取了一个叫做cross_attention_kwargs的字典，并从中取出了一个键为concat_conds的值，然后将其转换为与sample相同的设备（device）。这个值可能是一个张量（tensor）。
+        c_concat = torch.cat([c_concat] * (sample.shape[0] // c_concat.shape[0]), dim=0)
+        这一行代码将c_concat张量在维度0上复制，使其与sample具有相同的样本数量。它假定c_concat的样本数量是sample的样本数量的约数。
+        new_sample = torch.cat([sample, c_concat], dim=1)
+        这一行代码将sample和c_concat张量在维度1上拼接起来，创建一个新的张量new_sample。
+        kwargs['cross_attention_kwargs'] = {}
+        return unet_original_forward(new_sample, timestep, encoder_hidden_states, **kwargs)
+
+        sample张量的大小为(2, 3, 4)，它包含两个样本，每个样本有三个特征，每个特征由四个元素组成。
+        c_concat张量的大小为(2, 2, 4)，它包含两个样本，每个样本有两个附加特征，每个特征由四个元素组成。
+        使用torch.cat([sample, c_concat], dim=1)，我们将sample和c_concat在维度1上拼接在一起，得到一个新的张量new_sample，其大小为(2, 5, 4)。
+
+溯源
+
+    fg = resize_and_center_crop(input_fg, image_width, image_height)
+
+    concat_conds = numpy2pytorch([fg]).to(device=vae.device, dtype=vae.dtype)
+    concat_conds = vae.encode(concat_conds).latent_dist.mode() * vae.config.scaling_factor
+
+    conds, unconds = encode_prompt_pair(positive_prompt=prompt + ', ' + a_prompt, negative_prompt=n_prompt)
+
+
+    bg = resize_and_center_crop(input_bg, image_width, image_height)
+    bg_latent = numpy2pytorch([bg]).to(device=vae.device, dtype=vae.dtype)
+    bg_latent = vae.encode(bg_latent).latent_dist.mode() * vae.config.scaling_factor
+    latents = i2i_pipe(
+        image=bg_latent,
+        strength=lowres_denoise,
+        prompt_embeds=conds,
+        negative_prompt_embeds=unconds,
+        width=image_width,
+        height=image_height,
+        num_inference_steps=int(round(steps / lowres_denoise)),
+        num_images_per_prompt=num_samples,
+        generator=rng,
+        output_type='latent',
+        guidance_scale=cfg,
+        cross_attention_kwargs={'concat_conds': concat_conds},
+    ).images.to(vae.dtype) / vae.config.scaling_factor
+
+    pixels = vae.decode(latents).sample
+    pixels = pytorch2numpy(pixels)
+    pixels = [resize_without_crop(
+        image=p,
+        target_width=int(round(image_width * highres_scale / 64.0) * 64),
+        target_height=int(round(image_height * highres_scale / 64.0) * 64))
+    for p in pixels]
+
+
+cn需要改unet的forward吗？    
+不用吧    
+就是cn的输出连接到交叉注意力     
+
+
+可能需要设置一下那个啥？写一个cn
+
+## UNetModel
+### forge
+#### forward参数
+
+    class UNetModel(nn.Module):
+    """
+    The full UNet model with attention and timestep embedding.
+    :param in_channels: channels in the input Tensor.
+    :param model_channels: base channel count for the model.
+    :param out_channels: channels in the output Tensor.
+    :param num_res_blocks: number of residual blocks per downsample.
+    :param dropout: the dropout probability.
+    :param channel_mult: channel multiplier for each level of the UNet.
+    :param conv_resample: if True, use learned convolutions for upsampling and
+        downsampling.
+    :param dims: determines if the signal is 1D, 2D, or 3D.
+    :param num_classes: if specified (as an int), then this model will be
+        class-conditional with `num_classes` classes.
+    :param use_checkpoint: use gradient checkpointing to reduce memory usage.
+    :param num_heads: the number of attention heads in each attention layer.
+    :param num_heads_channels: if specified, ignore num_heads and instead use
+                               a fixed channel width per attention head.
+    :param num_heads_upsample: works with num_heads to set a different number
+                               of heads for upsampling. Deprecated.
+    :param use_scale_shift_norm: use a FiLM-like conditioning mechanism.
+    :param resblock_updown: use residual blocks for up/downsampling.
+    :param use_new_attention_order: use a different attention pattern for potentially
+                                    increased efficiency.
+    """
+
+
+        def forward(self, x, timesteps=None, context=None, y=None, control=None, transformer_options={}, **kwargs):
+        """
+        Apply the model to an input batch.
+        :param x: an [N x C x ...] Tensor of inputs.
+        :param timesteps: a 1-D batch of timesteps.
+        :param context: conditioning plugged in via crossattn
+        :param y: an [N] Tensor of labels, if class-conditional.
+        :return: an [N x C x ...] Tensor of outputs.
+        """
+        transformer_options["original_shape"] = list(x.shape)
+        transformer_options["transformer_index"] = 0
+        transformer_patches = transformer_options.get("patches", {})
+        block_modifiers = transformer_options.get("block_modifiers", [])
+
+        num_video_frames = kwargs.get("num_video_frames", self.default_num_video_frames)
+        image_only_indicator = kwargs.get("image_only_indicator", self.default_image_only_indicator)
+        time_context = kwargs.get("time_context", None)
+
+        assert (y is not None) == (
+            self.num_classes is not None
+        ), "must specify y if and only if the model is class-conditional"
+        hs = []
+        t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False).to(x.dtype)
+        emb = self.time_embed(t_emb)
+
+        if self.num_classes is not None:
+            assert y.shape[0] == x.shape[0]
+            emb = emb + self.label_emb(y)
+
+        h = x
+        for id, module in enumerate(self.input_blocks):
+            transformer_options["block"] = ("input", id)
+
+            for block_modifier in block_modifiers:
+                h = block_modifier(h, 'before', transformer_options)
+
+            h = forward_timestep_embed(module, h, emb, context, transformer_options, time_context=time_context, num_video_frames=num_video_frames, image_only_indicator=image_only_indicator)
+            h = apply_control(h, control, 'input')
+
+            for block_modifier in block_modifiers:
+                h = block_modifier(h, 'after', transformer_options)
+
+            if "input_block_patch" in transformer_patches:
+                patch = transformer_patches["input_block_patch"]
+                for p in patch:
+                    h = p(h, transformer_options)
+
+            hs.append(h)
+            if "input_block_patch_after_skip" in transformer_patches:
+                patch = transformer_patches["input_block_patch_after_skip"]
+                for p in patch:
+                    h = p(h, transformer_options)
+
+        transformer_options["block"] = ("middle", 0)
+
+        for block_modifier in block_modifiers:
+            h = block_modifier(h, 'before', transformer_options)
+
+        h = forward_timestep_embed(self.middle_block, h, emb, context, transformer_options, time_context=time_context, num_video_frames=num_video_frames, image_only_indicator=image_only_indicator)
+        h = apply_control(h, control, 'middle')
+
+        for block_modifier in block_modifiers:
+            h = block_modifier(h, 'after', transformer_options)
+
+        for id, module in enumerate(self.output_blocks):
+            transformer_options["block"] = ("output", id)
+            hsp = hs.pop()
+            hsp = apply_control(hsp, control, 'output')
+
+            if "output_block_patch" in transformer_patches:
+                patch = transformer_patches["output_block_patch"]
+                for p in patch:
+                    h, hsp = p(h, hsp, transformer_options)
+
+            h = th.cat([h, hsp], dim=1)
+            del hsp
+            if len(hs) > 0:
+                output_shape = hs[-1].shape
+            else:
+                output_shape = None
+
+            for block_modifier in block_modifiers:
+                h = block_modifier(h, 'before', transformer_options)
+
+            h = forward_timestep_embed(module, h, emb, context, transformer_options, output_shape, time_context=time_context, num_video_frames=num_video_frames, image_only_indicator=image_only_indicator)
+
+            for block_modifier in block_modifiers:
+                h = block_modifier(h, 'after', transformer_options)
+
+        transformer_options["block"] = ("last", 0)
+
+        for block_modifier in block_modifiers:
+            h = block_modifier(h, 'before', transformer_options)
+
+        if self.predict_codebook_ids:
+            h = self.id_predictor(h)
+        else:
+            h = self.out(h)
+
+        for block_modifier in block_modifiers:
+            h = block_modifier(h, 'after', transformer_options)
+
+        return h.type(x.dtype)
+
+![alt text](assets/IC-Light/WeChat1abf9f536430fa00e7af74a74004bc21.jpg)   
+![alt text](assets/IC-Light/WeChatb871059a36a84fc7cc33b564ebf20310.jpg)    
+但是少了一些函数功能    
+
+而且forge本身不建议使用half这种命令行参数   
+
+
+ldm基本照抄
+
+### webui
+
+![alt text](assets/IC-Light/image-56.png)         
+![alt text](assets/IC-Light/image-57.png)     
+
+
+webui直接使用py包的类
+
+    def is_using_v_parameterization_for_sd2(state_dict):
+        """
+        Detects whether unet in state_dict is using v-parameterization. Returns True if it is. You're welcome.
+        """
+
+        import ldm.modules.diffusionmodules.openaimodel
+
+        device = devices.cpu
+
+        with sd_disable_initialization.DisableInitialization():
+            unet = ldm.modules.diffusionmodules.openaimodel.UNetModel(
+                use_checkpoint=True,
+                use_fp16=False,
+                image_size=32,
+                in_channels=4,
+                out_channels=4,
+                model_channels=320,
+                attention_resolutions=[4, 2, 1],
+                num_res_blocks=2,
+                channel_mult=[1, 2, 4, 4],
+                num_head_channels=64,
+                use_spatial_transformer=True,
+                use_linear_in_transformer=True,
+                transformer_depth=1,
+                context_dim=1024,
+                legacy=False
+            )
+            unet.eval()
+
+
+ldm内部实现
+
+    class UNetModel(nn.Module):
+        """
+        The full UNet model with attention and timestep embedding.
+        :param in_channels: channels in the input Tensor.
+        :param model_channels: base channel count for the model.
+        :param out_channels: channels in the output Tensor.
+        :param num_res_blocks: number of residual blocks per downsample.
+        :param attention_resolutions: a collection of downsample rates at which
+            attention will take place. May be a set, list, or tuple.
+            For example, if this contains 4, then at 4x downsampling, attention
+            will be used.
+        :param dropout: the dropout probability.
+        :param channel_mult: channel multiplier for each level of the UNet.
+        :param conv_resample: if True, use learned convolutions for upsampling and
+            downsampling.
+        :param dims: determines if the signal is 1D, 2D, or 3D.
+        :param num_classes: if specified (as an int), then this model will be
+            class-conditional with `num_classes` classes.
+        :param use_checkpoint: use gradient checkpointing to reduce memory usage.
+        :param num_heads: the number of attention heads in each attention layer.
+        :param num_heads_channels: if specified, ignore num_heads and instead use
+                                a fixed channel width per attention head.
+        :param num_heads_upsample: works with num_heads to set a different number
+                                of heads for upsampling. Deprecated.
+        :param use_scale_shift_norm: use a FiLM-like conditioning mechanism.
+        :param resblock_updown: use residual blocks for up/downsampling.
+        :param use_new_attention_order: use a different attention pattern for potentially
+                                        increased efficiency.
+        """
+
+
+#### forward参数
+
+    def forward(self, x, timesteps=None, context=None, y=None,**kwargs):
+        """
+        Apply the model to an input batch.
+        :param x: an [N x C x ...] Tensor of inputs.
+        :param timesteps: a 1-D batch of timesteps.
+        :param context: conditioning plugged in via crossattn
+        :param y: an [N] Tensor of labels, if class-conditional.
+        :return: an [N x C x ...] Tensor of outputs.
+        """
+        assert (y is not None) == (
+            self.num_classes is not None
+        ), "must specify y if and only if the model is class-conditional"
+        hs = []
+        t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
+        emb = self.time_embed(t_emb)
+
+        if self.num_classes is not None:
+            assert y.shape[0] == x.shape[0]
+            emb = emb + self.label_emb(y)
+
+        h = x.type(self.dtype)
+        for module in self.input_blocks:
+            h = module(h, emb, context)
+            hs.append(h)
+        h = self.middle_block(h, emb, context)
+        for module in self.output_blocks:
+            h = th.cat([h, hs.pop()], dim=1)
+            h = module(h, emb, context)
+        h = h.type(x.dtype)
+        if self.predict_codebook_ids:
+            return self.id_predictor(h)
+        else:
+            return self.out(h)
+
+init是一样的  
+
+forward有很大不同啊
 
 
 
 
+## DiffusionWrapper
+
+forge   
+![alt text](assets/IC-Light/image-29.png)
+
+
+
+
+
+webui     
+![alt text](assets/IC-Light/WeChatc551c99e3a70f40a6a597427e9b4f761.jpg)
+
+### forward参数
+
+    class DiffusionWrapper(pl.LightningModule):
+    def __init__(self, diff_model_config, conditioning_key):
+        super().__init__()
+        self.diffusion_model = instantiate_from_config(diff_model_config)
+        self.conditioning_key = conditioning_key
+        assert self.conditioning_key in [None, 'concat', 'crossattn', 'hybrid', 'adm']
+
+    def forward(self, x, t, c_concat: list = None, c_crossattn: list = None):
+        if self.conditioning_key is None:
+            out = self.diffusion_model(x, t)
+        elif self.conditioning_key == 'concat':
+            xc = torch.cat([x] + c_concat, dim=1)
+            out = self.diffusion_model(xc, t)
+        elif self.conditioning_key == 'crossattn':
+            cc = torch.cat(c_crossattn, 1)
+            out = self.diffusion_model(x, t, context=cc)
+        elif self.conditioning_key == 'hybrid':
+            xc = torch.cat([x] + c_concat, dim=1)
+            cc = torch.cat(c_crossattn, 1)
+            out = self.diffusion_model(xc, t, context=cc)
+        elif self.conditioning_key == 'adm':
+            cc = c_crossattn[0]
+            out = self.diffusion_model(x, t, y=cc)
+        else:
+            raise NotImplementedError()
+
+        return out
+
+
+    class LatentDiffusion(DDPM):
+    """main class"""
+    def __init__(self,
+                 first_stage_config,
+                 cond_stage_config,
+                 num_timesteps_cond=None,
+                 cond_stage_key="image",
+                 cond_stage_trainable=False,
+                 concat_mode=True,
+                 cond_stage_forward=None,
+                 conditioning_key=None,
+                 scale_factor=1.0,
+                 scale_by_std=False,
+                 load_ema=True,
+                 *args, **kwargs):
+
+    def forward(self, x, c, *args, **kwargs):
+        t = torch.randint(0, self.num_timesteps, (x.shape[0],), device=self.device).long()
+        if self.model.conditioning_key is not None:
+            assert c is not None
+            if self.cond_stage_trainable:
+                c = self.get_learned_conditioning(c)
+            if self.shorten_cond_schedule:  # TODO: drop this option
+                tc = self.cond_ids[t].to(self.device)
+                c = self.q_sample(x_start=c, t=tc, noise=torch.randn_like(c.float()))
+        return self.p_losses(x, c, t, *args, **kwargs)
+
+
+## sgm
+
+a1111webui193/stable-diffusion-webui/repositories/generative-models/sgm/modules/diffusionmodules/wrappers.py
+
+    class OpenAIWrapper(IdentityWrapper):
+        def forward(
+            self, x: torch.Tensor, t: torch.Tensor, c: dict, **kwargs
+        ) -> torch.Tensor:
+            x = torch.cat((x, c.get("concat", torch.Tensor([]).type_as(x))), dim=1)
+            return self.diffusion_model(
+                x,
+                timesteps=t,
+                context=c.get("crossattn", None),
+                y=c.get("vector", None),
+                **kwargs,
+            )
+
+
+
+a1111webui193/stable-diffusion-webui/modules/sd_hijack_unet.py
+
+CondFunc('sgm.modules.diffusionmodules.wrappers.OpenAIWrapper.forward', apply_model, unet_needs_upcast)
+
+
+
+
+
+
+
+
+
+
+
+## sd_hijack
+    ldm_patched_forward = sd_unet.create_unet_forward(ldm.modules.diffusionmodules.openaimodel.UNetModel.forward)
+    ldm_original_forward = patches.patch(__file__, ldm.modules.diffusionmodules.openaimodel.UNetModel, "forward", ldm_patched_forward)
+
+sd_unet
+
+    class SdUnet(torch.nn.Module):
+        def forward(self, x, timesteps, context, *args, **kwargs):
+            raise NotImplementedError()
+
+        def activate(self):
+            pass
+
+        def deactivate(self):
+            pass
+
+
+    def create_unet_forward(original_forward):
+        def UNetModel_forward(self, x, timesteps=None, context=None, *args, **kwargs):
+            if current_unet is not None:
+                return current_unet.forward(x, timesteps, context, *args, **kwargs)
+
+            return original_forward(self, x, timesteps, context, *args, **kwargs)
+
+        return UNetModel_forward
+
+
+
+
+## webui 插件 cn forward 写法
+
+    class UnetHook(nn.Module):
+        def __init__(self, lowvram=False) -> None:
+            super().__init__()
+            self.lowvram = lowvram
+            self.model = None
+            self.sd_ldm = None
+            self.control_params = None
+            self.attention_auto_machine = AutoMachine.Read
+            self.attention_auto_machine_weight = 1.0
+            self.gn_auto_machine = AutoMachine.Read
+            self.gn_auto_machine_weight = 1.0
+            self.current_style_fidelity = 0.0
+            self.current_uc_indices = []
+            self.current_c_indices = []
+            self.is_in_high_res_fix = False
+
+        def hook(self, model, sd_ldm, control_params: List[ControlParams], process, batch_option_uint_separate=False, batch_option_style_align=False):
+            self.model = model
+            self.sd_ldm = sd_ldm
+            self.control_params = control_params
+
+            model_is_sdxl = getattr(self.sd_ldm, 'is_sdxl', False)
+
+            outer = self
+
+            def process_sample(*args, **kwargs):
+
+            def forward(self, x, timesteps=None, context=None, y=None, **kwargs):
+
+
+
+## 跳不进插件启动的函数里面
+init latent有作用，但是不能根据人物前景生图
+
+
+forge竟然连webui的module都改了
+
+![alt text](assets/IC-Light/WeChatc82d2ebcc15a7ec4f8d14d58493eb55c.jpg)    
+
+![alt text](assets/IC-Light/WeChat35b1fffc53486cefb6bd3420eaf41da6.jpg)
+
+
+真傻逼
+
+
+改得有点多       
+module的script也改了      
+![alt text](assets/IC-Light/image-58.png)
+
+![alt text](assets/IC-Light/image-59.png)
+
+
+
+## 目标修改位置
+![alt text](assets/IC-Light/image-60.png)        
+
+后续运行位置    
+![alt text](assets/IC-Light/image-61.png)
+
+
+    def setup_conds(self):
+        prompts = prompt_parser.SdConditioning(self.prompts, width=self.width, height=self.height)
+        negative_prompts = prompt_parser.SdConditioning(self.negative_prompts, width=self.width, height=self.height, is_negative_prompt=True)
+
+        sampler_config = sd_samplers.find_sampler_config(self.sampler_name)
+        total_steps = sampler_config.total_steps(self.steps) if sampler_config else self.steps
+        self.step_multiplier = total_steps // self.steps
+        self.firstpass_steps = total_steps
+
+        self.uc = self.get_conds_with_caching(prompt_parser.get_learned_conditioning, negative_prompts, total_steps, [self.cached_uc], self.extra_network_data)
+        self.c = self.get_conds_with_caching(prompt_parser.get_multicond_learned_conditioning, prompts, total_steps, [self.cached_c], self.extra_network_data)
+
+
+如果这是定义在一个数据类中，完整的示例可能如下所示：
+
+
+    from dataclasses import dataclass, field
+    from typing import Optional
+
+    @dataclass
+    class ExampleClass:
+        rng: Optional[rng.ImageRNG] = field(default=None, init=False)
+    
+在这个例子中：
+
+ExampleClass是一个数据类。   
+rng是一个属性，类型是Optional[rng.ImageRNG]，也就是rng.ImageRNG或者None。   
+默认值是None，并且不能通过构造函数初始化。    
+
+    @dataclass(repr=False)
+    class StableDiffusionProcessing:   
+        rng: Optional[rng.ImageRNG] = field(default=None, init=False)   
+
+
+## script执行原理 和 webui结构
+
+    def process_before_every_sampling(self, p, **kwargs):
+        for script in self.alwayson_scripts:
+            try:
+                script_args = p.script_args[script.args_from:script.args_to]
+                script.process_before_every_sampling(p, *script_args, **kwargs)
+            except Exception:
+                errors.report(f"Error running process_before_every_sampling: {script.filename}", exc_info=True)
+
+外部调用 
+
+    if self.scripts is not None:
+        self.scripts.process_before_every_sampling(self,
+                        x=self.init_latent,
+                        noise=x,
+                        c=conditioning,
+                        uc=unconditional_conditioning)
+
+再再外部调用是 
+
+    samples_ddim = p.sample(conditioning=p.c, unconditional_conditioning=p.uc, seeds=p.seeds, subseeds=p.subseeds, subseed_strength=p.subseed_strength, prompts=p.prompts)
+
+进入上面的外部调用。self就是p,传入
+
+
+## 源代码再阅读
+
+    unet_original_forward = unet.forward
+
+
+    def hooked_unet_forward(sample, timestep, encoder_hidden_states, **kwargs):
+        c_concat = kwargs['cross_attention_kwargs']['concat_conds'].to(sample)
+        c_concat = torch.cat([c_concat] * (sample.shape[0] // c_concat.shape[0]), dim=0)
+        new_sample = torch.cat([sample, c_concat], dim=1)
+        kwargs['cross_attention_kwargs'] = {}
+        return unet_original_forward(new_sample, timestep, encoder_hidden_states, **kwargs)
+
+
+    unet.forward = hooked_unet_forward
+
+relight
+
+    input_fg, matting = run_rmbg(input_fg)
+    results = process(input_fg, prompt, image_width, image_height, num_samples, seed, steps, a_prompt, n_prompt, cfg, highres_scale, highres_denoise, lowres_denoise, bg_source)
+
+### fg bg代码
+
+    elif bg_source == BGSource.LEFT:
+        gradient = np.linspace(255, 0, image_width)
+        image = np.tile(gradient, (image_height, 1))
+        input_bg = np.stack((image,) * 3, axis=-1).astype(np.uint8)
+
+    fg = resize_and_center_crop(input_fg, image_width, image_height)
+    concat_conds = numpy2pytorch([fg]).to(device=vae.device, dtype=vae.dtype)
+    concat_conds = vae.encode(concat_conds).latent_dist.mode() * vae.config.scaling_factor
+
+webui只需要一轮生成。可以自己接hires
+
+
+    if input_bg is None:
+        latents = t2i_pipe(
+            prompt_embeds=conds,
+            negative_prompt_embeds=unconds,
+            width=image_width,
+            height=image_height,
+            num_inference_steps=steps,
+            num_images_per_prompt=num_samples,
+            generator=rng,
+            output_type='latent',
+            guidance_scale=cfg,
+            cross_attention_kwargs={'concat_conds': concat_conds},
+        ).images.to(vae.dtype) / vae.config.scaling_factor
+    else:
+        bg = resize_and_center_crop(input_bg, image_width, image_height)
+        bg_latent = numpy2pytorch([bg]).to(device=vae.device, dtype=vae.dtype)
+        bg_latent = vae.encode(bg_latent).latent_dist.mode() * vae.config.scaling_factor
+        latents = i2i_pipe(
+            image=bg_latent, # 这个是init_latent
+            strength=lowres_denoise,
+            prompt_embeds=conds,
+            negative_prompt_embeds=unconds,
+            width=image_width,
+            height=image_height,
+            num_inference_steps=int(round(steps / lowres_denoise)),
+            num_images_per_prompt=num_samples,
+            generator=rng,
+            output_type='latent',
+            guidance_scale=cfg,
+            cross_attention_kwargs={'concat_conds': concat_conds},
+        ).images.to(vae.dtype) / vae.config.scaling_factor
+
+
+二阶段
+
+    pixels = vae.decode(latents).sample
+    pixels = pytorch2numpy(pixels)
+    pixels = [resize_without_crop(
+        image=p,
+        target_width=int(round(image_width * highres_scale / 64.0) * 64),
+        target_height=int(round(image_height * highres_scale / 64.0) * 64))
+    for p in pixels]
+    # 像素空间做插值扩充
+
+    pixels = numpy2pytorch(pixels).to(device=vae.device, dtype=vae.dtype)
+    latents = vae.encode(pixels).latent_dist.mode() * vae.config.scaling_factor
+    latents = latents.to(device=unet.device, dtype=unet.dtype)
+    #循环往复的经典过程
+
+
+    image_height, image_width = latents.shape[2] * 8, latents.shape[3] * 8
+
+    fg = resize_and_center_crop(input_fg, image_width, image_height)
+    # 前景也被重新处理。有点理解forge插件为什么功能少了
+    concat_conds = numpy2pytorch([fg]).to(device=vae.device, dtype=vae.dtype)
+    concat_conds = vae.encode(concat_conds).latent_dist.mode() * vae.config.scaling_factor
+
+    latents = i2i_pipe(
+        image=latents, # 这个是init_latent
+        strength=highres_denoise,
+        prompt_embeds=conds,
+        negative_prompt_embeds=unconds,
+        width=image_width,
+        height=image_height,
+        num_inference_steps=int(round(steps / highres_denoise)),
+        num_images_per_prompt=num_samples,
+        generator=rng,
+        output_type='latent',
+        guidance_scale=cfg,
+        cross_attention_kwargs={'concat_conds': concat_conds},
+    ).images.to(vae.dtype) / vae.config.scaling_factor
+
+    pixels = vae.decode(latents).sample
+
+    return pytorch2numpy(pixels)
+
+## forge怎么传入init_latent?
+
+### webui结构
+
+
+    if self.scripts is not None:
+        self.scripts.process_before_every_sampling(self,
+                x=self.init_latent,
+                noise=x,
+                c=conditioning,
+                uc=unconditional_conditioning)
+
+    if self.modified_noise is not None:
+        x = self.modified_noise
+        self.modified_noise = None
+
+    samples = self.sampler.sample_img2img(self, self.init_latent, x, conditioning, unconditional_conditioning, image_conditioning=self.image_conditioning)
+
+sample_img2img
+
+    def sample_img2img(self, p, x, noise, conditioning, unconditional_conditioning, steps=None, image_conditioning=None):
+        unet_patcher = self.model_wrap.inner_model.forge_objects.unet
+        sampling_prepare(self.model_wrap.inner_model.forge_objects.unet, x=x)
+
+        x = x.to(noise)
+        xi = x + noise * sigma_sched[0]
+        # x=self.init_latent,
+        # noise
+        # 好像需要concat在noise的位置？？
+
+        samples = self.launch_sampling(t_enc + 1, lambda: self.func(self.model_wrap_cfg, xi, extra_args=self.sampler_extra_args, disable=False, callback=self.callback_state, **extra_params_kwargs))
+
+### 调用方式
+    class ICLightForge(scripts.Script):
+        DEFAULT_ARGS = ICLightArgs(
+            input_fg=np.zeros(shape=[1, 1, 1], dtype=np.uint8),
+        )
+        a1111_context = A1111Context()
+
+        def ui(self, is_img2img: bool) -> Tuple[gr.components.Component, ...]:
+
+        if is_img2img:
+
+            def update_img2img_input(bg_source_fc: str, height: int, width: int):
+                bg_source_fc = BGSourceFC(bg_source_fc)
+                if bg_source_fc == BGSourceFC.CUSTOM:
+                    return gr.skip()
+
+                return gr.update(
+                    value=bg_source_fc.get_bg(image_width=width, image_height=height)
+                )
+
+            # FC need to change img2img input.
+            for component in (
+                bg_source_fc,
+                ICLightForge.a1111_context.img2img_h_slider,
+                ICLightForge.a1111_context.img2img_w_slider,
+            ):
+                component.change(
+                    fn=update_img2img_input,
+                    inputs=[
+                        bg_source_fc,
+                        ICLightForge.a1111_context.img2img_h_slider,
+                        ICLightForge.a1111_context.img2img_w_slider,
+                    ],
+                    outputs=ICLightForge.a1111_context.img2img_image,
+                )
+
+
+好像在这里就默认改变了init_latent     
+是im2im 的基础功能   
+
+结果看上去确实是这样的
+
+
+
+
+
+
+
+## 已有插件缺点
+每次运行好想要重新load iclight    
+比较费时间    
+耗时一秒    
+好像还行   
+已经放到cache了？   
+
+## patcher加权重
+ldm_patched.modules.utils.set_attr(self.model, key, out_weight)   
+比较不理解怎么加的    
+
+仍然没看见调用数据包装
+
+![alt text](assets/IC-Light/image-62.png)
+
+这里开始出现
+
+    for modifier in model_options.get('conditioning_modifiers', []):
+    这个竟然还不是
+        model, x, timestep, uncond, cond, cond_scale, model_options, seed = modifier(model, x, timestep, uncond, cond, cond_scale, model_options, seed)
+
+    denoised = sampling_function(model, x, timestep, uncond, cond, cond_scale, model_options, seed)
+    放到这里输入了
+
+
+前面还有一些无用的参数
+
+    if extra_concat_condition is not None:
+        image_cond_in = extra_concat_condition
+    else:
+        image_cond_in = denoiser_params.image_cond
+    置零，和一般cn用法的不太一样
+    cn需要image_cond_in配合
+
+    if isinstance(image_cond_in, torch.Tensor):
+        if image_cond_in.shape[0] == x.shape[0] \
+                and image_cond_in.shape[2] == x.shape[2] \
+                and image_cond_in.shape[3] == x.shape[3]:
+            for i in range(len(uncond)):
+                uncond[i]['model_conds']['c_concat'] = CONDRegular(image_cond_in)
+            for i in range(len(cond)):
+                cond[i]['model_conds']['c_concat'] = CONDRegular(image_cond_in)
+
+    if control is not None:
+        for h in cond + uncond:
+            h['control'] = control
+
+
+cond_pred, uncond_pred = calc_cond_uncond_batch(model, cond, uncond_, x, timestep, model_options)
+
+![alt text](assets/IC-Light/image-63.png)
+
+输入变量和名字确实不一样
+
+model.apply_model     
+BaseModel绑定方法    
+
+![alt text](assets/IC-Light/image-64.png)
+
+内部直接自己hybrid默认实现
+
+![alt text](assets/IC-Light/image-65.png)
+
+
+
+
+
+
+
+
+
+
+
+
+## forge comfyui的内部cfg实现 
+cfg_result = uncond_pred + (cond_pred - uncond_pred) * cond_scale
+
+其实都是一样的     
+当初应该被问的是这个     
+
+但是我答的是正负提示词怎么输入网络里面     
+
+
+
+
+
+## modifier
 
 
 
