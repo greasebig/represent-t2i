@@ -2202,12 +2202,232 @@ BaseModel绑定方法
 
 
 
+## basemodel ldm patched 
+    def apply_model(self, x, t, c_concat=None, c_crossattn=None, control=None, transformer_options={}, **kwargs):
+        sigma = t
+        xc = self.model_sampling.calculate_input(sigma, x)
+        if c_concat is not None:
+            xc = torch.cat([xc] + [c_concat], dim=1)
+
+        context = c_crossattn
+        # 文本信息
+        dtype = self.get_dtype()
+
+        if self.manual_cast_dtype is not None:
+            dtype = self.manual_cast_dtype
+
+        xc = xc.to(dtype)
+        t = self.model_sampling.timestep(t).float()
+        context = context.to(dtype)
+        extra_conds = {}
+        for o in kwargs:
+            extra = kwargs[o]
+            if hasattr(extra, "dtype"):
+                if extra.dtype != torch.int and extra.dtype != torch.long:
+                    extra = extra.to(dtype)
+            extra_conds[o] = extra
+
+        model_output = self.diffusion_model(xc, t, context=context, control=control, transformer_options=transformer_options, **extra_conds).float()
+        return self.model_sampling.calculate_denoised(sigma, model_output, x)
+
+## noise参数溯源
+
+好像不是在那里插入
+
+
+都在module中但不确定是否更改
+
+@dataclass(repr=False)    
+class StableDiffusionProcessingImg2Img(StableDiffusionProcessing):
+
+    def sample(self, conditioning, unconditional_conditioning, seeds, subseeds, subseed_strength, prompts):
+        x = self.rng.next()
+
+        if self.scripts is not None:
+                self.scripts.process_before_every_sampling(self,
+                                                        x=self.init_latent,
+                                                        noise=x,
+                                                        c=conditioning,
+                                                        uc=unconditional_conditioning)
+
+        if self.modified_noise is not None:
+            x = self.modified_noise
+            self.modified_noise = None
+
+        samples = self.sampler.sample_img2img(self, self.init_latent, x, conditioning, unconditional_conditioning, image_conditioning=self.image_conditioning)
+
+xi = x + noise * sigma_sched[0]
+
+稍微有点难以实现啊
+
+self.model_wrap_cfg, xi, extra_args=self.sampler_extra_args, disable=False, callback=self.callback_state, **extra_params_kwargs
+
+
+class KDiffusionSampler(sd_samplers_common.Sampler):
+
+
+    def sample_img2img(self, p, x, noise, conditioning, unconditional_conditioning, steps=None, image_conditioning=None):
+        unet_patcher = self.model_wrap.inner_model.forge_objects.unet
+        sampling_prepare(self.model_wrap.inner_model.forge_objects.unet, x=x)
+
+        self.model_wrap.log_sigmas = self.model_wrap.log_sigmas.to(x.device)
+        self.model_wrap.sigmas = self.model_wrap.sigmas.to(x.device)
+
+        steps, t_enc = sd_samplers_common.setup_img2img_steps(p, steps)
+
+        sigmas = self.get_sigmas(p, steps).to(x.device)
+        sigma_sched = sigmas[steps - t_enc - 1:]
+
+        x = x.to(noise)
+        xi = x + noise * sigma_sched[0]
+
+        混合
+
+        self.model_wrap_cfg.init_latent = x
+        self.last_latent = x
+        self.sampler_extra_args = {
+            'cond': conditioning,
+            'image_cond': image_conditioning,
+            'uncond': unconditional_conditioning,
+            'cond_scale': p.cfg_scale,
+            's_min_uncond': self.s_min_uncond
+        }
+
+
+        samples = self.launch_sampling(t_enc + 1, lambda: self.func(self.model_wrap_cfg, xi, extra_args=self.sampler_extra_args, disable=False, callback=self.callback_state, **extra_params_kwargs))
+
+
+x, sigmas[i] * s_in, **extra_args
+
+kdiffusion库
+
+    @torch.no_grad()
+    def sample_dpmpp_2m(model, x, sigmas, extra_args=None, callback=None, disable=None):
+
+        """DPM-Solver++(2M)."""
+        extra_args = {} if extra_args is None else extra_args
+        s_in = x.new_ones([x.shape[0]])
+        sigma_fn = lambda t: t.neg().exp()
+        t_fn = lambda sigma: sigma.log().neg()
+        old_denoised = None
+
+        for i in trange(len(sigmas) - 1, disable=disable):
+            denoised = model(x, sigmas[i] * s_in, **extra_args)
+            到这里
+
+            if callback is not None:
+                callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigmas[i], 'denoised': denoised})
+            t, t_next = t_fn(sigmas[i]), t_fn(sigmas[i + 1])
+            h = t_next - t
+            if old_denoised is None or sigmas[i + 1] == 0:
+                x = (sigma_fn(t_next) / sigma_fn(t)) * x - (-h).expm1() * denoised
+            else:
+                h_last = t - t_fn(sigmas[i - 1])
+                r = h_last / h
+                denoised_d = (1 + 1 / (2 * r)) * denoised - (1 / (2 * r)) * old_denoised
+                x = (sigma_fn(t_next) / sigma_fn(t)) * x - (-h).expm1() * denoised_d
+            old_denoised = denoised
+        return x
 
 
 
+x, image_cond, sigma, state.sampling_step, state.sampling_steps, cond, uncond, self
+
+module
+
+class CFGDenoiser(torch.nn.Module):
+
+    def forward(self, x, sigma, uncond, cond, cond_scale, s_min_uncond, image_cond):
+
+        denoiser_params = CFGDenoiserParams(x, image_cond, sigma, state.sampling_step, state.sampling_steps, cond, uncond, self)
+        cfg_denoiser_callback(denoiser_params)
+
+        denoised = forge_sampler.forge_sample(self, denoiser_params=denoiser_params,
+            cond_scale=cond_scale, cond_composition=cond_composition)
+        到这里
 
 
 
+        if self.mask is not None:
+            denoised = denoised * self.nmask + self.init_latent * self.mask
+
+        preview = self.sampler.last_latent = denoised
+        sd_samplers_common.store_latent(preview)
+
+        after_cfg_callback_params = AfterCFGCallbackParams(denoised, state.sampling_step, state.sampling_steps)
+        cfg_after_cfg_callback(after_cfg_callback_params)
+        denoised = after_cfg_callback_params.x
+
+        self.step += 1
+
+        if self.classic_ddim_eps_estimation:
+            eps = (x - denoised) / sigma[:, None, None, None]
+            return eps
+
+        return denoised.to(device=original_x_device, dtype=original_x_dtype)
+
+
+model, x, timestep, uncond, cond, cond_scale, model_options, seed
+
+module forge
+
+
+    def forge_sample(self, denoiser_params, cond_scale, cond_composition):
+
+        denoised = sampling_function(model, x, timestep, uncond, cond, cond_scale, model_options, seed)
+        return denoised
+
+model, cond, uncond_, x, timestep, model_options
+
+ldm patch
+
+#The main sampling function shared by all the samplers    
+#Returns denoised
+
+    def sampling_function(model, x, timestep, uncond, cond, cond_scale, model_options={}, seed=None):
+
+        cond_pred, uncond_pred = calc_cond_uncond_batch(model, cond, uncond_, x, timestep, model_options)
+
+
+"input": input_x, "timestep": timestep_, "c": c (包含两个键), "cond_or_uncond": cond_or_uncond}
+
+
+ldm patch
+
+    def calc_cond_uncond_batch(model, cond, uncond, x_in, timestep, model_options):
+
+        if 'model_function_wrapper' in model_options:
+            output = model_options['model_function_wrapper'](model.apply_model, {"input": input_x, "timestep": timestep_, "c": c, "cond_or_uncond": cond_or_uncond}).chunk(batch_chunks)
+        到这里
+
+        else:
+            output = model.apply_model(input_x, timestep_, **c).chunk(batch_chunks)
+        del input_x
+
+        for o in range(batch_chunks):
+            if cond_or_uncond[o] == COND:
+                out_cond[:,:,area[o][2]:area[o][0] + area[o][2],area[o][3]:area[o][1] + area[o][3]] += output[o] * mult[o]
+                out_count[:,:,area[o][2]:area[o][0] + area[o][2],area[o][3]:area[o][1] + area[o][3]] += mult[o]
+            else:
+                out_uncond[:,:,area[o][2]:area[o][0] + area[o][2],area[o][3]:area[o][1] + area[o][3]] += output[o] * mult[o]
+                out_uncond_count[:,:,area[o][2]:area[o][0] + area[o][2],area[o][3]:area[o][1] + area[o][3]] += mult[o]
+        del mult
+
+
+x, t, c_concat=None, c_crossattn=None, control=None, transformer_options={}, **kwargs
+
+
+class BaseModel(torch.nn.Module):
+
+    def apply_model(self, x, t, c_concat=None, c_crossattn=None, control=None, transformer_options={}, **kwargs):
+        sigma = t
+        xc = self.model_sampling.calculate_input(sigma, x)
+        if c_concat is not None:
+            xc = torch.cat([xc] + [c_concat], dim=1)
+
+        context = c_crossattn
+
+到这里才实现相加 concat
 
 
 
