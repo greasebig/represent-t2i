@@ -2248,11 +2248,11 @@ class StableDiffusionProcessingImg2Img(StableDiffusionProcessing):
         x = self.rng.next()
 
         if self.scripts is not None:
-                self.scripts.process_before_every_sampling(self,
-                                                        x=self.init_latent,
-                                                        noise=x,
-                                                        c=conditioning,
-                                                        uc=unconditional_conditioning)
+            self.scripts.process_before_every_sampling(self,
+                x=self.init_latent,
+                noise=x,
+                c=conditioning,
+                uc=unconditional_conditioning)
 
         if self.modified_noise is not None:
             x = self.modified_noise
@@ -2265,6 +2265,8 @@ xi = x + noise * sigma_sched[0]
 稍微有点难以实现啊
 
 self.model_wrap_cfg, xi, extra_args=self.sampler_extra_args, disable=False, callback=self.callback_state, **extra_params_kwargs
+
+### sigmas calculate first time
 
 
 class KDiffusionSampler(sd_samplers_common.Sampler):
@@ -2418,7 +2420,11 @@ ldm patch
         del mult
 
 
+## call for custom wrapper
+
 x, t, c_concat=None, c_crossattn=None, control=None, transformer_options={}, **kwargs
+
+### why calculate sigma twice??
 
 
 class BaseModel(torch.nn.Module):
@@ -2428,10 +2434,891 @@ class BaseModel(torch.nn.Module):
         xc = self.model_sampling.calculate_input(sigma, x)
         if c_concat is not None:
             xc = torch.cat([xc] + [c_concat], dim=1)
+        !!!!!
 
         context = c_crossattn
+        
+        model_output = self.diffusion_model(xc, t, context=context, control=control, transformer_options=transformer_options, **extra_conds).float()
+        return self.model_sampling.calculate_denoised(sigma, model_output, x)
+
 
 到这里才实现相加 concat
+
+
+t = tensor([4.4998, 4.4998], device='cuda:0')       
+
+in a for iterate, pick up 1 t
+
+
+    class EPS:
+        def calculate_input(self, sigma, noise):
+            sigma = sigma.view(sigma.shape[:1] + (1,) * (noise.ndim - 1))
+            return noise / (sigma ** 2 + self.sigma_data ** 2) ** 0.5
+
+        def calculate_denoised(self, sigma, model_output, model_input):
+            sigma = sigma.view(sigma.shape[:1] + (1,) * (model_output.ndim - 1))
+            return model_input - model_output * sigma
+
+i am not clear about why calculate it
+
+
+
+
+ldm patch
+
+class UNetModel(nn.Module):
+
+    def forward(self, x, timesteps=None, context=None, y=None, control=None, transformer_options={}, **kwargs):
+        """
+        Apply the model to an input batch.
+
+        transformer_options["original_shape"] = list(x.shape)
+        transformer_options["transformer_index"] = 0
+        transformer_patches = transformer_options.get("patches", {})
+        block_modifiers = transformer_options.get("block_modifiers", [])
+
+        num_video_frames = kwargs.get("num_video_frames", self.default_num_video_frames)
+        image_only_indicator = kwargs.get("image_only_indicator", self.default_image_only_indicator)
+        time_context = kwargs.get("time_context", None)
+
+        assert (y is not None) == (
+            self.num_classes is not None
+        ), "must specify y if and only if the model is class-conditional"
+        hs = []
+        t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False).to(x.dtype)
+        emb = self.time_embed(t_emb)
+
+        if self.num_classes is not None:
+            assert y.shape[0] == x.shape[0]
+            emb = emb + self.label_emb(y)
+
+        h = x
+        for id, module in enumerate(self.input_blocks):
+
+
+
+        transformer_options["block"] = ("middle", 0)
+
+        for block_modifier in block_modifiers:
+            h = block_modifier(h, 'before', transformer_options)
+
+        h = forward_timestep_embed(self.middle_block, h, emb, context, transformer_options, time_context=time_context, num_video_frames=num_video_frames, image_only_indicator=image_only_indicator)
+        h = apply_control(h, control, 'middle')
+
+        for block_modifier in block_modifiers:
+            h = block_modifier(h, 'after', transformer_options)
+
+        for id, module in enumerate(self.output_blocks):
+
+        for block_modifier in block_modifiers:
+            h = block_modifier(h, 'before', transformer_options)
+
+        if self.predict_codebook_ids:
+            h = self.id_predictor(h)
+        else:
+            h = self.out(h)
+
+        for block_modifier in block_modifiers:
+            h = block_modifier(h, 'after', transformer_options)
+
+        return h.type(x.dtype)
+    
+this process cost less than 0.5s
+
+
+baseModel 
+
+return self.model_sampling.calculate_denoised(sigma, model_output, x)
+
+class EPS:
+
+    def calculate_input(self, sigma, noise):
+        sigma = sigma.view(sigma.shape[:1] + (1,) * (noise.ndim - 1))
+        return noise / (sigma ** 2 + self.sigma_data ** 2) ** 0.5
+
+    def calculate_denoised(self, sigma, model_output, model_input):
+        sigma = sigma.view(sigma.shape[:1] + (1,) * (model_output.ndim - 1))
+        return model_input - model_output * sigma
+
+
+class V_PREDICTION(EPS):
+
+    def calculate_denoised(self, sigma, model_output, model_input):
+        sigma = sigma.view(sigma.shape[:1] + (1,) * (model_output.ndim - 1))
+        return model_input * self.sigma_data ** 2 / (sigma ** 2 + self.sigma_data ** 2) - model_output * sigma * self.sigma_data / (sigma ** 2 + self.sigma_data ** 2) ** 0.5
+
+
+
+
+## webui code debug
+so where to change code in iclight extensions?
+
+it is ridiculous
+
+start from root to leaf
+
+@dataclass(repr=False)   
+class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
+
+    def sample(self, conditioning, unconditional_conditioning, seeds, subseeds, subseed_strength, prompts):
+            
+        x = self.rng.next()
+        samples = self.sampler.sample(self, x, conditioning, unconditional_conditioning, image_conditioning=self.txt2img_image_conditioning(x))
+        del x
+
+
+class KDiffusionSampler(sd_samplers_common.Sampler):
+
+    samples = self.launch_sampling(steps, lambda: self.func(self.model_wrap_cfg, x, extra_args=self.sampler_extra_args, disable=False, callback=self.callback_state, **extra_params_kwargs))
+
+common
+
+class Sampler:
+
+    return func()
+
+k_diffusion
+
+forge is also iterate in this func
+
+def sample_dpmpp_2m(model, x, sigmas, extra_args=None, callback=None, disable=None):
+
+
+    """DPM-Solver++(2M)."""
+    extra_args = {} if extra_args is None else extra_args
+    s_in = x.new_ones([x.shape[0]])
+    sigma_fn = lambda t: t.neg().exp()
+    t_fn = lambda sigma: sigma.log().neg()
+    old_denoised = None
+
+    for i in trange(len(sigmas) - 1, disable=disable):
+        denoised = model(x, sigmas[i] * s_in, **extra_args)
+        if callback is not None:
+            callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigmas[i], 'denoised': denoised})
+        t, t_next = t_fn(sigmas[i]), t_fn(sigmas[i + 1])
+        h = t_next - t
+        if old_denoised is None or sigmas[i + 1] == 0:
+            x = (sigma_fn(t_next) / sigma_fn(t)) * x - (-h).expm1() * denoised
+        else:
+            h_last = t - t_fn(sigmas[i - 1])
+            r = h_last / h
+            denoised_d = (1 + 1 / (2 * r)) * denoised - (1 / (2 * r)) * old_denoised
+            x = (sigma_fn(t_next) / sigma_fn(t)) * x - (-h).expm1() * denoised_d
+        old_denoised = denoised
+    return x
+
+class CFGDenoiser(torch.nn.Module):
+
+    """
+    Classifier free guidance denoiser. A wrapper for stable diffusion model (specifically for unet)
+    that can take a noisy picture and produce a noise-free picture using two guidances (prompts)
+    instead of one. Originally, the second prompt is just an empty string, but we use non-empty
+    negative prompt.
+    """
+
+
+    def forward(self, x, sigma, uncond, cond, cond_scale, s_min_uncond, image_cond):
+
+        if not is_edit_model:
+            x_in = torch.cat([torch.stack([x[i] for _ in range(n)]) for i, n in enumerate(repeats)] + [x])
+            sigma_in = torch.cat([torch.stack([sigma[i] for _ in range(n)]) for i, n in enumerate(repeats)] + [sigma])
+            image_cond_in = torch.cat([torch.stack([image_cond[i] for _ in range(n)]) for i, n in enumerate(repeats)] + [image_uncond])
+        else:
+            x_in = torch.cat([torch.stack([x[i] for _ in range(n)]) for i, n in enumerate(repeats)] + [x] + [x])
+            sigma_in = torch.cat([torch.stack([sigma[i] for _ in range(n)]) for i, n in enumerate(repeats)] + [sigma] + [sigma])
+            image_cond_in = torch.cat([torch.stack([image_cond[i] for _ in range(n)]) for i, n in enumerate(repeats)] + [image_uncond] + [torch.zeros_like(self.init_latent)])
+
+        denoiser_params = CFGDenoiserParams(x_in, image_cond_in, sigma_in, state.sampling_step, state.sampling_steps, tensor, uncond, self)
+        cfg_denoiser_callback(denoiser_params)
+        x_in = denoiser_params.x
+        image_cond_in = denoiser_params.image_cond
+        sigma_in = denoiser_params.sigma
+        tensor = denoiser_params.text_cond
+        uncond = denoiser_params.text_uncond
+        skip_uncond = False
+
+
+        if shared.opts.batch_cond_uncond:
+            x_out = self.inner_model(x_in, sigma_in, cond=make_condition_dict(cond_in, image_cond_in))
+
+        !!!!!!!!!!
+
+
+class DiscreteEpsDDPMDenoiser(DiscreteSchedule):
+
+    """A wrapper for discrete schedule DDPM models that output eps (the predicted
+    noise)."""
+
+    def forward(self, input, sigma, **kwargs):
+        c_out, c_in = [utils.append_dims(x, input.ndim) for x in self.get_scalings(sigma)]
+        eps = self.get_eps(input * c_in, self.sigma_to_t(sigma), **kwargs)
+        return input + eps * c_out
+
+it is hard to understand 
+
+
+
+class CompVisDenoiser(DiscreteEpsDDPMDenoiser):
+
+    """A wrapper for CompVis diffusion models."""
+
+    def __init__(self, model, quantize=False, device='cpu'):
+        super().__init__(model, model.alphas_cumprod, quantize=quantize)
+
+    def get_eps(self, *args, **kwargs):
+        return self.inner_model.apply_model(*args, **kwargs)
+
+
+class LatentDiffusion(DDPM):
+
+    def apply_model(self, x_noisy, t, cond, return_ids=False):
+        if isinstance(cond, dict):
+            # hybrid case, cond is expected to be a dict
+            pass
+        else:
+            if not isinstance(cond, list):
+                cond = [cond]
+            key = 'c_concat' if self.model.conditioning_key == 'concat' else 'c_crossattn'
+            cond = {key: cond}
+
+        x_recon = self.model(x_noisy, t, **cond)
+
+        !!!!!!!!!!!
+
+        if isinstance(x_recon, tuple) and not return_ids:
+            return x_recon[0]
+        else:
+            return x_recon
+
+### seem to make change here
+
+
+class DiffusionWrapper(pl.LightningModule):
+
+    def forward(self, x, t, c_concat: list = None, c_crossattn: list = None, c_adm=None):
+        if self.conditioning_key is None:
+            out = self.diffusion_model(x, t)
+        elif self.conditioning_key == 'concat':
+            xc = torch.cat([x] + c_concat, dim=1)
+            out = self.diffusion_model(xc, t)
+        elif self.conditioning_key == 'crossattn':
+            if not self.sequential_cross_attn:
+                cc = torch.cat(c_crossattn, 1)
+            else:
+                cc = c_crossattn
+            if hasattr(self, "scripted_diffusion_model"):
+                # TorchScript changes names of the arguments
+                # with argument cc defined as context=cc scripted model will produce
+                # an error: RuntimeError: forward() is missing value for argument 'argument_3'.
+                out = self.scripted_diffusion_model(x, t, cc)
+            else:
+                out = self.diffusion_model(x, t, context=cc)
+        !!!!!!!!!!!!!
+
+        elif self.conditioning_key == 'hybrid':
+            xc = torch.cat([x] + c_concat, dim=1)
+            cc = torch.cat(c_crossattn, 1)
+            out = self.diffusion_model(xc, t, context=cc)
+        elif self.conditioning_key == 'hybrid-adm':
+            assert c_adm is not None
+            xc = torch.cat([x] + c_concat, dim=1)
+            cc = torch.cat(c_crossattn, 1)
+            out = self.diffusion_model(xc, t, context=cc, y=c_adm)
+        elif self.conditioning_key == 'crossattn-adm':
+            assert c_adm is not None
+            cc = torch.cat(c_crossattn, 1)
+            out = self.diffusion_model(x, t, context=cc, y=c_adm)
+        elif self.conditioning_key == 'adm':
+            cc = c_crossattn[0]
+            out = self.diffusion_model(x, t, y=cc)
+        else:
+            raise NotImplementedError()
+
+        return out
+
+def create_unet_forward(original_forward):
+
+    def UNetModel_forward(self, x, timesteps=None, context=None, *args, **kwargs):
+        if current_unet is not None:
+            return current_unet.forward(x, timesteps, context, *args, **kwargs)
+
+        return original_forward(self, x, timesteps, context, *args, **kwargs)
+
+    return UNetModel_forward
+
+class UNetModel(nn.Module):
+
+    def forward(self, x, timesteps=None, context=None, y=None,**kwargs):
+        """
+        Apply the model to an input batch.
+        :param x: an [N x C x ...] Tensor of inputs.
+        :param timesteps: a 1-D batch of timesteps.
+        :param context: conditioning plugged in via crossattn
+        :param y: an [N] Tensor of labels, if class-conditional.
+        :return: an [N x C x ...] Tensor of outputs.
+        """
+        assert (y is not None) == (
+            self.num_classes is not None
+        ), "must specify y if and only if the model is class-conditional"
+        hs = []
+        t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
+        emb = self.time_embed(t_emb)
+
+        if self.num_classes is not None:
+            assert y.shape[0] == x.shape[0]
+            emb = emb + self.label_emb(y)
+
+        h = x.type(self.dtype)
+        for module in self.input_blocks:
+            h = module(h, emb, context)
+            hs.append(h)
+        h = self.middle_block(h, emb, context)
+        for module in self.output_blocks:
+            h = th.cat([h, hs.pop()], dim=1)
+            h = module(h, emb, context)
+        h = h.type(x.dtype)
+        if self.predict_codebook_ids:
+            return self.id_predictor(h)
+        else:
+            return self.out(h)
+
+code are more clear than forge
+
+
+## 差异
+
+
+### forge 
+
+
+    if 'model_function_wrapper' in model_options:
+        output = model_options['model_function_wrapper'](model.apply_model, {"input": input_x, "timestep": timestep_, "c": c, "cond_or_uncond": cond_or_uncond}).chunk(batch_chunks)
+
+这个做得比较巧妙，直接在进入BaseModel之前有个回调插入c_concat
+
+
+![alt text](assets/IC-Light/image-66.png)
+
+
+现对x做了个scale操作，才去concat
+
+concat后不再动
+
+
+    def apply_model(self, x, t, c_concat=None, c_crossattn=None, control=None, transformer_options={}, **kwargs):
+        sigma = t
+        xc = self.model_sampling.calculate_input(sigma, x)
+
+        这还计算了个东西，再相加
+
+        if c_concat is not None:
+            xc = torch.cat([xc] + [c_concat], dim=1)
+
+
+
+sigmas tensor([3.4648, 3.4648], device='cuda:0')
+
+class EPS:
+
+    def calculate_input(self, sigma, noise):
+        sigma = sigma.view(sigma.shape[:1] + (1,) * (noise.ndim - 1))
+        具体来说，它将 sigma 重新塑造成一个与 noise 具有相同维度的形状。这里的 sigma.shape[:1] 取 sigma 的第一个维度，(1,) * (noise.ndim - 1) 创建一个包含 noise.ndim - 1 个 1 的元组。例如，如果 noise 是一个三维张量，而 sigma 是一个标量，那么 sigma.view 将 sigma 调整为 (sigma.shape[0], 1, 1) 的形状。
+
+        return noise / (sigma ** 2 + self.sigma_data ** 2) ** 0.5
+
+    这个方法属于一个类（因为有 self 参数）
+
+    将 sigma 调整为与 noise 相同的形状。
+    计算 sigma 和 self.sigma_data 的平方和的平方根。
+    用这个平方根来归一化 noise。
+    这段代码通常用于在机器学习或信号处理中的噪声归一化，确保不同尺度的噪声在同一个标准下进行处理。
+
+    def calculate_denoised(self, sigma, model_output, model_input):
+        sigma = sigma.view(sigma.shape[:1] + (1,) * (model_output.ndim - 1))
+        return model_input - model_output * sigma
+
+        
+
+    调整 sigma 的形状与 model_output 相匹配。
+    用 model_output 乘以 sigma，然后从 model_input 中减去这个结果，以实现信号的去噪操作。
+    这段代码通常用于信号处理中的去噪过程，以减少模型输出中的噪声成分，提高信号的质量。
+
+
+x torch.Size([2, 4, 64, 64])   
+c_concat torch.Size([2, 4, 64, 64])  
+xc torch.Size([2, 8, 64, 64])   
+
+
+
+t = self.model_sampling.timestep(t).float()
+
+class ModelSamplingDiscrete(torch.nn.Module):
+
+    def timestep(self, sigma):
+        log_sigma = sigma.log()
+        dists = log_sigma.to(self.log_sigmas.device) - self.log_sigmas[:, None]
+        return dists.abs().argmin(dim=0).view(sigma.shape).to(sigma.device)
+
+    这个方法的目的是找到sigma中的每个元素的对数与self.log_sigmas中的元素对数差值最小的那个索引，并返回这些索引。通过这样的操作，可能是为了在一些离散时间步长或者某个预定义的对数尺度上找到最接近的匹配。
+
+    .argmin(dim=0)在第0维（行）上找到最小值的索引，返回的结果是一个一维张量，形状为(sigma.numel(),)，即与sigma展平后的元素个数相同。
+    .view(sigma.shape)将这个一维张量重新变形为与输入sigma相同的形状。
+
+继续 
+
+    model_output = self.diffusion_model(xc, t, context=context, control=control, transformer_options=transformer_options, **extra_conds).float()
+    return self.model_sampling.calculate_denoised(sigma, model_output, x)
+
+
+然后就是进入unet， 对变量只是做emb操作
+
+
+
+### webui
+
+
+
+concat_conds torch.Size([1, 4, 64, 64])     
+params["input"] torch.Size([2, 4, 64, 64])    
+params['c']['c_crossattn'] torch.Size([2, 77, 768])     
+params['timestep']   tensor([5.7894, 5.7894], device='cuda:0')    
+
+    def apply_c_concat(params: UnetParams) -> UnetParams:
+        """Apply c_concat on unet call."""
+        sample = params["input"]
+        params["c"]["c_concat"] = torch.cat(
+            (
+                [concat_conds.to(sample.device)]
+                * (sample.shape[0] // concat_conds.shape[0])
+            ),
+            dim=0,
+        )
+        return params
+
+
+params['c']['c_concat'] torch.Size([2, 4, 64, 64])
+
+#### 隐患
+强行复制一份而已    
+但是这样会不会影响到后续batch生成操作？？？   
+
+
+
+
+![alt text](assets/IC-Light/image-73.png)
+
+感觉还是得在这里改   
+改key和image_conditioning
+
+但是这时候不知道x的维度？？？
+
+samples = self.sampler.sample_img2img(self, self.init_latent, x, conditioning, unconditional_conditioning, image_conditioning=self.image_conditioning)
+
+x torch.Size([1, 4, 64, 64])
+
+还没有经过cfg真的可以吗？？
+
+
+@dataclass(repr=False)    
+class StableDiffusionProcessingImg2Img(StableDiffusionProcessing):
+
+
+    def sample(self, conditioning, unconditional_conditioning, seeds, subseeds, subseed_strength, prompts):
+        x = self.rng.next()
+
+        if self.initial_noise_multiplier != 1.0:
+            self.extra_generation_params["Noise multiplier"] = self.initial_noise_multiplier
+            x *= self.initial_noise_multiplier
+
+        samples = self.sampler.sample_img2img(self, self.init_latent, x, conditioning, unconditional_conditioning, image_conditioning=self.image_conditioning)
+
+这个好像自带有了
+
+但是插件逻辑好像不一样     
+插件逻辑的self.image_conditioning是init_latent    
+需要另外选择image_conditioning
+
+
+
+
+
+
+考虑从这里开始修改打断    
+在这里有 image_conditioning 生成，又有global
+
+![alt text](assets/IC-Light/image-72.png)
+
+@dataclass(repr=False)    
+class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
+
+    def txt2img_image_conditioning(self, x, width=None, height=None):
+        self.is_using_inpainting_conditioning = self.sd_model.model.conditioning_key in {'hybrid', 'concat'}
+
+        return txt2img_image_conditioning(self.sd_model, x, width or self.width, height or self.height)
+
+    
+    def sample(self, conditioning, unconditional_conditioning, seeds, subseeds, subseed_strength, prompts):
+        else:
+            # here we generate an image normally
+
+            x = self.rng.next()
+            samples = self.sampler.sample(self, x, conditioning, unconditional_conditioning, image_conditioning=self.txt2img_image_conditioning(x))
+            del x
+
+跳转查看
+
+    def txt2img_image_conditioning(sd_model, x, width, height):
+        if sd_model.model.conditioning_key in {'hybrid', 'concat'}: # Inpainting models
+
+            # The "masked-image" in this case will just be all 0.5 since the entire image is masked.
+            image_conditioning = torch.ones(x.shape[0], 3, height, width, device=x.device) * 0.5
+            image_conditioning = images_tensor_to_samples(image_conditioning, approximation_indexes.get(opts.sd_vae_encode_method))
+
+            # Add the fake full 1s mask to the first dimension.
+            image_conditioning = torch.nn.functional.pad(image_conditioning, (0, 0, 0, 0, 1, 0), value=1.0)
+            image_conditioning = image_conditioning.to(x.dtype)
+
+            return image_conditioning
+
+        elif sd_model.model.conditioning_key == "crossattn-adm": # UnCLIP models
+
+            return x.new_zeros(x.shape[0], 2*sd_model.noise_augmentor.time_embed.dim, dtype=x.dtype, device=x.device)
+
+        else:
+            sd = sd_model.model.state_dict()
+            diffusion_model_input = sd.get('diffusion_model.input_blocks.0.0.weight', None)
+            if diffusion_model_input is not None:
+                if diffusion_model_input.shape[1] == 9:
+                    # The "masked-image" in this case will just be all 0.5 since the entire image is masked.
+                    image_conditioning = torch.ones(x.shape[0], 3, height, width, device=x.device) * 0.5
+                    image_conditioning = images_tensor_to_samples(image_conditioning,
+                                                                approximation_indexes.get(opts.sd_vae_encode_method))
+
+                    # Add the fake full 1s mask to the first dimension.
+                    image_conditioning = torch.nn.functional.pad(image_conditioning, (0, 0, 0, 0, 1, 0), value=1.0)
+                    image_conditioning = image_conditioning.to(x.dtype)
+
+                    return image_conditioning
+
+            # Dummy zero conditioning if we're not using inpainting or unclip models.
+            # Still takes up a bit of memory, but no encoder call.
+            # Pretty sure we can just make this a 1x1 image since its not going to be used besides its batch size.
+            return x.new_zeros(x.shape[0], 5, 1, 1, dtype=x.dtype, device=x.device)
+
+
+
+
+
+
+
+
+class KDiffusionSampler(sd_samplers_common.Sampler):    
+![alt text](assets/IC-Light/image-71.png)    
+修改self.sampler_extra_args   
+
+    self.sampler_extra_args = {
+            'cond': conditioning,
+            'image_cond': image_conditioning,
+            'uncond': unconditional_conditioning,
+            'cond_scale': p.cfg_scale,
+            's_min_uncond': self.s_min_uncond
+        }
+    samples = self.launch_sampling(steps, lambda: self.func(self.model_wrap_cfg, x, extra_args=self.sampler_extra_args, disable=False, callback=self.callback_state, **extra_params_kwargs))
+
+
+
+![alt text](assets/IC-Light/image-69.png)    
+这个没有global    
+
+
+def sample_dpmpp_2m(model, x, sigmas, extra_args=None, callback=None, disable=None):
+
+extra_args
+
+
+
+#### 难点出现
+![alt text](assets/IC-Light/image-68.png)   
+global参数很方便     
+难道我需要再global改    
+改shared 怎么改
+
+class CFGDenoiser(torch.nn.Module):
+
+    def forward(self, x, sigma, uncond, cond, cond_scale, s_min_uncond, image_cond):
+
+
+    if shared.sd_model.model.conditioning_key == "crossattn-adm":
+        image_uncond = torch.zeros_like(image_cond)
+        make_condition_dict = lambda c_crossattn, c_adm: {"c_crossattn": [c_crossattn], "c_adm": c_adm}
+
+    else:
+    执行
+        image_uncond = image_cond 目前是tensor
+        if isinstance(uncond, dict):
+            make_condition_dict = lambda c_crossattn, c_concat: {**c_crossattn, "c_concat": [c_concat]}
+            如果 uncond 是字典类型，则创建一个字典，继承其中一个参数，并将另一个参数作为新的键值对
+            如果 uncond 是字典类型，则创建一个 lambda 函数 make_condition_dict，它接受两个参数 c_crossattn 和 c_concat，并返回一个新的字典，其中 c_concat 的值是 [c_concat]，而其他键-值对从 c_crossattn 中继承。
+        else:
+        现在是执行这个
+            make_condition_dict = lambda c_crossattn, c_concat: {"c_crossattn": [c_crossattn], "c_concat": [c_concat]}
+            否则，创建一个新的字典，将两个参数分别作为键值对
+
+    if not is_edit_model:
+        x_in = torch.cat([torch.stack([x[i] for _ in range(n)]) for i, n in enumerate(repeats)] + [x])
+        sigma_in = torch.cat([torch.stack([sigma[i] for _ in range(n)]) for i, n in enumerate(repeats)] + [sigma])
+        image_cond_in = torch.cat([torch.stack([image_cond[i] for _ in range(n)]) for i, n in enumerate(repeats)] + [image_uncond])     
+        这行代码的目的似乎是根据每个条件图像的重复次数将条件图像堆叠起来，然后再将无条件图像添加到堆叠的结果中。       
+        torch.stack: 这也是 PyTorch 中的一个函数，用于沿着新的轴将张量序列堆叠起来。
+        例如，如果有两个张量 tensor1 和 tensor2，它们的形状都是 (3, 4)，那么通过 torch.stack([tensor1, tensor2]) 将创建一个新的张量，形状为 (2, 3, 4)，其中第一个维度是堆叠的维度。
+        repeats [1]
+
+
+    if shared.opts.batch_cond_uncond:
+        x_out = self.inner_model(x_in, sigma_in, cond=make_condition_dict(cond_in, image_cond_in))
+        使用生成的条件字典作为参数调用了一个内部模型 self.inner_model。
+        cond_in 是 c_crossattn
+        image_cond_in 是 c_concat
+
+
+
+
+
+这里也可以修改kwargs
+
+这个应该是对应forge对x scale以及对 t discrete
+
+class DiscreteEpsDDPMDenoiser(DiscreteSchedule):
+
+    """A wrapper for discrete schedule DDPM models that output eps (the predicted
+    noise)."""
+
+    def get_eps(self, *args, **kwargs):
+        return self.inner_model(*args, **kwargs)
+
+
+    def forward(self, input, sigma, **kwargs):
+        c_out, c_in = [utils.append_dims(x, input.ndim) for x in self.get_scalings(sigma)]
+        eps = self.get_eps(input * c_in, self.sigma_to_t(sigma), **kwargs)
+        return input + eps * c_out
+
+
+eps = self.get_eps(input * c_in, self.sigma_to_t(sigma), **kwargs)
+
+def apply_model(self, x_noisy, t, cond, return_ids=False):
+
+
+
+#### 这个位置提供了修改空间
+
+这里就不再对x做任何操作
+
+cond已经是dict    
+然后改变c_concat    
+然后改变 conditioning_key    
+
+class LatentDiffusion(DDPM):
+
+    """main class"""
+
+    def apply_model(self, x_noisy, t, cond, return_ids=False):
+        if isinstance(cond, dict):
+            # hybrid case, cond is expected to be a dict
+            pass
+        else:
+            if not isinstance(cond, list):
+                cond = [cond]
+            key = 'c_concat' if self.model.conditioning_key == 'concat' else 'c_crossattn'
+            cond = {key: cond}
+
+        x_recon = self.model(x_noisy, t, **cond)
+
+
+
+
+
+class DiffusionWrapper(pl.LightningModule):
+
+    elif self.conditioning_key == 'hybrid':
+        xc = torch.cat([x] + c_concat, dim=1)
+        cc = torch.cat(c_crossattn, 1)
+        out = self.diffusion_model(xc, t, context=cc)
+        进入unet
+
+进去后只做emb操作
+
+
+## 终版算法逻辑
+
+    def process_images_inner(p: StableDiffusionProcessing) -> Processed:
+
+        p.scripts.process_batch(p, batch_number=n, prompts=p.prompts, seeds=p.seeds, subseeds=p.subseeds)
+
+更改sample方式。下面调用
+
+    samples_ddim = p.sample(conditioning=p.c, unconditional_conditioning=p.uc, seeds=p.seeds, subseeds=p.subseeds, subseed_strength=p.subseed_strength, prompts=p.prompts)
+
+成功进入
+
+
+### AttributeError: 'NoneType' object has no attribute 'next'
+x = self.rng.next()    
+    AttributeError: 'NoneType' object has no attribute 'next'
+
+
+    def __post_init__(self):
+        super().__post_init__()
+
+在 Python 中，__post_init__ 是 dataclasses 模块中 dataclass 的一种特殊方法。当你使用 dataclass 装饰一个类时，这个类会自动生成一些初始化代码。__post_init__ 方法可以让你在自动生成的 __init__ 方法之后，添加一些自定义的初始化逻辑。
+
+具体来说，当你定义一个数据类并且希望在初始化之后进行一些额外的操作时，可以定义 __post_init__ 方法。这个方法会在数据类的实例被初始化（即 __init__ 方法完成）之后自动调用。
+
+以下是一个简单的例子，说明 __post_init__ 方法的用法：
+
+    from dataclasses import dataclass
+
+    @dataclass
+    class MyClass:
+        x: int
+        y: int
+
+        def __post_init__(self):
+            self.z = self.x + self.y
+
+在这个例子中，当你创建 MyClass 的实例时，__init__ 方法会首先被调用，初始化 x 和 y。然后，__post_init__ 方法会被调用，计算 z 的值。
+
+对于你提供的代码片段：
+
+    def __post_init__(self):
+        super().__post_init__()
+这个 __post_init__ 方法调用了父类的 __post_init__ 方法。这样做的目的是确保如果父类也定义了 __post_init__ 方法，那么父类的初始化逻辑也会被执行。使用 super() 来调用父类的方法是 Python 实现继承和多态的方式。
+
+通常，这种写法用于子类继承自父类且父类是一个 dataclass，并且你希望在子类中扩展或修改父类的初始化逻辑。
+
+
+rng总是none
+
+函数上一层还是正常的
+
+在Python中，@dataclass是一个装饰器，用于简化数据类的定义。它自动生成特殊方法，例如__init__, __repr__, __eq__等，使得定义数据类更为方便和简洁。
+
+@dataclass(repr=False)中的repr=False参数具体作用是禁止自动生成__repr__方法。__repr__方法用于返回对象的字符串表示，通常是为了调试和开发时使用的。
+
+具体来说，使用@dataclass(repr=False)时：
+
+不生成__repr__方法：这意味着数据类不会自动生成一个返回对象字符串表示的__repr__方法。
+定制化字符串表示：如果需要自定义对象的字符串表示，你可以手动定义__repr__方法。
+
+    from dataclasses import dataclass
+
+    @dataclass(repr=False)
+    class Person:
+        name: str
+        age: int
+        
+        def __repr__(self):
+            return f"Person(name={self.name}, age={self.age})"
+
+    # 创建一个Person对象
+    p = Person(name="Alice", age=30)
+
+    # 打印对象
+    print(p)  # 输出: Person(name=Alice, age=30)
+
+在这个例子中，即使repr=False，我们还是手动定义了__repr__方法，因此打印对象时仍然能得到我们自定义的字符串表示。如果不手动定义__repr__方法，并且使用了repr=False，那么打印对象将会得到默认的对象内存地址表示，而不是详细的字段信息。
+
+总结来说，@dataclass(repr=False)是为了让你能够控制是否自动生成__repr__方法，并在需要时提供自定义的字符串表示。
+
+在 Python 中，方法的行为通常取决于调用该方法的对象。当你将一个方法赋值给另一个对象时，它失去了原始对象的上下文信息，特别是对于 self 参数。这意味着在新的上下文中调用该方法时，self 参数不再引用原始对象，而是引用了新的对象，因此可能导致 self 中的属性值发生变化。
+
+如果你想保留原始对象的上下文信息，可以考虑使用 functools.partial 或者使用一个 lambda 函数。下面是一个使用 functools.partial 的示例：
+
+from functools import partial
+
+new_instance.sample = partial(original_instance.sample)
+
+
+不行！！！！！！！！！！
+
+
+functools.partial 是 Python functools 模块中的一个函数，用于创建部分函数应用。它允许你固定某些参数并返回一个新的可调用对象。当你调用这个新的可调用对象时，它会使用你已经固定的参数加上你传递的新参数。
+
+在你的具体情况下，functools.partial 并不是最合适的解决方案，因为它主要用于固定函数的一部分参数，而不是保留方法的上下文信息。为了正确保留方法的上下文信息（即 self ），你可以使用 types.MethodType。
+
+    from types import MethodType
+
+    # 将原始对象的 sample 方法绑定到新对象的 sample 方法上
+    new_instance.sample = MethodType(original_instance.sample, new_instance)
+
+在这个示例中，我们使用 MethodType 将 original_instance.sample 方法绑定到 new_instance，并将 new_instance 作为 self 传递给该方法。这样可以确保 self 的引用是正确的。
+
+但是，如果你希望在调用 p.sample 时仍然保留原始对象 p 的上下文，最简单的方法是直接定义一个新方法来调用 instance.sample，而不是直接覆盖 p.sample。例如
+
+
+    p = OriginalProcessing()
+    instance = ICLightStableDiffusionProcessingImg2Img()
+
+    # 定义一个新方法来调用 instance.sample
+    def new_sample_method():
+        instance.sample()
+
+    # 替换 p.sample 为新的方法
+    p.sample = new_sample_method
+
+    # 调用 p.sample
+    p.sample()
+
+TypeError: ICLightForge.process_batch.<locals>.new_sample_method() got an unexpected keyword argument 'conditioning'
+
+
+
+    samples_ddim = p.sample(conditioning=p.c, unconditional_conditioning=p.uc, seeds=p.seeds, subseeds=p.subseeds, subseed_strength=p.subseed_strength, prompts=p.prompts)
+        TypeError: ICLightStableDiffusionProcessingImg2Img.sample() got multiple values for argument 'conditioning'
+
+
+
+
+
+这部分终于跑通
+
+#### 解决
+原地替换，不使用新class的新方法（导致调用时说无法多参数传入）      
+TypeError: ICLightForge.process_batch.<locals>.new_sample_method() got an unexpected keyword argument 'conditioning'
+
+def sample(self, conditioning, unconditional_conditioning, seeds, subseeds, subseed_strength, prompts):
+
+p.sample = MethodType(sample, p)
+
+
+所有信息正确传入   
+
+
+
+### 新问题 RuntimeError: Sizes of tensors must match except in dimension 1.
+
+    ldm/models/diffusion/ddpm.py", line 1337, in forward
+    xc = torch.cat([x] + c_concat, dim=1)   
+        RuntimeError: Sizes of tensors must match except in dimension 1. Expected size 64 but got size 1 for tensor number 1 in the list.
+
+
+报错根源     
+huggingface_hub.utils._errors.LocalEntryNotFoundError: An error happened while trying to locate the file on the Hub and we cannot find the requested files in the local cache. Please check your connection and try again or make sure your Internet connection is on.     
+联网下载模型
+
+    extensions/sd-forge-ic-light/scripts/forge_ic_light.py", line 481, in process_before_every_sampling
+    work_model = p.sd_model.model.clone()
+
+    /torch/nn/modules/module.py", line 1695, in __getattr__
+            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+        AttributeError: 'DiffusionWrapper' object has no attribute 'clone'
+
+
+
+## 隐患
+提取前景模型使用huggingface
+
+huggingface_hub.utils._errors.LocalEntryNotFoundError: An error happened while trying to locate the file on the Hub and we cannot find the requested files in the local cache. Please check your connection and try again or make sure your Internet connection is on.
+
 
 
 
@@ -2443,19 +3330,58 @@ cfg_result = uncond_pred + (cond_pred - uncond_pred) * cond_scale
 
 但是我答的是正负提示词怎么输入网络里面     
 
+cfg larger, the pos and neg tend to be equal
 
+cfg less, but larger than 1, the pos tend to be dominate
 
-
-
-## modifier
-
-
+cfg (0, 1). less, the neg tend to dominate  
 
 
 
 
 
+## script runner
+    def process_batch(self, p, **kwargs):
+        for script in self.ordered_scripts('process_batch'):
+            try:
+                script_args = p.script_args[script.args_from:script.args_to]
+                script.process_batch(p, *script_args, **kwargs)
+            except Exception:
+                errors.report(f"Error running process_batch: {script.filename}", exc_info=True)
+    
+    def process_before_every_sampling(self, p, **kwargs):
+        for script in self.alwayson_scripts:
+            try:
+                script_args = p.script_args[script.args_from:script.args_to]
+                script.process_before_every_sampling(p, *script_args, **kwargs)
+                调用返回到这里
+            except Exception:
+                errors.report(f"Error running process_before_every_sampling: {script.filename}", exc_info=True)
 
+
+
+iclight
+
+    return image_conditioning
+    # 好像return不对,中间还有一个runner
+    # 或者放进传递变量里面
+
+
+加载逻辑
+
+modules/scripts.py", line 516, in load_scripts
+        script_module = script_loading.load_module(scriptfile.path)
+
+modules/script_loading.py", line 13, in load_module
+        module_spec.loader.exec_module(module)
+      File "<frozen importlib._bootstrap_external>", line 883, in exec_module
+      File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+
+
+from libiclight.monkey_patch import (
+
+from ....modules import devices,scripts,errors,shared
+    ImportError: attempted relative import beyond top-level package
 
 ## a1111 webui架构
 ![alt text](assets/IC-Light/229259967-15556a72-774c-44ba-bab5-687f854a0fc7.png)   
@@ -2465,6 +3391,14 @@ cfg_result = uncond_pred + (cond_pred - uncond_pred) * cond_scale
 
 
 # 其他
+
+
+
+## dict 学习
+![alt text](assets/IC-Light/image-67.png)
+
+还要简洁描述，call可以查看
+
 
 
 ## Accelerated Diffusers with PyTorch 2.0
