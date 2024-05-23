@@ -385,6 +385,43 @@ kwargs.x 这样的语法是试图通过属性访问来获取字典中的值，�
 
 
 
+# torch tensor stack
+
+    @array_function_dispatch(_stack_dispatcher)
+    def stack(arrays, axis=0, out=None, *, dtype=None, casting="same_kind"):
+        """
+        Join a sequence of arrays along a new axis.
+
+        The ``axis`` parameter specifies the index of the new axis in the
+        dimensions of the result. For example, if ``axis=0`` it will be the first
+        dimension and if ``axis=-1`` it will be the last dimension.
+
+Examples
+
+    --------
+    >>> arrays = [np.random.randn(3, 4) for _ in range(10)]
+    >>> np.stack(arrays, axis=0).shape
+    (10, 3, 4)
+
+    >>> np.stack(arrays, axis=1).shape
+    (3, 10, 4)
+
+    >>> np.stack(arrays, axis=2).shape
+    (3, 4, 10)
+
+    >>> a = np.array([1, 2, 3])
+    >>> b = np.array([4, 5, 6])
+    >>> np.stack((a, b))
+    array([[1, 2, 3],
+           [4, 5, 6]])
+
+    >>> np.stack((a, b), axis=-1)
+    array([[1, 4],
+           [2, 5],
+           [3, 6]])
+
+
+
 
 
 

@@ -2785,7 +2785,7 @@ class UNetModel(nn.Module):
 code are more clear than forge
 
 
-## 差异
+## concat_conds 差异.结构分析
 
 
 ### forge 
@@ -3312,12 +3312,1299 @@ huggingface_hub.utils._errors.LocalEntryNotFoundError: An error happened while t
             raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
         AttributeError: 'DiffusionWrapper' object has no attribute 'clone'
 
+p.sd_model.model
 
+DiffusionWrapper object has no attribute 'clone'
+
+p.sd_model.model
+
+
+p.sd_model.model.diffusion_model
+
+UNetModel object has no attribute 'clone'
+
+
+
+forge utitute
+
+work_model: ModelPatcher = p.sd_model.forge_objects.unet.clone()   
+
+this has clone() method
+
+![alt text](assets/IC-Light/image-74.png)
+
+    work_model = model.clone()
+
+
+    # Apply scale factor.
+    base_model: BaseModel = work_model.model
+
+    BaseModel doesn't have clone() method
+
+![alt text](assets/IC-Light/image-75.png)
+
+![alt text](assets/IC-Light/image-76.png)
+
+args is picked out and add some func
+
+
+the error occur at rmbg sometimes       
+but sometimes at 
+patched_unet,image_conditioning  = node.apply(
+            model=work_model, # 传入大文件是因为需要知道dtype
+            ic_model_state_dict=ic_model_state_dict,
+            c_concat=args.get_c_concat(input_rgb, vae, p, device=device),
+            x = kwargs.get('x'),
+            # 可以不改。本文件内实现
+        )
+
+but no hint return
+
+it is that because i loop sample in script???
+
+
+    def forge_numpy2pytorch(img: np.ndarray) -> torch.Tensor:
+        """Note: Forge/ComfyUI's VAE accepts 0 ~ 1 tensors."""
+        return torch.from_numpy(img.astype(np.float32) / 255.0)
+
+here seem to be problem source
+
+when i try vae encode      
+code debug stop at the first layer    
+
+    return F.conv2d(input, weight, bias, self.stride,
+    self.padding, self.dilation, self.groups)
+
+the first conv return none      
+
+input is torch tensor [1,512,512,3]
+
+
+
+forge  
+
+ldm patch
+
+concat_conds   
+input is torch tensor [1,512,512,3]
+
+it wrap func
+
+    def encode(self, pixel_samples):
+        wrapper = self.patcher.model_options.get('model_vae_encode_wrapper', None)
+        if wrapper is None:
+            return self.encode_inner(pixel_samples)
+        !!!!!!!!!!! none
+        else:
+            return wrapper(self.encode_inner, pixel_samples)
+
+class VAE
+
+    def encode_inner(self, pixel_samples):
+        if model_management.VAE_ALWAYS_TILED:
+            return self.encode_tiled(pixel_samples)
+
+        pixel_samples = pixel_samples.movedim(-1,1)
+        !!!!!!!!!!!
+        try:
+            memory_used = self.memory_used_encode(pixel_samples.shape, self.vae_dtype)
+            model_management.load_models_gpu([self.patcher], memory_required=memory_used)
+            free_memory = model_management.get_free_memory(self.device)
+            batch_number = int(free_memory / memory_used)
+            batch_number = max(1, batch_number)
+            
+            !!calculate most ability
+            
+            
+            samples = torch.empty((pixel_samples.shape[0], self.latent_channels, round(pixel_samples.shape[2] // self.downscale_ratio), round(pixel_samples.shape[3] // self.downscale_ratio)), device=self.output_device)
+
+            !!!samples torch.Size([1, 4, 64, 64])
+
+            for x in range(0, pixel_samples.shape[0], batch_number):
+                pixels_in = (2. * pixel_samples[x:x+batch_number] - 1.).to(self.vae_dtype).to(self.device)
+
+                !!! (0,1) -> (-1,1)
+
+                samples[x:x+batch_number] = self.first_stage_model.encode(pixels_in).to(self.output_device).float()
+
+        except model_management.OOM_EXCEPTION as e:
+            print("Warning: Ran out of memory when regular VAE encoding, retrying with tiled VAE encoding.")
+            samples = self.encode_tiled_(pixel_samples)
+
+        return samples
+
+#### change here
+1     
+pixel_samples = pixel_samples.movedim(-1,1)   
+torch.Size([1, 3, 512, 512])     
+
+2     
+pixels_in = (2. * pixel_samples[x:x+batch_number] - 1.).to(self.vae_dtype).to(self.device)
+
+
+
+终于通过运行
+
+
+downscale_ratio 8 
+
+
+class AutoencodingEngine(AbstractAutoencoder):
+
+
+class AutoencodingEngineLegacy(AutoencodingEngine):
+
+    def __init__(self, embed_dim: int, **kwargs):
+        self.max_batch_size = kwargs.pop("max_batch_size", None)
+        ddconfig = kwargs.pop("ddconfig")
+        super().__init__(
+            encoder_config={
+                "target": "ldm_patched.ldm.modules.diffusionmodules.model.Encoder",
+                "params": ddconfig,
+            },
+            decoder_config={
+                "target": "ldm_patched.ldm.modules.diffusionmodules.model.Decoder",
+                "params": ddconfig,
+            },
+            **kwargs,
+        )
+
+
+    def encode(
+            self, x: torch.Tensor, return_reg_log: bool = False
+        ) -> Union[torch.Tensor, Tuple[torch.Tensor, dict]]:
+            if self.max_batch_size is None:
+        !!!!!!!!!!!!
+
+                z = self.encoder(x)
+                z = self.quant_conv(z)
+            else:
+                N = x.shape[0]
+                bs = self.max_batch_size
+                n_batches = int(math.ceil(N / bs))
+                z = list()
+                for i_batch in range(n_batches):
+                    z_batch = self.encoder(x[i_batch * bs : (i_batch + 1) * bs])
+                    z_batch = self.quant_conv(z_batch)
+                    z.append(z_batch)
+                z = torch.cat(z, 0)
+
+            z, reg_log = self.regularization(z)
+            if return_reg_log:
+                return z, reg_log
+            return z
+
+class Encoder(nn.Module):
+
+x torch.Size([1, 3, 512, 512])
+
+    def forward(self, x):
+        # timestep embedding
+        temb = None
+        # downsampling
+        h = self.conv_in(x)
+        for i_level in range(self.num_resolutions):
+            for i_block in range(self.num_res_blocks):
+                h = self.down[i_level].block[i_block](h, temb)
+                if len(self.down[i_level].attn) > 0:
+                    h = self.down[i_level].attn[i_block](h)
+            if i_level != self.num_resolutions-1:
+                h = self.down[i_level].downsample(h)
+
+        # middle
+        h = self.mid.block_1(h, temb)
+        h = self.mid.attn_1(h)
+        h = self.mid.block_2(h, temb)
+
+        # end
+        h = self.norm_out(h)
+        h = nonlinearity(h)
+        h = self.conv_out(h)
+        return h
+
+
+
+### 新问题，vae返回是分布
+![alt text](assets/IC-Light/image-77.png)
+
+
+forge返回    
+torch.Size([1, 4, 64, 64])
+
+
+解决方法 从class StableDiffusionProcessingImg2Img(StableDiffusionProcessing):分析    
+process.py     
+从类内其他方法能找到相关实现     
+
+    latent_concat_conds = vae.encode(concat_conds)
+
+
+    latent_concat_conds = p.sd_model.get_first_stage_encoding(latent_concat_conds)
+
+webui尿性，被forge等优化
+
+
+输出    
+torch.Size([1, 4, 64, 64])
+
+sd-forge-ic-light/libiclight/ic_light_nodes.py", line 59, in apply
+        scale_factor = work_model.scale_factor
+
+
+raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+    AttributeError: 'DiffusionWrapper' object has no attribute 'scale_factor'
+
+
+
+dtype = work_model.model.diffusion_model.dtype
+    UnboundLocalError: local variable 'work_model' referenced before assignment
+
+
+![alt text](assets/IC-Light/image-78.png)
+
+    with torch.no_grad():
+        input_block = base_model.input_blocks[0][0]
+        #input_block = base_model.input_blocks.static_dict()[0].static_dict()[0]
+
+torch的机制可以通过键名直接取出_module的东西
+
+![alt text](assets/IC-Light/image-79.png)
+
+有个自动化的_getitem操作
+
+不需要再static_dict()
+
+    with torch.no_grad():
+        input_block = base_model.input_blocks[0][0]
+        #input_block = base_model.input_blocks.static_dict()[0].static_dict()[0]
+
+        # 使用这些属性来创建新的卷积层
+        new_conv_in = torch.nn.Conv2d(
+            8, 
+            input_block.out_channels, 
+            input_block.kernel_size, 
+            input_block.stride, 
+            input_block.padding
+        )
+        new_conv_in.weight.zero_()
+        new_conv_in.weight[:, :4, :, :].copy_(input_block.weight)
+        new_conv_in.bias = input_block.bias
+        input_block = new_conv_in
+    
+    
+
+    sd_offset = ic_model_state_dict
+    sd_origin = base_model.state_dict()
+    sd_merged = {k: sd_origin[k] + sd_offset[k]
+                    for k in sd_origin.keys()}
+    # 这个方法不知道能不能用
+    base_model.load_state_dict(sd_merged, strict=True)
+
+    base_model.to(dtype=dtype, device=device)
+
+    # 每次采样前这样做好像慢了
+
+
+    return (base_model,image_conditioning) # UNet_Model= p.sd_model.model.diffusion_model  
+
+
+这样写不能改变 base_model.input_blocks[0][0]     
+不像forge默认浅拷贝    
+webui默认深拷贝
+
+
+sd_merged = {k: sd_origin[k] + sd_offset[k]      
+
+RuntimeError: Expected all tensors to be on the same device, but found at least two devices, cuda:0 and cpu!
+
+![alt text](assets/IC-Light/image-80.png)
+
+AttributeError: 'dict' object has no attribute 'to'
+
+出现这个错误是因为你尝试对一个字典对象调用 to 方法，而 to 方法是 PyTorch 中用于将张量（tensor）或模型移动到指定设备（例如 GPU）的，但它不适用于 Python 的字典对象。你可能是想要将模型的权重加载到 GPU 上。
+
+
+## 权重 相加
+
+### iclight
+![alt text](assets/IC-Light/image-81.png)
+
+
+加载方式
+
+ic_model_state_dict = load_torch_file(unet_path, device=device)
+
+    def load_torch_file(ckpt, safe_load=False, device=None):
+        if device is None:
+            device = torch.device("cpu")
+        if ckpt.lower().endswith(".safetensors"):
+            sd = safetensors.torch.load_file(ckpt, device=device.type)
+        else:
+            raise ValueError("当前仅支持 safetensors 后缀")
+        return sd
+
+
+![alt text](assets/IC-Light/image-82.png)
+
+
+### base_model.state_dict()
+sd_origin = base_model.state_dict()
+
+torch.nn
+
+class Module:
+
+    r"""Base class for all neural network modules.
+
+    Your models should also subclass this class.
+
+    Modules can also contain other Modules, allowing to nest them in
+    a tree structure. You can assign the submodules as regular attributes::
+
+        import torch.nn as nn
+        import torch.nn.functional as F
+
+        class Model(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.conv1 = nn.Conv2d(1, 20, 5)
+                self.conv2 = nn.Conv2d(20, 20, 5)
+
+            def forward(self, x):
+                x = F.relu(self.conv1(x))
+                return F.relu(self.conv2(x))
+
+    Submodules assigned in this way will be registered, and will have their
+    parameters converted too when you call :meth:`to`, etc.
+
+    .. note::
+        As per the example above, an ``__init__()`` call to the parent class
+        must be made before assignment on the child.
+
+    :ivar training: Boolean represents whether this module is in training or
+                    evaluation mode.
+    :vartype training: bool
+    """
+
+state_dict
+
+
+    # TODO: Change `*args` to `*` and remove the corresponding warning in docs when BC allows.
+    # Also remove the logic for arg parsing together.
+    def state_dict(self, *args, destination=None, prefix='', keep_vars=False):
+        r"""Returns a dictionary containing references to the whole state of the module.
+
+        Both parameters and persistent buffers (e.g. running averages) are
+        included. Keys are corresponding parameter and buffer names.
+        Parameters and buffers set to ``None`` are not included.
+
+        .. note::
+            The returned object is a shallow copy. It contains references
+            to the module's parameters and buffers.
+
+        .. warning::
+            Currently ``state_dict()`` also accepts positional arguments for
+            ``destination``, ``prefix`` and ``keep_vars`` in order. However,
+            this is being deprecated and keyword arguments will be enforced in
+            future releases.
+
+        .. warning::
+            Please avoid the use of argument ``destination`` as it is not
+            designed for end-users.
+
+        Args:
+            destination (dict, optional): If provided, the state of module will
+                be updated into the dict and the same object is returned.
+                Otherwise, an ``OrderedDict`` will be created and returned.
+                Default: ``None``.
+            prefix (str, optional): a prefix added to parameter and buffer
+                names to compose the keys in state_dict. Default: ``''``.
+            keep_vars (bool, optional): by default the :class:`~torch.Tensor` s
+                returned in the state dict are detached from autograd. If it's
+                set to ``True``, detaching will not be performed.
+                Default: ``False``.
+
+        Returns:
+            dict:
+                a dictionary containing a whole state of the module
+
+        Example::
+
+            >>> # xdoctest: +SKIP("undefined vars")
+            >>> module.state_dict().keys()
+            ['bias', 'weight']
+
+        """
+
+
+to 
+
+    @overload
+    def to(self: T, device: Optional[Union[int, device]] = ..., dtype: Optional[Union[dtype, str]] = ...,
+           non_blocking: bool = ...) -> T:
+        ...
+
+    @overload
+    def to(self: T, dtype: Union[dtype, str], non_blocking: bool = ...) -> T:
+        ...
+
+    @overload
+    def to(self: T, tensor: Tensor, non_blocking: bool = ...) -> T:
+        ...
+
+    def to(self, *args, **kwargs):
+        r"""Moves and/or casts the parameters and buffers.
+
+        This can be called as
+
+        .. function:: to(device=None, dtype=None, non_blocking=False)
+           :noindex:
+
+        .. function:: to(dtype, non_blocking=False)
+           :noindex:
+
+        .. function:: to(tensor, non_blocking=False)
+           :noindex:
+
+        .. function:: to(memory_format=torch.channels_last)
+           :noindex:
+
+        Its signature is similar to :meth:`torch.Tensor.to`, but only accepts
+        floating point or complex :attr:`dtype`\ s. In addition, this method will
+        only cast the floating point or complex parameters and buffers to :attr:`dtype`
+        (if given). The integral parameters and buffers will be moved
+        :attr:`device`, if that is given, but with dtypes unchanged. When
+        :attr:`non_blocking` is set, it tries to convert/move asynchronously
+        with respect to the host if possible, e.g., moving CPU Tensors with
+        pinned memory to CUDA devices.
+
+        See below for examples.
+
+        .. note::
+            This method modifies the module in-place.
+
+        Args:
+            device (:class:`torch.device`): the desired device of the parameters
+                and buffers in this module
+            dtype (:class:`torch.dtype`): the desired floating point or complex dtype of
+                the parameters and buffers in this module
+            tensor (torch.Tensor): Tensor whose dtype and device are the desired
+                dtype and device for all parameters and buffers in this module
+            memory_format (:class:`torch.memory_format`): the desired memory
+                format for 4D parameters and buffers in this module (keyword
+                only argument)
+
+
+        Returns:
+            Module: self
+
+        Examples::
+
+            >>> # xdoctest: +IGNORE_WANT("non-deterministic")
+            >>> linear = nn.Linear(2, 2)
+            >>> linear.weight
+            Parameter containing:
+            tensor([[ 0.1913, -0.3420],
+                    [-0.5113, -0.2325]])
+            >>> linear.to(torch.double)
+            Linear(in_features=2, out_features=2, bias=True)
+            >>> linear.weight
+            Parameter containing:
+            tensor([[ 0.1913, -0.3420],
+                    [-0.5113, -0.2325]], dtype=torch.float64)
+            >>> # xdoctest: +REQUIRES(env:TORCH_DOCTEST_CUDA1)
+            >>> gpu1 = torch.device("cuda:1")
+            >>> linear.to(gpu1, dtype=torch.half, non_blocking=True)
+            Linear(in_features=2, out_features=2, bias=True)
+            >>> linear.weight
+            Parameter containing:
+            tensor([[ 0.1914, -0.3420],
+                    [-0.5112, -0.2324]], dtype=torch.float16, device='cuda:1')
+            >>> cpu = torch.device("cpu")
+            >>> linear.to(cpu)
+            Linear(in_features=2, out_features=2, bias=True)
+            >>> linear.weight
+            Parameter containing:
+            tensor([[ 0.1914, -0.3420],
+                    [-0.5112, -0.2324]], dtype=torch.float16)
+
+            >>> linear = nn.Linear(2, 2, bias=None).to(torch.cdouble)
+            >>> linear.weight
+            Parameter containing:
+            tensor([[ 0.3741+0.j,  0.2382+0.j],
+                    [ 0.5593+0.j, -0.4443+0.j]], dtype=torch.complex128)
+            >>> linear(torch.ones(3, 2, dtype=torch.cdouble))
+            tensor([[0.6122+0.j, 0.1150+0.j],
+                    [0.6122+0.j, 0.1150+0.j],
+                    [0.6122+0.j, 0.1150+0.j]], dtype=torch.complex128)
+
+        """
+
+
+       默认都是none，none一般就是在cpu，dtype不确定 
+
+        device, dtype, non_blocking, convert_to_format = torch._C._nn._parse_to(*args, **kwargs)
+
+        if dtype is not None:
+            if not (dtype.is_floating_point or dtype.is_complex):
+                raise TypeError('nn.Module.to only accepts floating point or complex '
+                                f'dtypes, but got desired dtype={dtype}')
+            if dtype.is_complex:
+                warnings.warn(
+                    "Complex modules are a new feature under active development whose design may change, "
+                    "and some modules might not work as expected when using complex tensors as parameters or buffers. "
+                    "Please file an issue at https://github.com/pytorch/pytorch/issues/new?template=bug-report.yml "
+                    "if a complex module does not work as expected.")
+
+        def convert(t):
+            if convert_to_format is not None and t.dim() in (4, 5):
+                return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None,
+                            non_blocking, memory_format=convert_to_format)
+            return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+
+        return self._apply(convert)
+
+
+![alt text](assets/IC-Light/image-83.png)
+
+
+![alt text](assets/IC-Light/image-84.png)
+
+
+这也是在cuda    
+以及fp16    
+
+
+new_conv_in好像是这个没转
+
+是的
+
+![alt text](assets/IC-Light/image-85.png)
+
+
+
+![alt text](assets/IC-Light/image-86.png)
+
+模型fp32     
+static_dict出来是fp16    
+
+![alt text](assets/IC-Light/image-87.png)
+
+卷积也是fp16
+
+load_static_dict()
+
+    def load_state_dict(self, state_dict: Mapping[str, Any],
+                        strict: bool = True, assign: bool = False):
+        r"""Copies parameters and buffers from :attr:`state_dict` into
+        this module and its descendants. If :attr:`strict` is ``True``, then
+        the keys of :attr:`state_dict` must exactly match the keys returned
+        by this module's :meth:`~torch.nn.Module.state_dict` function.
+
+        .. warning::
+            If :attr:`assign` is ``True`` the optimizer must be created after
+            the call to :attr:`load_state_dict`.
+
+        Args:
+            state_dict (dict): a dict containing parameters and
+                persistent buffers.
+            strict (bool, optional): whether to strictly enforce that the keys
+                in :attr:`state_dict` match the keys returned by this module's
+                :meth:`~torch.nn.Module.state_dict` function. Default: ``True``
+            assign (bool, optional): whether to assign items in the state
+                dictionary to their corresponding keys in the module instead
+                of copying them inplace into the module's current parameters and buffers.
+                When ``False``, the properties of the tensors in the current
+                module are preserved while when ``True``, the properties of the
+                Tensors in the state dict are preserved.
+                Default: ``False``
+
+        Returns:
+            ``NamedTuple`` with ``missing_keys`` and ``unexpected_keys`` fields:
+                * **missing_keys** is a list of str containing the missing keys
+                * **unexpected_keys** is a list of str containing the unexpected keys
+
+        Note:
+            If a parameter or buffer is registered as ``None`` and its corresponding key
+            exists in :attr:`state_dict`, :meth:`load_state_dict` will raise a
+            ``RuntimeError``.
+        """
+
+_load_from_state_dict
+
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
+                              missing_keys, unexpected_keys, error_msgs):
+        r"""Copies parameters and buffers from :attr:`state_dict` into only
+        this module, but not its descendants. This is called on every submodule
+        in :meth:`~torch.nn.Module.load_state_dict`. Metadata saved for this
+        module in input :attr:`state_dict` is provided as :attr:`local_metadata`.
+        For state dicts without metadata, :attr:`local_metadata` is empty.
+        Subclasses can achieve class-specific backward compatible loading using
+        the version number at `local_metadata.get("version", None)`.
+        Additionally, :attr:`local_metadata` can also contain the key
+        `assign_to_params_buffers` that indicates whether keys should be
+        assigned their corresponding tensor in the state_dict.
+
+        .. note::
+            :attr:`state_dict` is not the same object as the input
+            :attr:`state_dict` to :meth:`~torch.nn.Module.load_state_dict`. So
+            it can be modified.
+
+        Args:
+            state_dict (dict): a dict containing parameters and
+                persistent buffers.
+            prefix (str): the prefix for parameters and buffers used in this
+                module
+            local_metadata (dict): a dict containing the metadata for this module.
+                See
+            strict (bool): whether to strictly enforce that the keys in
+                :attr:`state_dict` with :attr:`prefix` match the names of
+                parameters and buffers in this module
+            missing_keys (list of str): if ``strict=True``, add missing keys to
+                this list
+            unexpected_keys (list of str): if ``strict=True``, add unexpected
+                keys to this list
+            error_msgs (list of str): error messages should be added to this
+                list, and will be reported together in
+                :meth:`~torch.nn.Module.load_state_dict`
+        """
+
+
+
+
+
+
+### 问题
+base_model.input_blocks[0][0] = new_conv_in.to(dtype=base_model.input_blocks[0][0].dtype, device=device) #fp16
+
+AttributeError: 'Conv2d' object has no attribute 'dtype'
+
+![alt text](assets/IC-Light/image-88.png)
+
+
+终于merge成功
+
+
+![alt text](assets/IC-Light/image-92.png)
+
+有序字典和无序字典调用方式结果第一样 
+
+
+
+
+base_model.to(dtype=dtype, device=device)    
+这个多余操作会导致     
+
+![alt text](assets/IC-Light/image-93.png)
+
+![alt text](assets/IC-Light/image-94.png)
+
+
+变量都转成fp32 同时unetmodel还是没有device键
+
+显存6g增加到9g
+
+
+@dataclass(repr=False)   
+class StableDiffusionProcessing:
+
+    def sd_model(self):
+        return shared.sd_model
+
+
+class Shared(sys.modules[__name__].__class__):
+
+    """
+    this class is here to provide sd_model field as a property, so that it can be created and loaded on demand rather than
+    at program startup.
+    """
+
+    sd_model_val = None
+
+    @property
+    def sd_model(self):
+        import modules.sd_models
+
+        return modules.sd_models.model_data.get_sd_model()
+
+
+
+## 新问题 c_concat
+repositories/stable-diffusion-stability-ai/ldm/models/diffusion/ddpm.py", line 1337, in forward    
+xc = torch.cat([x] + c_concat, dim=1)     
+    RuntimeError: Sizes of tensors must match except in dimension 1. Expected size 2 but got size 3 for tensor number 1 in the list.
+
+    elif self.conditioning_key == 'hybrid':
+        xc = torch.cat([x] + c_concat, dim=1)
+
+c_concat到后面竟然变成了 torch.Size([3, 4, 64, 64])
+
+stable-diffusion-webui/modules/sd_samplers_cfg_denoiser.py
+
+class CFGDenoiser(torch.nn.Module):
+
+    else:
+        image_uncond = image_cond
+        if isinstance(uncond, dict):
+            make_condition_dict = lambda c_crossattn, c_concat: {**c_crossattn, "c_concat": [c_concat]}
+        else:
+            make_condition_dict = lambda c_crossattn, c_concat: {"c_crossattn": [c_crossattn], "c_concat": [c_concat]}
+
+    if not is_edit_model:
+        x_in = torch.cat([torch.stack([x[i] for _ in range(n)]) for i, n in enumerate(repeats)] + [x])
+        sigma_in = torch.cat([torch.stack([sigma[i] for _ in range(n)]) for i, n in enumerate(repeats)] + [sigma])
+        image_cond_in = torch.cat([torch.stack([image_cond[i] for _ in range(n)]) for i, n in enumerate(repeats)] + [image_uncond])
+
+    if shared.opts.batch_cond_uncond:
+        x_out = self.inner_model(x_in, sigma_in, cond=make_condition_dict(cond_in, image_cond_in))
+
+
+
+这里面被改变     
+可能是因为调用逻辑和forge有些差异     
+
+
+
+x torch.Size([1, 4, 64, 64])
+x_in torch.Size([2, 4, 64, 64])
+
+
+## 连续第二次运行报错
+
+return F.conv2d(input, weight, bias, self.stride,    
+    RuntimeError: Given groups=1, weight of size [320, 8, 3, 3], expected input[2, 9, 64, 64] to have 8 channels, but got 9 channels instead
+
+有时候会
+
+new_conv_in.weight[:, :4, :, :].copy_(input_block.weight)     
+    RuntimeError: The size of tensor a (4) must match the size of tensor b (8) at non-singleton dimension 1
+
+
+可能原因是p的模型已经被改过了
+
+
+return F.conv2d(input, weight, bias, self.stride,
+    RuntimeError: Given groups=1, weight of size [320, 8, 3, 3], expected input[2, 9, 64, 64] to have 8 channels, but got 9 channels instead
+
+
+![alt text](assets/IC-Light/image-95.png)
+
+
+这里确实已经被修改
+
+![alt text](assets/IC-Light/image-96.png)
+
+进入这里     
+
+![alt text](assets/IC-Light/image-97.png)
+
+
+确实已经改过，但现在好像要再改一次      
+
+forge是add_patch方式
+
+也是会每次重新加载模型
+
+但是第二次采样是可以运行的
+
+因为 add_patch 没有直接改变p
+
+
+我这个不是 add_patch 改    
+直接改了p原模型，而且会被反复修改     
+最严重的是，文生图都用不了了    
+
+    if self.initial_noise_multiplier != 1.0:
+    AttributeError: 'StableDiffusionProcessingTxt2Img' object has no attribute 'initial_noise_multiplier'
+
+连文生图都会跳进重写的i2i的sample函数
+
+严重bug
+
+
+## bug优先级
+1 文生图都会跳进重写的i2i的sample函数     
+重复加载模型的问题     
+直接修改模型p的问题   
+
+2 效果对齐
+
+3 实现不够原生
+
+
+现在好像连文生图都无法使用     
+
+确实每次都会跳进
+process_batch，连文生图也会    
+
+
+加入禁用机制后文生图正常能用 
+
+但是使用iclight后会修改原模型，这个问题很大，后续无法再使用
+
+p.image_conditioning 好像也会永久改变
+
+框里的图片被当成 init_latent
+
+
+在相当早（几乎是第一个）的函数中初始化  init_latent 和 image_conditioning
+
+img2img
+
+def img2img(id_task: str, request: gr.Request, mode: int, prompt: str, negative_prompt: str, prompt_styles, init_img, sketch, init_img_with_mask, inpaint_color_sketch, inpaint_color_sketch_orig, init_img_inpaint, init_mask_inpaint, mask_blur: int, mask_alpha: float, inpainting_fill: int, n_iter: int, batch_size: int, cfg_scale: float, image_cfg_scale: float, denoising_strength: float, selected_scale_tab: int, height: int, width: int, scale_by: float, resize_mode: int, inpaint_full_res: bool, inpaint_full_res_padding: int, inpainting_mask_invert: int, img2img_batch_input_dir: str, img2img_batch_output_dir: str, img2img_batch_inpaint_mask_dir: str, override_settings_texts, img2img_batch_use_png_info: bool, img2img_batch_png_info_props: list, img2img_batch_png_info_dir: str, *args):
+   
+
+    if self.sampler.conditioning_key in {'hybrid', 'concat'}:
+        return self.inpainting_image_conditioning(source_image, latent_image, image_mask=image_mask, round_image_mask=round_image_mask)
+
+证明后面再修改hybrid不会导致触发传统的inpaint模型
+
+
+![alt text](assets/IC-Light/image-98.png)
+
+第二次调用还是会重新定义p     
+但是加载速度好快     
+有什么机制吗    
+
+sd_model=shared.sd_model,
+
+看起来是因为shared才这样，但是我的iclight改了shared的东西    
+
+
+
+### bug 二次使用问题
+
+新的sample函数中这样改导致了问题，这会导致初始新建p时候发生覆盖
+
+    shared.sd_model.model.conditioning_key = 'hybrid'
+    self.sampler.conditioning_key = 'hybrid' 
+    self.sd_model.model.conditioning_key = 'hybrid' #可以省去
+
+
+conditioning_key后续调用查找      
+
+cfg_denoiser
+
+    if shared.sd_model.model.conditioning_key == "crossattn-adm":
+        image_uncond = torch.zeros_like(image_cond)
+        make_condition_dict = lambda c_crossattn, c_adm: {"c_crossattn": [c_crossattn], "c_adm": c_adm}
+    else:
+        image_uncond = image_cond
+        if isinstance(uncond, dict):
+            make_condition_dict = lambda c_crossattn, c_concat: {**c_crossattn, "c_concat": [c_concat]}
+        else:
+            make_condition_dict = lambda c_crossattn, c_concat: {"c_crossattn": [c_crossattn], "c_concat": [c_concat]}
+
+可以忽略，但如果原生代码被改变，就会造成冲突     
+这样看来，我的新增函数其实算是良性的非原生实现     
+这是个未来极小隐患    
+
+class DiffusionWrapper(pl.LightningModule):
+
+    def forward(self, x, t, c_concat: list = None, c_crossattn: list = None, c_adm=None):
+        if self.conditioning_key is None:
+            out = self.diffusion_model(x, t)
+        elif self.conditioning_key == 'concat':
+            xc = torch.cat([x] + c_concat, dim=1)
+            out = self.diffusion_model(xc, t)
+        elif self.conditioning_key == 'crossattn':
+            if not self.sequential_cross_attn:
+                cc = torch.cat(c_crossattn, 1)
+            else:
+                cc = c_crossattn
+            if hasattr(self, "scripted_diffusion_model"):
+                # TorchScript changes names of the arguments
+                # with argument cc defined as context=cc scripted model will produce
+                # an error: RuntimeError: forward() is missing value for argument 'argument_3'.
+                out = self.scripted_diffusion_model(x, t, cc)
+            else:
+                out = self.diffusion_model(x, t, context=cc)
+        elif self.conditioning_key == 'hybrid':
+            xc = torch.cat([x] + c_concat, dim=1)
+            cc = torch.cat(c_crossattn, 1)
+            out = self.diffusion_model(xc, t, context=cc)
+        elif self.conditioning_key == 'hybrid-adm':
+            assert c_adm is not None
+            xc = torch.cat([x] + c_concat, dim=1)
+            cc = torch.cat(c_crossattn, 1)
+            out = self.diffusion_model(xc, t, context=cc, y=c_adm)
+        elif self.conditioning_key == 'crossattn-adm':
+            assert c_adm is not None
+            cc = torch.cat(c_crossattn, 1)
+            out = self.diffusion_model(x, t, context=cc, y=c_adm)
+        elif self.conditioning_key == 'adm':
+            cc = c_crossattn[0]
+            out = self.diffusion_model(x, t, y=cc)
+        else:
+            raise NotImplementedError()
+
+        return out
+
+
+好像取消shared还是会出问题
+
+    return F.conv2d(input, weight, bias, self.stride,
+    RuntimeError: Given groups=1, weight of size [320, 8, 3, 3], expected input[2, 9, 64, 64] to have 8 channels, but got 9 channels instead
+
+
+难道结束的时候会自动添加到shared？？？？
+
+t2i   
+![alt text](assets/IC-Light/image-101.png)
+
+i2i     
+![alt text](assets/IC-Light/image-102.png)
+
+
+iclight显存每次结束都会被释放
+
+第二次不行
+
+return F.conv2d(input, weight, bias, self.stride,    
+    RuntimeError: Given groups=1, weight of size [320, 8, 3, 3], expected input[2, 9, 64, 64] to have 8 channels, but got 9 channels instead
+
+
+被改变了
+
+![alt text](assets/IC-Light/image-103.png)
+
+
+![alt text](assets/IC-Light/image-104.png)
+
+
+都用不了   
+ti ii    
+
+
+
+
+
+
+
+
+
+## webui loop
+loop开始执行的地方     
+
+调用仓库k_diffusion    
+这是的model是cfg_denoiser   
+
+![alt text](assets/IC-Light/image-99.png)
+
+p外面又包了一层
+
+    @torch.no_grad()
+    def sample_dpmpp_2m(model, x, sigmas, extra_args=None, callback=None, disable=None):
+        """DPM-Solver++(2M)."""
+        extra_args = {} if extra_args is None else extra_args
+        s_in = x.new_ones([x.shape[0]])
+        sigma_fn = lambda t: t.neg().exp()
+        t_fn = lambda sigma: sigma.log().neg()
+        old_denoised = None
+
+        for i in trange(len(sigmas) - 1, disable=disable):
+            denoised = model(x, sigmas[i] * s_in, **extra_args)
+            if callback is not None:
+                callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigmas[i], 'denoised': denoised})
+            t, t_next = t_fn(sigmas[i]), t_fn(sigmas[i + 1])
+            h = t_next - t
+            if old_denoised is None or sigmas[i + 1] == 0:
+                x = (sigma_fn(t_next) / sigma_fn(t)) * x - (-h).expm1() * denoised
+            else:
+                h_last = t - t_fn(sigmas[i - 1])
+                r = h_last / h
+                denoised_d = (1 + 1 / (2 * r)) * denoised - (1 / (2 * r)) * old_denoised
+                x = (sigma_fn(t_next) / sigma_fn(t)) * x - (-h).expm1() * denoised_d
+            old_denoised = denoised
+        return x
+
+接下来还要继续包
+
+![alt text](assets/IC-Light/image-100.png)
+
+
+
+## torch module 调用
+
+
+如果模型继承自Module，在forward时都会经历这两个   
+第一个看起来像是加速c实现的功能    
+第二个。这个torch的hook机制没用过，mm倒是有经常实现    
+pp有类似框架   
+
+class Module:
+
+
+    def _wrapped_call_impl(self, *args, **kwargs):
+        if self._compiled_call_impl is not None:
+            return self._compiled_call_impl(*args, **kwargs)  # type: ignore[misc]
+        else:
+        执行
+            return self._call_impl(*args, **kwargs)
+
+    def _call_impl(self, *args, **kwargs):
+        forward_call = (self._slow_forward if torch._C._get_tracing_state() else self.forward)
+        # If we don't have any hooks, we want to skip the rest of the logic in
+        # this function, and just call forward.
+        if not (self._backward_hooks or self._backward_pre_hooks or self._forward_hooks or self._forward_pre_hooks
+                or _global_backward_pre_hooks or _global_backward_hooks
+                or _global_forward_hooks or _global_forward_pre_hooks):
+            return forward_call(*args, **kwargs)
+
+        try:
+            result = None
+            called_always_called_hooks = set()
+
+            full_backward_hooks, non_full_backward_hooks = [], []
+            backward_pre_hooks = []
+            if self._backward_pre_hooks or _global_backward_pre_hooks:
+                backward_pre_hooks = self._get_backward_pre_hooks()
+
+            if self._backward_hooks or _global_backward_hooks:
+                full_backward_hooks, non_full_backward_hooks = self._get_backward_hooks()
+
+            if _global_forward_pre_hooks or self._forward_pre_hooks:
+                for hook_id, hook in (
+                    *_global_forward_pre_hooks.items(),
+                    *self._forward_pre_hooks.items(),
+                ):
+                    if hook_id in self._forward_pre_hooks_with_kwargs:
+                        args_kwargs_result = hook(self, args, kwargs)  # type: ignore[misc]
+                        if args_kwargs_result is not None:
+                            if isinstance(args_kwargs_result, tuple) and len(args_kwargs_result) == 2:
+                                args, kwargs = args_kwargs_result
+                            else:
+                                raise RuntimeError(
+                                    "forward pre-hook must return None or a tuple "
+                                    f"of (new_args, new_kwargs), but got {args_kwargs_result}."
+                                )
+                    else:
+                        args_result = hook(self, args)
+                        if args_result is not None:
+                            if not isinstance(args_result, tuple):
+                                args_result = (args_result,)
+                            args = args_result
+
+            bw_hook = None
+            if full_backward_hooks or backward_pre_hooks:
+                bw_hook = hooks.BackwardHook(self, full_backward_hooks, backward_pre_hooks)
+                args = bw_hook.setup_input_hook(args)
+
+            result = forward_call(*args, **kwargs)
+            if _global_forward_hooks or self._forward_hooks:
+                for hook_id, hook in (
+                    *_global_forward_hooks.items(),
+                    *self._forward_hooks.items(),
+                ):
+                    # mark that always called hook is run
+                    if hook_id in self._forward_hooks_always_called or hook_id in _global_forward_hooks_always_called:
+                        called_always_called_hooks.add(hook_id)
+
+                    if hook_id in self._forward_hooks_with_kwargs:
+                        hook_result = hook(self, args, kwargs, result)
+                    else:
+                        hook_result = hook(self, args, result)
+
+                    if hook_result is not None:
+                        result = hook_result
+
+            if bw_hook:
+                if not isinstance(result, (torch.Tensor, tuple)):
+                    warnings.warn("For backward hooks to be called,"
+                                  " module output should be a Tensor or a tuple of Tensors"
+                                  f" but received {type(result)}")
+                result = bw_hook.setup_output_hook(result)
+
+            # Handle the non-full backward hooks
+            if non_full_backward_hooks:
+                var = result
+                while not isinstance(var, torch.Tensor):
+                    if isinstance(var, dict):
+                        var = next(v for v in var.values() if isinstance(v, torch.Tensor))
+                    else:
+                        var = var[0]
+                grad_fn = var.grad_fn
+                if grad_fn is not None:
+                    for hook in non_full_backward_hooks:
+                        grad_fn.register_hook(_WrappedHook(hook, self))
+                    self._maybe_warn_non_full_backward_hook(args, result, grad_fn)
+
+            return result
+
+        except Exception:
+            # run always called hooks if they have not already been run
+            # For now only forward hooks have the always_call option but perhaps
+            # this functionality should be added to full backward hooks as well.
+            for hook_id, hook in _global_forward_hooks.items():
+                if hook_id in _global_forward_hooks_always_called and hook_id not in called_always_called_hooks:
+                    try:
+                        hook_result = hook(self, args, result)
+                        if hook_result is not None:
+                            result = hook_result
+                    except Exception as e:
+                        warnings.warn("global module forward hook with ``always_call=True`` raised an exception "
+                                      f"that was silenced as another error was raised in forward: {str(e)}")
+                        continue
+
+            for hook_id, hook in self._forward_hooks.items():
+                if hook_id in self._forward_hooks_always_called and hook_id not in called_always_called_hooks:
+                    try:
+                        if hook_id in self._forward_hooks_with_kwargs:
+                            hook_result = hook(self, args, kwargs, result)
+                        else:
+                            hook_result = hook(self, args, result)
+                        if hook_result is not None:
+                            result = hook_result
+                    except Exception as e:
+                        warnings.warn("module forward hook with ``always_call=True`` raised an exception "
+                                      f"that was silenced as another error was raised in forward: {str(e)}")
+                        continue
+            # raise exception raised in try block
+            raise
+
+
+    __call__ : Callable[..., Any] = _wrapped_call_impl
+
+
+
+
+
+### shared优化切入点
+将iclight加入shared，调用也直接提取shared     
+重新定一个变量名，直接永久使用，image_condintion是否也存储在这个地方   
+
+
+#### 显存优化方向
+是否释放显存，什么时候释放iclight的显存
+
+
+## 优化方向
+
+### webui封装调用
+可以forge已经优化
+
+二十步采样
+
+没步都会进入cfg_denoiser，重新枞concat cfg相关    
+除此之外还会继续进入diffusion_wrapper重新concat xc
+
+
+
+### 从process_batch 修改   
+
+def process_images_inner(p: StableDiffusionProcessing) -> Processed:
+
+
+    if p.scripts is not None:
+        p.scripts.process_batch(p, batch_number=n, prompts=p.prompts, seeds=p.seeds, subseeds=p.subseeds)
+
+    ！！！！！确实可以在 这了改p.image_conditioning
+
+    p.setup_conds()
+
+    p.extra_generation_params.update(model_hijack.extra_generation_params)
+
+    # params.txt should be saved after scripts.process_batch, since the
+    # infotext could be modified by that callback
+    # Example: a wildcard processed by process_batch sets an extra model
+    # strength, which is saved as "Model Strength: 1.0" in the infotext
+    if n == 0 and not cmd_opts.no_prompt_history:
+        with open(os.path.join(paths.data_path, "params.txt"), "w", encoding="utf8") as file:
+            processed = Processed(p, [])
+            file.write(processed.infotext(p, 0))
+
+    for comment in model_hijack.comments:
+        p.comment(comment)
+
+    if p.n_iter > 1:
+        shared.state.job = f"Batch {n+1} out of {p.n_iter}"
+
+    sd_models.apply_alpha_schedule_override(p.sd_model, p)
+
+    with devices.without_autocast() if devices.unet_needs_upcast else devices.autocast():
+
+        samples_ddim = p.sample(conditioning=p.c, unconditional_conditioning=p.uc, seeds=p.seeds, subseeds=p.subseeds, subseed_strength=p.subseed_strength, prompts=p.prompts)
+
+
+现在是直接进来新的img2img
+
+    def sample(self, conditioning, unconditional_conditioning, seeds, subseeds, subseed_strength, prompts):
+        print("This is the new method")
+        
+        x = self.rng.next()
+
+        
+        if self.initial_noise_multiplier != 1.0:
+            self.extra_generation_params["Noise multiplier"] = self.initial_noise_multiplier
+            x *= self.initial_noise_multiplier
+
+        ### add
+        if self.scripts is not None:
+            self.scripts.process_before_every_sampling(self,
+                    x=self.init_latent, #这两个的区别是什么？？现在的主要问题是这个，不敢随便乱加
+                    noise=x,
+                    c=conditioning,
+                    uc=unconditional_conditioning)
+        shared.sd_model.model.conditioning_key = 'hybrid'
+        self.sampler.conditioning_key = 'hybrid'
+        self.sd_model.model.conditioning_key = 'hybrid'
+        
+
+        ### add
+
+        
+        samples = self.sampler.sample_img2img(self, self.init_latent, x, conditioning, unconditional_conditioning, image_conditioning=self.image_conditioning)
+
+image_conditioning 主要是这个东西
 
 ## 隐患
-提取前景模型使用huggingface
+### 显存占用和第二次采样
+目前没有用del删去权重     
+
+第二次采样是否可以重新直接自己调用？？？？      
+
+
+
+
+
+
+### 无法传回前景图
+p.extra_result_images.append(input_rgb)    
+    AttributeError: 'StableDiffusionProcessingImg2Img' object has no attribute 'extra_result_images'
+
+
+
+
+### 长图 forge好像报错
+
+model_output = self.diffusion_model(xc, t, context=context, control=control, transformer_options=transformer_options, **extra_conds).float()
+
+return F.conv2d(input, weight, bias, self.stride,
+RuntimeError: Given groups=1, weight of size [320, 9, 3, 3], expected input[2, 8, 64, 64] to have 9 channels, but got 8 channels instead
+Given groups=1, weight of size [320, 9, 3, 3], expected input[2, 8, 64, 64] to have 9 channels, but got 8 channels instead
+
+原来是因为用了inpaint底模
+
+
+### 提取前景模型使用huggingface
+it is easy to solve by download ahead or use other model
 
 huggingface_hub.utils._errors.LocalEntryNotFoundError: An error happened while trying to locate the file on the Hub and we cannot find the requested files in the local cache. Please check your connection and try again or make sure your Internet connection is on.
+
+
+
+
+### size mismatch 
+if USER click button of iclight unintentionlly, it will trigger size mismatch about xc (c_concat) during inference
+
+### every sample will reload iclight model
+sometimes it costs 4-5s, sometimes less
+
+
+
+
+
+
 
 
 
@@ -3390,11 +4677,37 @@ from ....modules import devices,scripts,errors,shared
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # 其他
 
 
 
-## dict 学习
+## comfyui webui forge
+
+![alt text](assets/IC-Light/image-89.png)
+
+
+![alt text](assets/IC-Light/image-90.png)
+
+
+![alt text](assets/IC-Light/image-91.png)
+
+
+
+## 通过 func variables 学习 dict 
 ![alt text](assets/IC-Light/image-67.png)
 
 还要简洁描述，call可以查看

@@ -1639,6 +1639,14 @@ https://youtube.com/shorts/Erju6TzEAEM?feature=share
 
 
 
+# inpaint模型结构有什么改变？
+
+训练加mask     
+添加方式略有了解     
+
+loss怎么计算      
+
+输入的conv好像变了      
 
 
 

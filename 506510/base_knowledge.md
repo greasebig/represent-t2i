@@ -599,6 +599,29 @@ Alpha的数值小于或等于Dim，一般设置与Dim相同或者是Dim的一半
 
 
 
+# onediff
+https://github.com/siliconflow/onediff
+
+OneDiff: An out-of-the-box acceleration library for diffusion models.
+
+OneDiff：一个开箱即用的扩散模型加速库。
+
+![alt text](assets/base_knowledge/image.png)
+
+OneDiff向上对接各种前端sd框架，向下使用自定义虚拟机与PyTorch混合作为推理引擎。
+
+onediff在webui上支持的模型插件很少，而且有很多BUG，例如不支持非32倍分辨率，int8推理报错
+
+支持的常用插件有：  
+❏ InstantID  (推理速度提升大约一倍)    
+❏ AnimateDiff  (速度提升大约35%，显存占用比刚开始减少了，但是不支持动态batch_size，即更改batch_size会出花图)   
+❏ IPAdapter (包含InstantStyle)     
+
+
+
+
+
+
 
 
 # 结尾
