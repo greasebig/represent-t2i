@@ -5481,7 +5481,89 @@ gradio
         ).images.to(vae.dtype) / vae.config.scaling_factor
 
 
+## init_image mechenism
 
+
+ def sample(self, conditioning, unconditional_conditioning, seeds, subseeds, subseed_strength, prompts):
+
+    samples = self.sampler.sample_img2img(self, self.init_latent, x, conditioning, unconditional_conditioning, image_conditioning=self.image_conditioning)
+            
+
+
+COMMENT: init_latent is added to INIT noise,   
+init_latent is like a tweak at begining       
+directly add    
+
+noise torch.Size([1, 4, 64, 64])     
+init_latent torch.Size([1, 4, 64, 64])   
+base on image width height      
+xi mean x_init or x1
+
+
+class KDiffusionSampler(sd_samplers_common.Sampler):
+
+def sample_img2img(self, p, x, noise, conditioning, unconditional_conditioning, steps=None, image_conditioning=None):
+
+    steps, t_enc = sd_samplers_common.setup_img2img_steps(p, steps)
+
+    sigmas = self.get_sigmas(p, steps)
+    sigma_sched = sigmas[steps - t_enc - 1:]
+    torch.Size([32]) step 30
+
+    xi = x + noise * sigma_sched[0]
+
+
+    if opts.img2img_extra_noise > 0:
+        p.extra_generation_params["Extra noise"] = opts.img2img_extra_noise
+        extra_noise_params = ExtraNoiseParams(noise, x, xi)
+        extra_noise_callback(extra_noise_params)
+        noise = extra_noise_params.noise
+        xi += noise * opts.img2img_extra_noise
+
+
+    extra_params_kwargs = self.initialize(p)
+    parameters = inspect.signature(self.func).parameters
+
+    if 'sigmas' in parameters:
+        extra_params_kwargs['sigmas'] = sigma_sched
+
+
+    self.model_wrap_cfg.init_latent = x
+    self.last_latent = x
+    self.sampler_extra_args = {
+        'cond': conditioning,
+        'image_cond': image_conditioning,
+        'uncond': unconditional_conditioning,
+        'cond_scale': p.cfg_scale,
+        's_min_uncond': self.s_min_uncond
+    }
+
+    samples = self.launch_sampling(t_enc + 1, lambda: self.func(self.model_wrap_cfg, xi, extra_args=self.sampler_extra_args, disable=False, callback=self.callback_state, **extra_params_kwargs))
+
+
+sigmas, how it be sent to sample_dpmpp_2m
+
+
+def sample_dpmpp_2m(model, x, sigmas, extra_args=None, callback=None, disable=None):
+
+    """DPM-Solver++(2M)."""
+    extra_args = {} if extra_args is None else extra_args
+    s_in = x.new_ones([x.shape[0]])
+    sigma_fn = lambda t: t.neg().exp()
+    t_fn = lambda sigma: sigma.log().neg()
+    old_denoised = None
+
+    for i in trange(len(sigmas) - 1, disable=disable):
+        denoised = model(x, sigmas[i] * s_in, **extra_args)
+
+    if old_denoised is None or sigmas[i + 1] == 0:
+        x = (sigma_fn(t_next) / sigma_fn(t)) * x - (-h).expm1() * denoised
+    else:
+        h_last = t - t_fn(sigmas[i - 1])
+        r = h_last / h
+        denoised_d = (1 + 1 / (2 * r)) * denoised - (1 / (2 * r)) * old_denoised
+        x = (sigma_fn(t_next) / sigma_fn(t)) * x - (-h).expm1() * denoised_d
+    old_denoised = denoised
 
 
 
