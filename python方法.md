@@ -420,9 +420,28 @@ Examples
            [2, 5],
            [3, 6]])
 
+# 深拷贝
+    import copy
 
+    # 创建一个包含嵌套结构的对象
+    original_list = [1, 2, [3, 4], 5]
 
+    # 使用deepcopy进行深拷贝
+    deep_copied_list = copy.deepcopy(original_list)
 
+    # 使用copy进行浅拷贝
+    shallow_copied_list = copy.copy(original_list)
+
+深拷贝在Python中可以应用于大多数对象类型，包括但不限于：
+
+    列表（List）
+    字典（Dictionary）
+    集合（Set）
+    元组（Tuple）
+    自定义对象（Classes）
+对于内置的可变对象（例如列表、字典和集合），深拷贝将会递归地复制所有嵌套对象。对于不可变对象（例如元组），深拷贝的行为与浅拷贝相同，因为不可变对象没有嵌套对象。
+
+对于自定义对象，如果对象正确地实现了深拷贝方法（__deepcopy__()），则可以成功进行深拷贝。否则，深拷贝将会失败。
 
 
 

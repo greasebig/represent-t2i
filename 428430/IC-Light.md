@@ -4275,6 +4275,303 @@ return F.conv2d(input, weight, bias, self.stride,
 都用不了   
 ti ii    
 
+shared is vert like shadow copy to p
+
+解决办法难道是 deepcopy一个模型，然后在后续调用？         
+或者找到其他插入或wrap方法     
+
+
+apply没有传入shared
+
+workmodel basemodel在conv改变时同时改变
+
+出来时 p shared 中的也已经改变
+
+改变p就意味着永远改变了
+
+相当难搞        
+
+shared和p不完全一样，可能是选择性同步    
+如何实现的？？     
+
+测了unet和condition_key 都是秒同步
+
+
+ToDO    
+查看forge是否也十六步    
+
+神奇的16步     
+
+查看是否能退回SAMPle之外   
+
+
+
+sample_img2img    
+sigmas torch.Size([21])
+sigma_sched torch.Size([17])
+
+    steps, t_enc = sd_samplers_common.setup_img2img_steps(p, steps) 20
+
+    sigmas = self.get_sigmas(p, steps)
+    sigma_sched = sigmas[steps - t_enc - 1:]
+    20-15-1:
+
+    if 'sigma_sched' in parameters:
+        extra_params_kwargs['sigma_sched'] = sigma_sched
+    if 'sigmas' in parameters:
+        extra_params_kwargs['sigmas'] = sigma_sched
+
+    samples = self.launch_sampling(t_enc + 1, lambda: self.func(self.model_wrap_cfg, xi, extra_args=self.sampler_extra_args, disable=False, callback=self.callback_state, **extra_params_kwargs))
+
+
+def setup_img2img_steps(p, steps=None):
+
+    if opts.img2img_fix_steps or steps is not None:
+        
+        requested_steps = (steps or p.steps)
+        requested_steps = (20 or 20) or 是一个逻辑运算符，它返回其第一个真值操作数。如果第一个操作数是假值，它返回第二个操作数。在这种情况下，两个操作数都是 20（一个真值），所以它返回第一个 20。
+        steps = int(requested_steps / min(p.denoising_strength, 0.999)) if p.denoising_strength > 0 else 0
+        denoising_strength 0.75
+        t_enc = requested_steps - 1
+    else:
+        执行
+        steps = p.steps
+        t_enc = int(min(p.denoising_strength, 0.999) * steps)
+
+        denoise在一般情况下只用作减少推理步数
+
+sample_dpmpp_2m    
+sigmas torch.Size([17])      
+def sample_dpmpp_2m(model, x, sigmas, extra_args=None, callback=None, disable=None):
+
+
+
+samples = self.sampler.sample_img2img(self, self.init_latent, x, conditioning, unconditional_conditioning, image_conditioning=self.image_conditioning)
+
+返回[1,4,64,64]      
+
+@dataclass(repr=False)   
+class StableDiffusionProcessing:
+
+    @property
+    def sd_model(self):
+        return shared.sd_model
+        已经是固定从shared这里获取，每次调用都是
+
+    @sd_model.setter
+    def sd_model(self, value):
+        pass
+        禁止直接赋值
+
+
+p.sd_model.model.diffusion_model = p.ori_sd_model.model.diffusion_model
+
+这样才能还原成功
+
+class Module:
+
+    def __setattr__(self, name: str, value: Union[Tensor, 'Module']) -> None:
+        def remove_from(*dicts_or_sets):
+            for d in dicts_or_sets:
+                if name in d:
+                    if isinstance(d, dict):
+                        del d[name]
+                    else:
+                        d.discard(name)
+
+        params = self.__dict__.get('_parameters')
+
+
+
+返回sample torch.Size([1, 4, 64, 64])    
+返回位置超出我改变的范围    
+
+def process_images_inner(p: StableDiffusionProcessing) -> Processed:
+
+x_samples_ddim = decode_latent_batch(p.sd_model, samples_ddim, target_device=devices.cpu, check_for_nans=True)
+
+def decode_latent_batch(model, batch, target_device=None, check_for_nans=False):
+
+    samples = DecodedSamples()
+
+    for i in range(batch.shape[0]):
+        sample = decode_first_stage(model, batch[i:i + 1])[0]
+
+
+def decode_first_stage(model, x):
+
+    x = x.to(devices.dtype_vae)
+    approx_index = approximation_indexes.get(opts.sd_vae_decode_method, 0)
+    return samples_to_images_tensor(x, approx_index, model)
+
+
+但是我看我的sample值域超出-1,1
+
+def samples_to_images_tensor(sample, approximation=None, model=None):
+
+    """Transforms 4-channel latent space images into 3-channel RGB image tensors, with values in range [-1, 1]."""
+
+    if approximation is None or (shared.state.interrupted and opts.live_preview_fast_interrupt):
+        approximation = approximation_indexes.get(opts.show_progress_type, 0)
+
+        from modules import lowvram
+        if approximation == 0 and lowvram.is_enabled(shared.sd_model) and not shared.opts.live_preview_allow_lowvram_full:
+            approximation = 1
+
+    if approximation == 2:
+        x_sample = sd_vae_approx.cheap_approximation(sample)
+    elif approximation == 1:
+        x_sample = sd_vae_approx.model()(sample.to(devices.device, devices.dtype)).detach()
+    elif approximation == 3:
+        x_sample = sd_vae_taesd.decoder_model()(sample.to(devices.device, devices.dtype)).detach()
+        x_sample = x_sample * 2 - 1
+    else:
+    0 执行
+        if model is None:跳过
+            model = shared.sd_model
+        with devices.without_autocast(): # fixes an issue with unstable VAEs that are flaky even in fp32 易剥落的;易碎成小薄片的;行为古怪的;好忘事的;
+            x_sample = model.decode_first_stage(sample.to(model.first_stage_model.dtype)) fp16
+
+    return x_sample
+
+
+
+def decode_first_stage(self, z, predict_cids=False, force_not_quantize=False):
+
+        if predict_cids:
+        跳过
+            if z.dim() == 4:
+                z = torch.argmax(z.exp(), dim=1).long()
+            z = self.first_stage_model.quantize.get_codebook_entry(z, shape=None)
+            z = rearrange(z, 'b h w c -> b c h w').contiguous()
+        感觉z已经在-5 5 
+        z = 1. / self.scale_factor * z
+        return self.first_stage_model.decode(z)
+
+
+ def decode(self, z):
+
+        z = self.post_quant_conv(z)
+        dec = self.decoder(z)
+        return dec
+
+
+extension-builtin lora      
+def network_Conv2d_forward(self, input):
+
+    if shared.opts.lora_functional:
+    跳过
+        return network_forward(self, input, originals.Conv2d_forward)
+
+    network_apply_weights(self)
+
+    return originals.Conv2d_forward(self, input)
+
+
+
+
+好像可以借鉴这个      
+
+
+def network_apply_weights(self: Union[torch.nn.Conv2d, torch.nn.Linear, torch.nn.GroupNorm, torch.nn.LayerNorm, torch.nn.MultiheadAttention]):
+    """
+    Applies the currently selected set of networks to the weights of torch layer self.
+    If weights already have this particular set of networks applied, does nothing.
+    If not, restores original weights from backup and alters weights according to networks.
+    """
+
+代码比较长    
+
+
+
+class Decoder(nn.Module):
+
+    def forward(self, z):
+        #assert z.shape[1:] == self.z_shape[1:]
+        self.last_z_shape = z.shape
+
+        # timestep embedding
+        temb = None
+
+        # z to block_in
+        h = self.conv_in(z)
+
+        # middle
+        h = self.mid.block_1(h, temb)
+        h = self.mid.attn_1(h)
+        h = self.mid.block_2(h, temb)
+
+        # upsampling
+        for i_level in reversed(range(self.num_resolutions)):
+            for i_block in range(self.num_res_blocks+1):
+                h = self.up[i_level].block[i_block](h, temb)
+                if len(self.up[i_level].attn) > 0:
+                    h = self.up[i_level].attn[i_block](h)
+            if i_level != 0:
+                h = self.up[i_level].upsample(h)
+
+        # end
+        if self.give_pre_end:
+            return h
+
+        h = self.norm_out(h)
+        h = nonlinearity(h)
+        h = self.conv_out(h)
+        if self.tanh_out:
+            h = torch.tanh(h)
+        return h
+
+
+
+
+
+
+
+
+    x_samples_ddim = torch.stack(x_samples_ddim).float()
+    x_samples_ddim = torch.clamp((x_samples_ddim + 1.0) / 2.0, min=0.0, max=1.0)
+
+for i, x_sample in enumerate(x_samples_ddim):
+
+    x_sample = 255. * np.moveaxis(x_sample.cpu().numpy(), 0, 2)
+    x_sample = x_sample.astype(np.uint8)
+
+    image = Image.fromarray(x_sample)
+
+
+
+
+anyio包    
+class WorkerThread(Thread):
+
+    def run(self) -> None:
+        with claim_worker_thread("asyncio"):
+            threadlocals.loop = self.loop
+            while True:
+                item = self.queue.get()
+                在这里等待
+                if item is None:
+                    # Shutdown command received
+                    return
+
+                context, func, args, future = item
+                if not future.cancelled():
+                    result = None
+                    exception: BaseException | None = None
+                    try:
+                        result = context.run(func, *args)
+                    except BaseException as exc:
+                        exception = exc
+
+                    if not self.loop.is_closed():
+                        self.loop.call_soon_threadsafe(
+                            self._report_result, future, result, exception
+                        )
+
+                self.queue.task_done()
+
+
+启动位置是比较早的
 
 
 
@@ -4321,6 +4618,7 @@ p外面又包了一层
 接下来还要继续包
 
 ![alt text](assets/IC-Light/image-100.png)
+
 
 
 
@@ -4466,10 +4764,462 @@ class Module:
     __call__ : Callable[..., Any] = _wrapped_call_impl
 
 
+## 不对齐。好像是vae压缩初始图片不正确
+
+原始 0000    image_conditioning     
+创建p的时候   
+
+self.image_conditioning = self.img2img_image_conditioning(image * 2 - 1, self.init_latent, image_mask, self.mask_round)
 
 
 
-### shared优化切入点
+### forge写法
+
+    rmbg = BriaRMBG.from_pretrained("a1111webui193/stable-diffusion-webui/models/rmbg/RMBG-1.4").to(device=device)
+
+    alpha = run_rmbg(rmbg, img=args.input_fg, device=device)
+    input_rgb: np.ndarray = (
+        # Make masked area grey.
+        (args.input_fg.astype(np.float32) * alpha + (1 - alpha) * 127)
+        .astype(np.uint8)
+        .clip(0, 255)
+    )
+
+
+    c_concat=args.get_c_concat(input_rgb, vae, p, device=device),
+
+run_rmbg
+
+    @torch.inference_mode()
+    def run_rmbg(rmbg, img, device=torch.device("cuda")) -> np.ndarray:
+        H, W, C = img.shape
+        assert C == 3
+        k = (256.0 / float(H * W)) ** 0.5
+        feed = resize_without_crop(img, int(64 * round(W * k)), int(64 * round(H * k)))
+        feed = numpy2pytorch([feed]).to(device=device, dtype=torch.float32)
+        alpha = rmbg(feed)[0][0]
+        alpha = torch.nn.functional.interpolate(alpha, size=(H, W), mode="bilinear")
+        alpha = alpha.movedim(1, -1)[0]
+        alpha = alpha.detach().float().cpu().numpy().clip(0, 1)
+        return alpha
+
+
+
+
+get_c_concat 
+
+
+    concat_conds = forge_numpy2pytorch(np.stack(np_concat, axis=0)).to(
+        device=device, dtype=torch.float16
+    )
+    np_concat (768, 512, 3)
+    concat_conds torch.Size([1, 768, 512, 3])
+
+
+    # Optional: Use mode instead of sample from VAE output.
+    # vae.first_stage_model.regularization.sample = False
+
+    concat_conds = concat_conds.movedim(-1,1)
+    concat_conds = (2. * concat_conds - 1.).to(device).to(torch.float16)
+
+    latent_concat_conds = vae.encode(concat_conds)
+
+
+    latent_concat_conds = p.sd_model.get_first_stage_encoding(latent_concat_conds)
+    # fg压成latent
+    return {"samples": latent_concat_conds}
+
+
+
+### 原始gradio
+
+    input_fg, matting = run_rmbg(input_fg)
+
+    results = process(input_fg, prompt, image_width, image_height, num_samples, seed, steps, a_prompt, n_prompt, cfg, highres_scale, highres_denoise, lowres_denoise, bg_source)
+    return input_fg, results
+
+
+run_rmbg
+
+    @torch.inference_mode()
+    def run_rmbg(img, sigma=0.0):
+    sigma: 这个参数似乎控制着背景移除后前景对象的平滑或模糊程度。如果未指定，默认为0.0。
+        H, W, C = img.shape
+        assert C == 3
+        这行代码确保输入图像具有3个通道，通常表示RGB图像。此函数似乎设计用于RGB图像。
+        k = (256.0 / float(H * W)) ** 0.5
+        feed = resize_without_crop(img, int(64 * round(W * k)), int(64 * round(H * k)))
+        feed = numpy2pytorch([feed]).to(device=device, dtype=torch.float32)
+        alpha = rmbg(feed)[0][0]
+        alpha = torch.nn.functional.interpolate(alpha, size=(H, W), mode="bilinear")
+        预测的 alpha 通道被调整大小以匹配输入图像的原始尺寸。
+        alpha = alpha.movedim(1, -1)[0]
+        alpha = alpha.detach().float().cpu().numpy().clip(0, 1)
+        Alpha通道从PyTorch张量转换为NumPy数组，并截断到范围[0, 1]以确保有效的透明度值。
+
+        # 下面的forge放到外面
+        result = 127 + (img.astype(np.float32) - 127 + sigma) * alpha
+        return result.clip(0, 255).astype(np.uint8), alpha
+        最终结果被截断以确保像素值在有效范围[0, 255]内，并在返回之前转换为uint8数据类型
+
+detach() 是 PyTorch 中的一个方法，用于从计算图中分离张量。在深度学习中，PyTorch会构建一个动态计算图，用于自动计算梯度并执行反向传播算法。detach() 方法允许你从这个计算图中分离出一个张量，使其不再与计算图关联。
+
+具体来说，detach() 方法会返回一个新的张量，其值与原始张量相同，但是不再与计算图相关联。这意味着，对于分离后的张量，梯度将不会通过它们进行反向传播，因为它们不再参与计算图中的计算。
+
+在上下文中，alpha.detach() 是将 PyTorch 的张量 alpha 分离出来，以便后续的操作不会影响到它的梯度计算。
+
+
+
+forge操作  
+
+    input_rgb: np.ndarray = (
+            # Make masked area grey.
+            (args.input_fg.astype(np.float32) * alpha + (1 - alpha) * 127)
+            .astype(np.uint8)
+            .clip(0, 255)
+        )
+
+这是一样的    
+![alt text](assets/IC-Light/image-105.png)
+
+
+resize_and_center_crop      
+forge和gradio一样    
+
+    def resize_and_center_crop(image, target_width, target_height):
+        pil_image = Image.fromarray(image)
+        original_width, original_height = pil_image.size
+        scale_factor = max(target_width / original_width, target_height / original_height)
+        resized_width = int(round(original_width * scale_factor))
+        resized_height = int(round(original_height * scale_factor))
+        resized_image = pil_image.resize((resized_width, resized_height), Image.LANCZOS)
+        left = (resized_width - target_width) / 2
+        top = (resized_height - target_height) / 2
+        right = (resized_width + target_width) / 2
+        bottom = (resized_height + target_height) / 2
+        cropped_image = resized_image.crop((left, top, right, bottom))
+        return np.array(cropped_image)
+        pil转numpy
+
+numpy2pytorch
+
+    @torch.inference_mode()
+    def numpy2pytorch(imgs):
+        h = (
+            torch.from_numpy(np.stack(imgs, axis=0)).float() / 127.0 - 1.0
+        )  # so that 127 must be strictly 0.0
+        h = h.movedim(-1, 1)
+        return h
+
+        范围-1,1
+        diffusers 能直接输入vae然后结果乘scale
+        直接得到需要的c_concat给模型
+
+        numpy2pytorch 处理的是一个包含多张图像的列表。
+        numpy2pytorch 经过 movedim 操作后，返回的张量形状为 (batch_size, channels, height, width)。
+
+
+    def forge_numpy2pytorch(img: np.ndarray) -> torch.Tensor:
+        """Note: Forge/ComfyUI's VAE accepts 0 ~ 1 tensors."""
+        return torch.from_numpy(img.astype(np.float32) / 255.0)
+
+    forge将这个输入vae获取结果
+    concat_conds = forge_numpy2pytorch(np.stack(np_concat, axis=0)).to(
+            device=device, dtype=torch.float16
+        )
+    latent_concat_conds = vae.encode(concat_conds)
+    
+    return {"samples": latent_concat_conds}
+
+    输入前已经做了处理
+    concat_conds = forge_numpy2pytorch(np.stack(np_concat, axis=0)).to(
+            device=device, dtype=torch.float16
+        )
+
+    还有个区别是没做h = h.movedim(-1, 1)操作
+
+
+无法知道是谁早处理谁后处理     
+
+forge在后续还有操作     
+
+    scale_factor = base_model.model_config.latent_format.scale_factor
+    # [B, 4, H, W]
+    concat_conds: torch.Tensor = c_concat["samples"] * scale_factor
+    # [1, 4 * B, H, W]
+    concat_conds = torch.cat([c[None, ...] for c in concat_conds], dim=1)
+
+    还要处理成concat类型
+
+    def apply_c_concat(params: UnetParams) -> UnetParams:
+        """Apply c_concat on unet call."""
+        sample = params["input"]
+        params["c"]["c_concat"] = torch.cat(
+            (
+                [concat_conds.to(sample.device)]
+                * (sample.shape[0] // concat_conds.shape[0])
+            ),
+            dim=0,
+        )
+        return params
+
+    def unet_dummy_apply(unet_apply: Callable, params: UnetParams):
+        """A dummy unet apply wrapper serving as the endpoint of wrapper
+        chain."""
+        return unet_apply(x=params["input"], t=params["timestep"], **params["c"])
+
+    # Compose on existing `model_function_wrapper`.
+    existing_wrapper = work_model.model_options.get(
+        "model_function_wrapper", unet_dummy_apply
+    )
+
+    def wrapper_func(unet_apply: Callable, params: UnetParams):
+        return existing_wrapper(unet_apply, params=apply_c_concat(params))
+
+
+
+
+
+
+process
+
+
+    fg = resize_and_center_crop(input_fg, image_width, image_height)
+    这个次数有点多，经历了几次
+
+
+    concat_conds = numpy2pytorch([fg]).to(device=vae.device, dtype=vae.dtype)
+    这里使用可能不一样，具体看来得到webui亲自对，最好不用forge对
+
+
+    concat_conds = vae.encode(concat_conds).latent_dist.mode() * vae.config.scaling_factor
+
+
+    bg = resize_and_center_crop(input_bg, image_width, image_height)
+    bg_latent = numpy2pytorch([bg]).to(device=vae.device, dtype=vae.dtype)
+    bg_latent = vae.encode(bg_latent).latent_dist.mode() * vae.config.scaling_factor
+
+    latents = i2i_pipe(
+        image=bg_latent,
+        strength=lowres_denoise,
+        prompt_embeds=conds,
+        negative_prompt_embeds=unconds,
+        width=image_width,
+        height=image_height,
+        num_inference_steps=int(round(steps / lowres_denoise)),
+        num_images_per_prompt=num_samples,
+        generator=rng,
+        output_type='latent',
+        guidance_scale=cfg,
+        cross_attention_kwargs={'concat_conds': concat_conds},
+    ).images.to(vae.dtype) / vae.config.scaling_factor
+
+    pixels = vae.decode(latents).sample
+    pixels = pytorch2numpy(pixels)
+    pixels = [resize_without_crop(
+        image=p,
+        target_width=int(round(image_width * highres_scale / 64.0) * 64),
+        target_height=int(round(image_height * highres_scale / 64.0) * 64))
+    for p in pixels]
+
+
+
+
+
+
+forge
+
+    patched_unet: ModelPatcher = node.apply(
+            model=work_model,
+            ic_model_state_dict=ic_model_state_dict,
+            c_concat=args.get_c_concat(input_rgb, vae, p, device=device),
+        )[0]
+
+get_c_concat
+
+    def get_c_concat(
+        self,
+        processed_fg: np.ndarray,  # fg with bg removed.
+        vae: VAE,
+        p: StableDiffusionProcessing,
+        device: torch.device,
+    ) -> dict:
+        is_hr_pass = getattr(p, "is_hr_pass", False)
+        if is_hr_pass:
+            assert isinstance(p, StableDiffusionProcessingTxt2Img)
+            # TODO: Move the calculation to Forge main repo.
+            if p.hr_resize_x == 0 and p.hr_resize_y == 0:
+                hr_x = int(p.width * p.hr_scale)
+                hr_y = int(p.height * p.hr_scale)
+            else:
+                hr_y, hr_x = p.hr_resize_y, p.hr_resize_x
+            image_width = align_dim_latent(hr_x)
+            image_height = align_dim_latent(hr_y)
+        else:
+            image_width = p.width
+            image_height = p.height
+
+        fg = resize_and_center_crop(processed_fg, image_width, image_height)
+        if self.model_type == ModelType.FC:
+            np_concat = [fg]
+        else:
+            assert self.model_type == ModelType.FBC
+            bg = resize_and_center_crop(
+                self.bg_source_fbc.get_bg(image_width, image_height, self.uploaded_bg),
+                image_width,
+                image_height,
+            )
+            np_concat = [fg, bg]
+
+        concat_conds = forge_numpy2pytorch(np.stack(np_concat, axis=0)).to(
+            device=device, dtype=torch.float16
+        )
+
+        # Optional: Use mode instead of sample from VAE output.
+        # vae.first_stage_model.regularization.sample = False
+        latent_concat_conds = vae.encode(concat_conds)
+        return {"samples": latent_concat_conds}
+
+
+forge_numpy2pytorch
+
+    def forge_numpy2pytorch(img: np.ndarray) -> torch.Tensor:
+        """Note: Forge/ComfyUI's VAE accepts 0 ~ 1 tensors."""
+        return torch.from_numpy(img.astype(np.float32) / 255.0)
+
+    @torch.inference_mode()
+    def numpy2pytorch(imgs):
+    h = (
+        torch.from_numpy(np.stack(imgs, axis=0)).float() / 127.0 - 1.0
+    )  # so that 127 must be strictly 0.0
+    h = h.movedim(-1, 1)
+    return h
+
+
+
+apply
+
+    scale_factor = base_model.model_config.latent_format.scale_factor
+    # [B, 4, H, W]
+    concat_conds: torch.Tensor = c_concat["samples"] * scale_factor
+    # [1, 4 * B, H, W]
+    concat_conds = torch.cat([c[None, ...] for c in concat_conds], dim=1)
+
+    def apply_c_concat(params: UnetParams) -> UnetParams:
+        """Apply c_concat on unet call."""
+        sample = params["input"]
+        params["c"]["c_concat"] = torch.cat(
+            (
+                [concat_conds.to(sample.device)]
+                * (sample.shape[0] // concat_conds.shape[0])
+            ),
+            dim=0,
+        )
+        return params
+
+    def unet_dummy_apply(unet_apply: Callable, params: UnetParams):
+        """A dummy unet apply wrapper serving as the endpoint of wrapper
+        chain."""
+        return unet_apply(x=params["input"], t=params["timestep"], **params["c"])
+
+
+## vae对齐
+
+    concat_conds = forge_numpy2pytorch(np.stack(np_concat, axis=0)).to(
+        device=device, dtype=torch.float16
+    )
+    输入为numpy image
+    # 0,1 torch.Size([1, 768, 512, 3]) 确实在0 1 了
+
+
+    # Optional: Use mode instead of sample from VAE output.
+    # vae.first_stage_model.regularization.sample = False
+
+    concat_conds = concat_conds.movedim(-1,1)
+    #concat_conds = (2. * concat_conds - 1.).to(device).to(torch.float16) # 这步是否必要？-
+
+    latent_concat_conds = vae.encode(concat_conds)
+    这里没有说明需要怎样的输入，但是我感觉forge应该是与webui一样的    
+    可能是diffusers有后处理  
+    # 这里转出来，那后续好像多余了
+    latent_concat_conds = p.sd_model.get_first_stage_encoding(latent_concat_conds)
+    # fg压成latent
+    return {"samples": latent_concat_conds}
+
+encoder直接接收[0,1]输入，原图大小输入
+
+def encode(self, x):
+
+    h = self.encoder(x)
+    moments = self.quant_conv(h)
+    posterior = DiagonalGaussianDistribution(moments)
+    return posterior
+
+def forward(self, x):
+
+    # timestep embedding
+    temb = None
+
+    # downsampling
+    hs = [self.conv_in(x)]
+    for i_level in range(self.num_resolutions):
+        for i_block in range(self.num_res_blocks):
+            h = self.down[i_level].block[i_block](hs[-1], temb)
+            if len(self.down[i_level].attn) > 0:
+                h = self.down[i_level].attn[i_block](h)
+            hs.append(h)
+        if i_level != self.num_resolutions-1:
+            hs.append(self.down[i_level].downsample(hs[-1]))
+
+    # middle
+    h = hs[-1]
+    h = self.mid.block_1(h, temb)
+    h = self.mid.attn_1(h)
+    h = self.mid.block_2(h, temb)
+
+    # end
+    h = self.norm_out(h)
+    h = nonlinearity(h)
+    h = self.conv_out(h)
+    return h
+
+latent_concat_conds = p.sd_model.get_first_stage_encoding(latent_concat_conds)
+
+    def get_first_stage_encoding(self, encoder_posterior):
+        if isinstance(encoder_posterior, DiagonalGaussianDistribution):
+        执行
+            z = encoder_posterior.sample()
+        elif isinstance(encoder_posterior, torch.Tensor):
+            z = encoder_posterior
+        else:
+            raise NotImplementedError(f"encoder_posterior of type '{type(encoder_posterior)}' not yet implemented")
+        return self.scale_factor * z
+
+class DiagonalGaussianDistribution(object):
+
+    def sample(self):
+        x = self.mean + self.std * torch.randn(self.mean.shape).to(device=self.parameters.device)
+        return x
+
+
+后续直接融合成xc的结果    
+
+torch.Size([1, 4, 96, 64])    
+
+看起来范围-1 2
+
+不好说，因为是前景提取，中间的看不见，只是边缘的
+
+
+
+
+
+
+
+
+
+
+## shared优化切入点
 将iclight加入shared，调用也直接提取shared     
 重新定一个变量名，直接永久使用，image_condintion是否也存储在这个地方   
 
@@ -4564,6 +5314,9 @@ image_conditioning 主要是这个东西
 第二次采样是否可以重新直接自己调用？？？？      
 
 
+#### 多次运行后峰值可能到12g
+
+#### 每次重新加载模型速度慢
 
 
 
@@ -4571,6 +5324,9 @@ image_conditioning 主要是这个东西
 ### 无法传回前景图
 p.extra_result_images.append(input_rgb)    
     AttributeError: 'StableDiffusionProcessingImg2Img' object has no attribute 'extra_result_images'
+
+
+
 
 
 
@@ -4669,6 +5425,66 @@ from libiclight.monkey_patch import (
 
 from ....modules import devices,scripts,errors,shared
     ImportError: attempted relative import beyond top-level package
+
+
+
+
+## 分析
+
+@dataclass(repr=False)    
+class StableDiffusionProcessingImg2Img(StableDiffusionProcessing):
+
+
+    def sample(self, conditioning, unconditional_conditioning, seeds, subseeds, subseed_strength, prompts):
+        x = self.rng.next()
+
+        if self.initial_noise_multiplier != 1.0:
+            self.extra_generation_params["Noise multiplier"] = self.initial_noise_multiplier
+            x *= self.initial_noise_multiplier
+
+        samples = self.sampler.sample_img2img(self, self.init_latent, x, conditioning, unconditional_conditioning, image_conditioning=self.image_conditioning)
+
+调用
+
+    if self.scripts is not None:
+                ICLightForge.process_before_every_sampling(p=self,
+                                                x=self.init_latent, 初始的框内输入图片
+                                                noise=x, 随机采样 的高斯噪声
+                                                c=conditioning,
+                                                uc=unconditional_conditioning)
+
+
+
+iclight将输入图片当成init    
+这个东西怎么影响模型？？？     
+
+将iclight内输入图片当成image_condition,即前景图片，直接和噪声concat输入模型     
+
+gradio     
+
+    bg = resize_and_center_crop(input_bg, image_width, image_height)
+        bg_latent = numpy2pytorch([bg]).to(device=vae.device, dtype=vae.dtype)
+        bg_latent = vae.encode(bg_latent).latent_dist.mode() * vae.config.scaling_factor
+        latents = i2i_pipe(
+            image=bg_latent,
+            strength=lowres_denoise,
+            prompt_embeds=conds,
+            negative_prompt_embeds=unconds,
+            width=image_width,
+            height=image_height,
+            num_inference_steps=int(round(steps / lowres_denoise)),
+            num_images_per_prompt=num_samples,
+            generator=rng,
+            output_type='latent',
+            guidance_scale=cfg,
+            cross_attention_kwargs={'concat_conds': concat_conds},
+        ).images.to(vae.dtype) / vae.config.scaling_factor
+
+
+
+
+
+
 
 ## a1111 webui架构
 ![alt text](assets/IC-Light/229259967-15556a72-774c-44ba-bab5-687f854a0fc7.png)   
