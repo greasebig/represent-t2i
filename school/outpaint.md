@@ -1598,7 +1598,7 @@ https://zhuanlan.zhihu.com/p/633750880?utm_id=0
 
 
 
-# webui插件支持outpaint
+# webui插件
 
 
 比较难以安装    
@@ -1632,9 +1632,21 @@ https://youtube.com/shorts/Erju6TzEAEM?feature=share
 
 
 
-## 另一个是画板形式插件
+## OpenOutpaint
 类似stable-diffusion-infinity-xl   
 但是还不了解如何作画，使用    
+
+OpenOutpaint
+
+![alt text](assets_picture/outpaint/930dc31b29162c3b2b7394ad1568277.jpg)
+
+
+https://blog.csdn.net/ddrfan/article/details/130316244
+
+
+https://www.bilibili.com/video/BV1TM411P7a8/?spm_id_from=333.337.search-card.all.click&vd_source=15487431cfc74ae938beabdb124d750a
+
+
 
 
 
@@ -1649,6 +1661,21 @@ loss怎么计算
 输入的conv好像变了      
 
 
+
+# 社区模型
+Anything V3-inpainting       
+hako-mikan/sd-webui-supermerger    
+
+![alt text](assets_picture/outpaint/image-1.png)
+
+![alt text](assets_picture/outpaint/image-2.png)
+
+
+这个融合方法感觉上只是保存到本地，不好借鉴到iclight
+
+
+# fooocus outpaint
+原理应该是一样的
 
 
 
@@ -1751,6 +1778,15 @@ GLIDE: Towards Photorealistic Image Generation and Editing with Text-Guided Diff
     很高的训练成本：这里作者没有细说，只说了采用2048batch size，训练了250万轮，总体成本接近Dalle。
 
 在2020年Google 发表DDPM后，这两年扩散模型有成为一个新的研究热点的趋势，除了上面介绍的几篇论文之外，还有不少基于扩散模型所设计的优秀的生成模型，应用于多种不同的任务，比如超分、inpainting等。除了在视觉任务上的应用，也有工作针对DDPM的速度进行优化[8]，加速生成时的采样过程。此外，也有将扩散模型与VQ-VAE结合起来实现文本图像生成的算法[9]。其实在七八月份的时候，就已经看了一些DDPM的相关工作，不过因为种种原因当时没有follow下去，还是比较可惜。
+
+
+
+
+
+
+
+
+
 
 
 

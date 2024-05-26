@@ -619,6 +619,73 @@ onediff在webui上支持的模型插件很少，而且有很多BUG，例如不�
 
 
 
+# SUPIR
+扩展至卓越：在野外实践模型扩展以实现照片般逼真的图像恢复
+
+和tile哪个强      
+原理上有什么区别        
+
+https://github.com/kijai/ComfyUI-SUPIR      
+两个月前有，上星期更新
+
+我们介绍了 SUPIR（Scaling-UP 图像恢复），这是一种突破性的图像恢复方法，它利用了生成先验和模型扩展的能力。利用多模态技术和先进的生成先验，SUPIR 标志着智能和逼真的图像恢复的重大进步。作为 SUPIR 中的关键催化剂，模型扩展极大地增强了其功能并展示了图像恢复的新潜力。我们收集了一个包含 2000 万张高分辨率、高质量图像的数据集用于模型训练，每张图像都附有描述性文本注释。SUPIR 提供了通过文本提示引导恢复图像的能力，拓宽了其应用范围和潜力。此外，我们引入了负质量提示以进一步提高感知质量。我们还开发了一种恢复引导采样方法来抑制基于生成恢复中遇到的保真度问题。实验证明了 SUPIR 卓越的恢复效果及其通过文本提示操纵恢复的新颖能力。
+
+![alt text](assets_picture/base_knowledge/image-45.png)
+
+![alt text](assets_picture/base_knowledge/image-46.png)
+
+
+
+
+# StableCascade
+2024.1发布
+
+https://github.com/Stability-AI/StableCascade
+
+
+
+该模型建立在 Würstchen 架构及其主要 与其他模型（如Stable Diffusion）的不同之处在于，它的工作在更小的潜在空间上。为什么会这样 重要？`潜在空间越小，推理运行速度就越快，训练成本就越低`。 潜空间有多小？Stable Diffusion 使用 8 的压缩系数，因此 1024x1024 的图像是 编码为 128x128。Stable Cascade 实现了 42 的压缩因子，这意味着可以对 将 1024x1024 图像转换为 24x24，同时保持清晰的重建。然后，在 高度压缩的潜在空间。此架构的早期版本比 Stable 降低了 16 倍的成本 扩散 1.5.
+
+因此，这种模型非常适合效率重要的用途。此外，所有已知的扩展 像微调一样，LoRA、ControlNet、IP-Adapter、LCM 等也可以使用这种方法。其中一些是 已经在训练和推理部分提供（微调、ControlNet、LoRA）。
+
+具体说来 将 Stable Cascade（30 个推理步骤）与 Playground v2（50 个推理步骤）、SDXL（50 个推理步骤）、 SDXL Turbo（1 个推理步骤）和 Würstchen v2（30 个推理步骤）。
+
+![alt text](assets_picture/base_knowledge/image-47.png)
+
+
+Stable Cascade 对效率的关注体现在其架构和更高的压缩潜在空间上。 尽管最大的模型比 Stable Diffusion XL 包含 14 亿个参数，但它仍然具有更快的特性 推理时间，如下图所示。
+
+![alt text](assets_picture/base_knowledge/image-48.png)
+
+稳定级联由三个模型组成：阶段 A、阶段 B 和阶段 C，代表用于生成图像的级联， 因此得名“Stable Cascade”。 A阶段和B阶段用于压缩图像，类似于VAE在稳定扩散中的工作。 但是，如前所述，通过此设置，可以实现更高的图像压缩。此外，阶段 C 负责在给定文本提示的情况下生成小的 24 x 24 潜伏。下图直观地显示了这一点。 请注意，阶段A是VAE，阶段B和C都是扩散模型。
+
+![alt text](assets_picture/base_knowledge/image-49.png)
+
+
+不能兼容SDXL的LoRA和ControlNet，应该需要自行训练
+
+Stable Cascade是两个latent diffusion模型加一个小的VQGAN模型，其中一个latent diffusion起到生成的作用，而另外一个latent diffusion加VQGAN起到重建的作用。
+
+推理速度和显存消耗方面同样的steps下相差不大
+
+质量稍好于sdxl base      
+某些提示词不行   
+ 
+
+
+
+# Stable UnCLIP 2.1
+March 24, 2023
+
+
+基于 SD2.1-768 的全新稳定扩散微调（Stable unCLIP 2.1，Hugging Face），分辨率为 768x768。该模型允许图像变化和混合操作，如使用 CLIP Latents 的分层文本条件图像生成中所述，并且由于其模块化，可以与其他模型（如 KARLO）结合使用。有两种变体：Stable unCLIP-L 和 Stable unCLIP-H，它们分别以 CLIP ViT-L 和 ViT-H 图像嵌入为条件。此处提供了说明。
+
+image variations and mixing operations
+
+
+
+
+
 
 
 
