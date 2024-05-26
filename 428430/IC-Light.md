@@ -5567,23 +5567,25 @@ def sample_dpmpp_2m(model, x, sigmas, extra_args=None, callback=None, disable=No
 
 
 
+## todo
+1. 明确fbc如何使用，
+2. 复制保存模型，导致显存消耗比较大
+3. 还不能返回前景提取结果
+4. 增加forge插件中新出的remove background功能
+
+
+
+## 思考
+iclight的训练数据怎么收集处理的
+
+
+
+
+
+
 
 ## a1111 webui架构
 ![alt text](assets/IC-Light/229259967-15556a72-774c-44ba-bab5-687f854a0fc7.png)   
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
