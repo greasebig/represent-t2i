@@ -444,5 +444,37 @@ Examples
 对于自定义对象，如果对象正确地实现了深拷贝方法（__deepcopy__()），则可以成功进行深拷贝。否则，深拷贝将会失败。
 
 
+# Python计时
+```
+import time
+
+# 记录开始时间
+start_time = time.time()
+
+# 你的程序代码
+# 在这里写下你想要测量运行时间的代码
+
+# 记录结束时间
+end_time = time.time()
+
+# 计算运行时间
+run_time = end_time - start_time
+print("程序运行时间为：", run_time, "秒")
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # 结尾

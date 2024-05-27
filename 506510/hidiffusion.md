@@ -70,13 +70,35 @@ hibli style beautiful Caribbean beach tropical (sunset) - Negative prompt: soft 
 
 
 
-
-
-
-
 ## image3 imageFX
 ![alt text](assets/hidiffusion/image-4.png)    
 ![alt text](assets/hidiffusion/image-5.png)    
+
+## ToDo 
+[Submitted on 21 Feb 2024 (v1), last revised 8 May 2024 (this version, v3)]    
+ToDo: Token Downsampling for Efficient Generation of High-Resolution Images
+
+https://arxiv.org/abs/2402.13573
+
+标记下采样以高效生成高分辨率图像     
+伊桑·史密斯、纳扬·萨克塞纳、阿宁达·萨哈    
+注意力机制对于图像扩散模型至关重要，然而，它们的二次计算复杂度限制  their quadratic computational complexity limits 了我们可以在合理的时间和内存约束内处理的图像大小。本文探讨了密集注意力在生成图像模型中的重要性，这些模型通常包含冗余特征，因此适合使用稀疏注意力机制。我们提出了一种新的无需训练的方法 ToDo，该方法依赖于键和值标记的标记下采样，以将稳定扩散推理速度提高 2 倍（常见尺寸），将 2048x2048 等高分辨率提高 4.5 倍或更多。我们证明，我们的方法在平衡高效吞吐量和保真度方面优于以前的方法。
+
+
+
+
+
+
+
+
+
+## ToMe
+
+
+
+
+
+
 
 
 

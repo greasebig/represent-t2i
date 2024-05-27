@@ -5572,16 +5572,138 @@ def sample_dpmpp_2m(model, x, sigmas, extra_args=None, callback=None, disable=No
 2. 复制保存模型，导致显存消耗比较大
 3. 还不能返回前景提取结果
 4. 增加forge插件中新出的remove background功能
+5. hires没测试
+
+
+
+## preload
+
+preload 在哪一个堆栈被调用？？   
+如何影响？    
+中间换底模   
+
+## 新报错
+new_conv_in.weight[:, :4, :, :].copy_(input_block.weight)      
+    RuntimeError: The size of tensor a (4) must match the size of tensor b (8) at non-singleton dimension 1
+
+
+
+可以复用
+
+但是再换到t2i报错    
+return F.conv2d(input, weight, bias, self.stride,    
+    RuntimeError: Given groups=1, weight of size [320, 8, 3, 3], expected input[2, 9, 64, 64] to have 8 channels, but got 9 channels instead
+
+我看shared的conditioning_key被修改了成了hybric    
+
+好像也是sampler的问题？？？    
+不一定因为前者改了    
+
+t2i到 i2i 第一次点击会报错   
+
+    modules/processing.py", line 845, in process_images
+            res = process_images_inner(p)
+
+    extensions/sd-webui-controlnet/scripts/batch_hijack.py", line 59, in processing_process_images_hijack
+            return getattr(processing, '__controlnet_original_process_images_inner')(p, *args, **kwargs)
+
+    modules/processing.py", line 915, in process_images_inner
+            p.init(p.all_prompts, p.all_seeds, p.all_subseeds)
+
+
+    modules/processing.py", line 1690, in init
+            image = images.flatten(img, opts.img2img_background_color)
+
+    /modules/images.py", line 835, in flatten
+            if img.mode == "RGBA":
+        AttributeError: 'NoneType' object has no attribute 'mode'
+
+并没有点击cn啊
+
+第二次点击才可以
+
+
+启动第一次运行
+
+    modules/img2img.py", line 232, in img2img
+            processed = process_images(p)
+
+    modules/processing.py", line 845, in process_images
+            res = process_images_inner(p)
+
+    extensions/sd-webui-controlnet/scripts/batch_hijack.py", line 59, in processing_process_images_hijack
+            return getattr(processing, '__controlnet_original_process_images_inner')(p, *args, **kwargs)
+
+    modules/processing.py", line 1019, in process_images_inner
+            samples_ddim = p.sample(conditioning=p.c, unconditional_conditioning=p.uc, seeds=p.seeds, subseeds=p.subseeds, subseed_strength=p.subseed_strength, prompts=p.prompts)
+
+    extensions/sd-webui-ic-light/scripts/forge_ic_light.py", line 438, in sample
+            ICLightForge.process_before_every_sampling(p=self,
+
+    extensions/sd-webui-ic-light/scripts/forge_ic_light.py", line 517, in process_before_every_sampling
+            alpha = run_rmbg(rmbg, img=args.input_fg, device=device)
+
+    extensions/sd-webui-ic-light/libiclight/utils.py", line 77, in run_rmbg
+            H, W, C = img.shape
+        AttributeError: 'NoneType' object has no attribute 'shape'
+
+### 隐患 插件冲突吗？？ 和cn
+
+第二次点击还是冲突     
+
+删除
+
+可以了     
+
+很奇怪就是对于没有字典的赋值不报错，其实就是因为会自己创建一个新的，所以不报错    
+另外==相当于一个命令返回真假信息而已  
+
+
+首次复制原模型 运行时间为： 1.94 秒   
+首次加载iclight和前景模型 运行时间为：16.5 秒   
+merge model 运行时间为： 0.11115479469299316 秒     
+
+更换sd1.5底模耗时
+Applying attention optimization: Doggettx... done.    
+Weights loaded in 80.6s (send model to cpu: 1.6s, load weights from disk: 7.6s, apply weights to model: 69.9s, apply half(): 0.1s, apply dtype to VAE: 0.1s, move model to device: 1.0s).
+
+
+Weights loaded in 24.7s (send model to cpu: 1.2s, load weights from disk: 2.2s, apply weights to model: 20.2s, apply half(): 0.1s, apply dtype to VAE: 0.1s, move model to device: 0.6s).
+
+
+### 隐患：只更换unet
+
+
+    if hasattr(shared, 'ori_sd_model') and shared.ori_sd_model.sd_model_hash != p.sd_model.sd_model_hash: # 已有或没有原始p,判断是否换底模（iclight时候换底模
+        shared.ori_sd_model = copy.deepcopy(p.sd_model)
+        shared.ori_image_condition = copy.deepcopy(p.image_conditioning)
+    这个操作看起来是正确保存sd_model了
+    但是我这样会不会出问题---不会，只是在改变ori
+
+    # 完成iclight后变回原来的底模
+    p.sd_model.model = copy.deepcopy(shared.ori_sd_model.model) # 无法修改,里面的定义是pass。需要改这层是因为怕换底模时候变了vae clip unet. # 隐患，非iclight和iclight 换底模
+    相当于只是换了unetmodel
+    # 这样赋值导致hash一样，后面改conditioning_key被同步。 deepcopy的hash也是一致的，但是不会改变conditioning_key
+    self.sd_model.model.conditioning_key = copy.deepcopy(shared.ori_sd_model.model.conditioning_key)
+    p.image_conditioning = copy.deepcopy(shared.ori_image_condition) #感觉可以去掉
+
+    这里会不会出错？
+
+
+非iclight 切换及切换底模    
+非iclight 切换。 测试通过   
+非iclight 切换底模 退出界面测试 在t2i中更换并推理后切回。通过   
+
+iclight下换模型 通过
+
+
+
+
 
 
 
 ## 思考
 iclight的训练数据怎么收集处理的
-
-
-
-
-
 
 
 ## a1111 webui架构
