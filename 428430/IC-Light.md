@@ -5568,12 +5568,16 @@ def sample_dpmpp_2m(model, x, sigmas, extra_args=None, callback=None, disable=No
 
 
 ## todo
+0. hires没测试
 1. 明确fbc如何使用，
 2. 复制保存模型，导致显存消耗比较大
 3. 还不能返回前景提取结果
 4. 增加forge插件中新出的remove background功能
-5. hires没测试
 
+打光方向不遵循解决方法：    
+需要把 Lowres Denoise 和 Highres Denoise 都降低，但是这样生成图片质量稍微降低    
+gradio中本质是降低strength     
+webui的Denoising strength好像不是一回事？会把推理步数减少
 
 
 ## preload
@@ -5698,6 +5702,222 @@ iclight下换模型 通过
 
 
 
+## 支持fbc
+目前调用和使用了img2img_processing的sample，并做了改变    
+如过在tex2img_processing的sample最好加个if判断
+
+forge默认开启ToMe    
+
+p_type = type(p)    
+得到一个class
+
+p_type = type(p).__name__ 
+        
+        if p_type == 'StableDiffusionProcessingImg2Img':
+
+ic_model_type = args.model_type.get('value'),    
+    AttributeError: 'ModelType' object has no attribute 'get'
+
+
+    @classmethod
+    def fetch_from(cls, p: StableDiffusionProcessing):
+        script_runner: scripts.ScriptRunner = p.scripts
+        ic_light_script: scripts.Script = [
+            script
+            for script in script_runner.alwayson_scripts
+            if script.title() == "IC Light"
+        ][0]
+        args = p.script_args[ic_light_script.args_from : ic_light_script.args_to]
+        assert len(args) == 1
+        return ICLightArgs(**args[0])
+
+
+fc    
+concat_conds torch.Size([1, 3, 512, 512])
+latent_concat_conds torch.Size([1, 4, 64, 64])
+
+fbc   
+
+
+使用fc text2img报错   
+return F.conv2d(input, weight, bias, self.stride,   
+RuntimeError: Given groups=1, weight of size [320, 8, 3, 3], expected input[2, 9, 64, 64] to have 8 channels, but got 9 channels instead
+
+conditioning_key     
+
+'hybrid'
+
+new_conv_in.weight[:, :4, :, :].copy_(input_block.weight)     
+    RuntimeError: The size of tensor a (4) must match the size of tensor b (8) at non-singleton dimension 1
+
+中断运行后没运行成功，估计是中断了没改回来     
+
+从img2img转text2img报错 
+
+重启直接运行     
+
+shared.ori_image_condition = copy.deepcopy(p.image_conditioning)    
+    AttributeError: 'StableDiffusionProcessingTxt2Img' object has no attribute 'image_conditioning'
+
+
+return F.conv2d(input, weight, bias, self.stride,       
+    RuntimeError: Given groups=1, weight of size [320, 8, 3, 3], expected input[2, 9, 64, 64] to have 8 channels, but got 9 channels instead
+
+## fc t2i分析
+ concat_conds torch.Size([1, 3, 512, 512])
+latent_concat_conds torch.Size([1, 4, 64, 64])
+
+image_conditioning torch.Size([1, 4, 64, 64])
+
+iclight中处理都是正常的
+
+
+
+
+
+
+
+DiffusionWrapper
+
+def forward(self, x, t, c_concat: list = None, c_crossattn: list = None, c_adm=None):
+
+    elif self.conditioning_key == 'hybrid':
+        xc = torch.cat([x] + c_concat, dim=1)
+        cc = torch.cat(c_crossattn, 1)
+        out = self.diffusion_model(xc, t, context=cc)
+
+x torch.Size([2, 4, 64, 64])    
+c_concat torch.Size([2, 5, 64, 64])
+
+c_crossattn torch.Size([2, 77, 768])
+
+
+
+
+
+cfg denoiser    
+image_cond_in torch.Size([2, 5, 64, 64])
+
+image_cond_in = torch.cat([torch.stack([image_cond[i] for _ in range(n)]) for i, n in enumerate(repeats)] + [image_uncond])
+
+
+image_cond torch.Size([1, 5, 64, 64])   
+image_uncond torch.Size([1, 5, 64, 64])
+
+
+
+    def txt2img_image_conditioning(self, x, width=None, height=None):
+        self.is_using_inpainting_conditioning = self.sd_model.model.conditioning_key in {'hybrid', 'concat'}
+
+        return txt2img_image_conditioning(self.sd_model, x, width or self.width, height or self.height)
+
+
+
+
+
+修改文件中这个函数有问题    
+samples = self.sampler.sample(self, x, conditioning, unconditional_conditioning, image_conditioning=self.txt2img_image_conditioning(x))
+
+
+    def txt2img_image_conditioning(sd_model, x, width, height):
+        if sd_model.model.conditioning_key in {'hybrid', 'concat'}: # Inpainting models
+
+            # The "masked-image" in this case will just be all 0.5 since the entire image is masked.
+            image_conditioning = torch.ones(x.shape[0], 3, height, width, device=x.device) * 0.5
+            这一行创建了一个形状为 [batch_size, 3, height, width] 的全0.5张量
+            image_conditioning = images_tensor_to_samples(image_conditioning, approximation_indexes.get(opts.sd_vae_encode_method))
+
+            # Add the fake full 1s mask to the first dimension.
+            image_conditioning = torch.nn.functional.pad(image_conditioning, (0, 0, 0, 0, 1, 0), value=1.0)
+            这里在 image_conditioning 张量的第一维度前面添加了一个全1的单通道张量
+            image_conditioning = image_conditioning.to(x.dtype)
+
+            return image_conditioning
+
+        elif sd_model.model.conditioning_key == "crossattn-adm": # UnCLIP models
+
+            return x.new_zeros(x.shape[0], 2*sd_model.noise_augmentor.time_embed.dim, dtype=x.dtype, device=x.device)
+
+        else:
+            sd = sd_model.model.state_dict()
+            diffusion_model_input = sd.get('diffusion_model.input_blocks.0.0.weight', None)
+            if diffusion_model_input is not None:
+                if diffusion_model_input.shape[1] == 9:判断它的形状是否为 [9, ...]。如果是,说明模型支持掩膜条件。
+                    # The "masked-image" in this case will just be all 0.5 since the entire image is masked.
+                    image_conditioning = torch.ones(x.shape[0], 3, height, width, device=x.device) * 0.5
+                    如果支持掩膜条件,它会创建一个全是0.5的张量 image_conditioning,其形状为 [batch_size, 3, height, width]。这表示整个图像都被掩码覆盖了
+                    image_conditioning = images_tensor_to_samples(image_conditioning,
+                                                                approximation_indexes.get(opts.sd_vae_encode_method))
+
+                    # Add the fake full 1s mask to the first dimension.
+                    image_conditioning = torch.nn.functional.pad(image_conditioning, (0, 0, 0, 0, 1, 0), value=1.0)
+                    接着在 image_conditioning 的第一维度前面添加一维全1的张量,可能是为了标记这是掩码条件。
+                    image_conditioning = image_conditioning.to(x.dtype)
+
+                    return image_conditioning
+
+            # Dummy zero conditioning if we're not using inpainting or unclip models.
+            # Still takes up a bit of memory, but no encoder call.
+            # Pretty sure we can just make this a 1x1 image since its not going to be used besides its batch size.
+            return x.new_zeros(x.shape[0], 5, 1, 1, dtype=x.dtype, device=x.device)
+            如果不支持掩膜条件,则直接返回一个全0的张量,其形状为 [batch_size, 5, 1, 1]。
+
+
+
+    def images_tensor_to_samples(image, approximation=None, model=None):
+        '''image[0, 1] -> latent'''
+        if approximation is None:
+            approximation = approximation_indexes.get(opts.sd_vae_encode_method, 0)
+
+        if approximation == 3:
+            image = image.to(devices.device, devices.dtype)
+            x_latent = sd_vae_taesd.encoder_model()(image)
+        else:
+            if model is None:
+                model = shared.sd_model
+            model.first_stage_model.to(devices.dtype_vae)
+
+            image = image.to(shared.device, dtype=devices.dtype_vae)
+            image = image * 2 - 1
+            if len(image) > 1:
+                x_latent = torch.stack([
+                    model.get_first_stage_encoding(
+                        model.encode_first_stage(torch.unsqueeze(img, 0))
+                    )[0]
+                    for img in image
+                ])
+            else:
+                x_latent = model.get_first_stage_encoding(model.encode_first_stage(image))
+
+        return x_latent
+
+
+
+原本的文生图是怎么搞的？     
+
+image_conditioning torch.Size([1, 5, 1, 1])
+
+image_cond_in torch.Size([2, 5, 1, 1])
+
+虽然    
+DiffusionWrapper
+
+def forward(self, x, t, c_concat: list = None, c_crossattn: list = None, c_adm=None):
+
+    elif self.conditioning_key == 'crossattn':
+        if not self.sequential_cross_attn:
+            cc = torch.cat(c_crossattn, 1)
+        else:
+            cc = c_crossattn
+        if hasattr(self, "scripted_diffusion_model"):
+            # TorchScript changes names of the arguments
+            # with argument cc defined as context=cc scripted model will produce
+            # an error: RuntimeError: forward() is missing value for argument 'argument_3'.
+            out = self.scripted_diffusion_model(x, t, cc)
+        else:
+            out = self.diffusion_model(x, t, context=cc)
+
+没用到c_concat
 
 
 
