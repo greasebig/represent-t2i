@@ -5921,6 +5921,358 @@ def forward(self, x, t, c_concat: list = None, c_crossattn: list = None, c_adm=N
 
 
 
+## fbc t2i
+concat_conds torch.Size([2, 3, 512, 512])
+
+latent_concat_conds torch.Size([2, 4, 64, 64])
+
+
+image_conditioning = torch.cat(
+    RuntimeError: torch.cat(): expected a non-empty list of Tensors
+
+1//2 导致变0出问题    
+
+### 可能还得去参考forge实现
+
+np_concat = [fg, bg]      
+列表形式 索引0 1    
+
+concat_conds torch.Size([2, 512, 512, 3])   
+latent_concat_conds torch.Size([2, 4, 64, 64])
+
+    # [B, 4, H, W]
+    concat_conds: torch.Tensor = c_concat["samples"] * scale_factor
+    # [1, 4 * B, H, W]
+    concat_conds = torch.cat([c[None, ...] for c in concat_conds], dim=1)
+
+
+
+concat_conds torch.Size([1, 8, 64, 64])    
+
+params["input"] torch.Size([2, 4, 64, 64])    
+params["c"]["c_concat"]  torch.Size([2, 8, 64, 64])    
+
+class BaseModel(torch.nn.Module):
+
+    def apply_model(self, x, t, c_concat=None, c_crossattn=None, control=None, transformer_options={}, **kwargs):
+        sigma = t
+        xc = self.model_sampling.calculate_input(sigma, x)
+        torch.Size([2, 4, 64, 64])
+        if c_concat is not None:
+            xc = torch.cat([xc] + [c_concat], dim=1)
+            torch.Size([2, 12, 64, 64])
+
+缺陷也是优点：每一步采样都会跳进这个函数重新concat  
+优点在于可拓展性强，甚至可以指定不同阶段不同输入，不同的输入层卷积       
+
+    def apply_c_concat(params: UnetParams) -> UnetParams:
+        """Apply c_concat on unet call."""
+        sample = params["input"]
+        params["c"]["c_concat"] = torch.cat(
+            (
+                [concat_conds.to(sample.device)]
+                * (sample.shape[0] // concat_conds.shape[0])
+            ),
+            dim=0,
+        )
+        return params
+
+
+### A1111    
+np_concat = [fg, bg]      
+列表形式 索引0 1    
+
+concat_conds torch.Size([2, 512, 512, 3]) 
+
+latent_concat_conds torch.Size([2, 4, 64, 64])
+
+concat_conds = torch.cat([c[None, ...] for c in concat_conds], dim=1)  
+
+实际上会直接调用torch的_iter_方法获取值   
+父类是c底层      
+确实每次获取torch.Size([4, 64, 64])  
+
+
+    c[None, ...]
+    这是对列表中的每个条件张量c进行处理
+    None表示在第一个维度上添加一个大小为1的维度
+    ...表示保留原有的其他维度不变
+    例如,如果c.shape原来是(3, 4),那么c[None, ...].shape就变成(1, 3, 4)
+
+    [c[None, ...] for c in concat_conds]
+
+    这是一个列表解析(list comprehension)
+    它对concat_conds列表中的每个条件张量c进行c[None, ...]操作
+    最终得到一个转换后的张量列表
+
+    c[None, ...]的作用是在每个条件张量c的第一个维度前面添加一个维度1。
+
+    因为concat_conds中有2个张量,每个张量的形状为(4, 64, 64)
+    所以经过c[None, ...]操作后,两个张量的形状分别变为(1, 4, 64, 64)
+
+
+    [c[None, ...] for c in concat_conds]生成一个列表,包含这两个(1, 4, 64, 64)形状的张量。
+
+
+
+
+
+torch.Size([1, 8, 64, 64])
+
+
+## hires没有调用混合模型，没有输入前景信息等
+
+
+估计需要修改sample_hr_pass，然后在这之后才变更回原来的信息。       
+重点是传入的模型，condition_key，  image_condition 一致。应该是一致的，forge每次就是重新调用混合模型，重新调用原来的 image_condition 做 concat        
+所以线上的img2img的hires不能直接使用，也得稍微修改，       
+
+sample_hr_pass还得直接修改整个函数，因为不能传入数据        
+就是得禁用里面调用image_condition的生成程序    
+而且这是img2img是否合适？   
+应该不管txt2img还是i2i模型，condition_key，  image_condition都能保持一致      
+
+sample修改处的结尾   
+return self.sample_hr_pass(samples, decoded_samples, seeds, subseeds, subseed_strength, prompts)
+
+class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
+
+def sample_hr_pass(self, samples, decoded_samples, seeds, subseeds, subseed_strength, prompts):
+
+    if self.latent_scale_mode is not None:
+        for i in range(samples.shape[0]):
+            save_intermediate(samples, i)
+
+        samples = torch.nn.functional.interpolate(samples, size=(target_height // opt_f, target_width // opt_f), mode=self.latent_scale_mode["mode"], antialias=self.latent_scale_mode["antialias"])
+
+
+        image_conditioning = self.txt2img_image_conditioning(samples)
+
+    sd_models.apply_token_merging(self.sd_model, self.get_token_merging_ratio(for_hr=True))
+
+
+    samples = self.sampler.sample_img2img(self, samples, noise, self.hr_c, self.hr_uc, steps=self.hr_second_pass_steps or self.steps, image_conditioning=image_conditioning)
+
+    sd_models.apply_token_merging(self.sd_model, self.get_token_merging_ratio())
+
+      
+这里也用了tome不知道webui正常采样有没有使用
+
+
+直接到这里 
+
+我的信息早就被还原了
+
+
+class KDiffusionSampler(sd_samplers_common.Sampler):
+
+    def sample_img2img(self, p, x, noise, conditioning, unconditional_conditioning, steps=None, image_conditioning=None):
+        steps, t_enc = sd_samplers_common.setup_img2img_steps(p, steps)
+
+        sigmas = self.get_sigmas(p, steps)
+        sigma_sched = sigmas[steps - t_enc - 1:]
+
+        xi = x + noise * sigma_sched[0]
+
+
+后面七八层才到
+
+class DiffusionWrapper(pl.LightningModule):
+
+    def forward(self, x, t, c_concat: list = None, c_crossattn: list = None, c_adm=None):
+        if self.conditioning_key is None:
+            out = self.diffusion_model(x, t)
+        elif self.conditioning_key == 'concat':
+            xc = torch.cat([x] + c_concat, dim=1)
+            out = self.diffusion_model(xc, t)
+        elif self.conditioning_key == 'crossattn':
+
+
+
+### 隐患 get_c_concat is_hr_pass没反应
+
+### 问题 RecursionError: maximum recursion depth exceeded while calling a Python object
+shared.ori_sample_hr_pass = copy.deepcopy(self.sample_hr_pass)      
+
+一个方法使用deepcopy会报错    
+只有对象或字典才能deepcopy    
+
+
+这几个函数感觉是不是可以用？
+
+
+newlytest/a1111webui193/stable-diffusion-webui/modules/sd_models.py
+
+
+def reload_model_weights(sd_model=None, info=None, forced_reload=False):
+
+def reuse_model_from_already_loaded(sd_model, checkpoint_info, timer):
+
+
+def load_model(checkpoint_info=None, already_loaded_state_dict=None):
+
+
+
+RuntimeError: Given groups=1, weight of size [320, 8, 3, 3], expected input[2, 4, 128, 128] to have 8 channels, but got 4 channels instead
+
+
+#shared.ori_sample_hr_pass = self.sample_hr_pass # 没有成功赋值     
+方法不能直接赋值   
+
+    class _C:
+        def _m(self): pass
+    MethodType = type(_C()._m)
+
+好像写在c底层了    
+
+
+## 大概十次连续运行后爆显存
+可能还是deepcopy问题    
+很多显存没有释放     
+
+在排查问题的过程中，马佬告诉我，其实Pytorch之类的都会有自动回收机制，需要保证的其实是
+
+for循环中的变量，如果是显存上的，尽量不要让他离开for循环范围！    
+按照GC的原理，是引用计数的，当某个局部变量不存在引用的时候，会自动回收。因此如果for循环内部/外部有引用，都会导致某些中间变量一直被持有。
+
+    losses = []
+    for i in range(233):
+        x = Variable(input).to(device)  此时x在GPU上
+        output = self.model(x)          此时output也在GPU上
+        losses.append(output)           这句话将可能导致存储了output梯度，并由于持有output对象导致他不会在每次for循环后释放
+    y = x + ...         这句话在for循环外，等于for循环结束的时候，x仍存在未来的引用可能，此时的x不会被回收
+
+算是动态图的一个坑吧。记录loss信息的时候直接使用了输出的Variable。
+
+    for data, label in trainloader:
+        out = model(data)
+        loss = criterion(out, label)
+        loss_sum += loss     # <--- 这里
+运行着就发现显存炸了。观察了一下发现随着每个batch显存消耗在不断增大..    
+参考了别人的代码发现那句loss一般是这样写：
+
+loss_sum += loss.data[0]    
+这是因为输出的loss的数据类型是Variable。而PyTorch的动态图机制就是通过Variable来构建图。主要是使用Variable计算的时候，会记录下新产生的Variable的运算符号，在反向传播求导的时候进行使用。  
+如果这里直接将loss加起来，系统会认为这里也是计算图的一部分，也就是说网络会一直延伸变大，那么消耗的显存也就越来越大  
+总之使用Variable的数据时候要非常小心。不是必要的话尽量使用Tensor来进行计算...
+
+
+在这篇帖子中有提到，Variable和Tensor实际上共用的是一块内存空间。所以在使用了Variable之后，del掉相应的Variable。不会带来明显的内存释放。唯一可能带来一定效果的，是在for循环过程中，如
+
+    for i, (x, y) in enumerate(train_loader):
+        x = Variable(x)
+        y = Variable(y)
+        # compute model and update
+        del x, y, output 
+x和y本身作为train_loader中内容，会占用一块内存，而循环时，会产生一块临时内存。帖子中回复认为，此处可以节省一点点。需要注意的是，还需要额外删去引用到x和y的变量，否则仍然存在占用。
+
+该回答中描述，当你使用：
+
+    checkpoint = torch.load("checkpoint.pth")
+    model.load_state_dict(checkpoint["state_dict"])
+这样load一个 pretrained model 的时候，torch.load() 会默认把load进来的数据放到0卡上，这样每个进程全部会在0卡占用一部分显存。解决的方法也很简单，就是把load进来的数据map到cpu上：
+
+
+    checkpoint = torch.load("checkpoint.pth", map_location=torch.device('cpu'))
+    model.load_state_dict(checkpoint["state_dict"])
+
+
+    # 获取GPU的rank号
+    gpu = torch.distributed.get_rank(group=group)  # group是可选参数，返回int，执行该脚本的进程的rank
+    # 获取了进程号后
+    rank = 'cuda:{}'.format(gpu)
+    checkpoint = torch.load(args.resume, map_location=rank)
+
+经观察主要是变量占用了显存     
+不是deepcopy问题    
+
+
+
+
+
+
+### 解决：可能是shared变量，也可能是Load
+
+
+
+
+
+
+
+
+
+## patch 机制是什么？？？？
+
+
+forge    
+ToMe    
+return self.token_merging_ratio or opts.token_merging_ratio     
+返回 0 0 
+
+
+    def apply_token_merging(sd_model, token_merging_ratio):
+        if token_merging_ratio <= 0:
+            return
+
+        print(f'token_merging_ratio = {token_merging_ratio}')
+
+        from ldm_patched.contrib.external_tomesd import TomePatcher
+
+        sd_model.forge_objects.unet = TomePatcher().patch(
+            model=sd_model.forge_objects.unet,
+            ratio=token_merging_ratio
+        )
+
+        return
+
+class TomePatcher:
+
+    def __init__(self):
+        self.u = None
+
+    def patch(self, model, ratio):
+        def tomesd_m(q, k, v, extra_options):
+            m, self.u = get_functions(q, ratio, extra_options["original_shape"])
+            return m(q), k, v
+
+        def tomesd_u(n, extra_options):
+            return self.u(n)
+
+        m = model.clone()
+        m.set_model_attn1_patch(tomesd_m)
+        m.set_model_attn1_output_patch(tomesd_u)
+        return m
+
+def get_functions(x, ratio, original_shape):
+
+    b, c, original_h, original_w = original_shape
+    original_tokens = original_h * original_w
+    downsample = int(math.ceil(math.sqrt(original_tokens // x.shape[1])))
+    stride_x = 2
+    stride_y = 2
+    max_downsample = 1
+
+    if downsample <= max_downsample:
+        w = int(math.ceil(original_w / downsample))
+        h = int(math.ceil(original_h / downsample))
+        r = int(x.shape[1] * ratio)
+        no_rand = False
+        m, u = bipartite_soft_matching_random2d(x, w, h, stride_x, stride_y, r, no_rand)
+        return m, u
+
+    nothing = lambda y: y
+    return nothing, nothing
+
+
+
+
+
+
+
+
+
+
+
 
 ## 思考
 iclight的训练数据怎么收集处理的
