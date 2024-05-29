@@ -6186,7 +6186,10 @@ x和y本身作为train_loader中内容，会占用一块内存，而循环时，
 经观察主要是变量占用了显存     
 不是deepcopy问题    
 
+del没用
 
+
+forge和webui显存管理差异
 
 
 
