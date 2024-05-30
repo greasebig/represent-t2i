@@ -935,6 +935,21 @@ https://zhuanlan.zhihu.com/p/648924115
 
 
 
+# LyraSD
+
+2024-01-31     
+腾讯音乐正式发布了奇喵相机微信小程序，用户可以上传单张图片，无需训练等待即可在10秒内生成好玩的形象复刻照片
+
+
+腾讯音乐娱乐集团（TME）旗下天琴实验室深耕多时的MUSE FaceIn形象复刻能力，以及MUSELight 大模型加速框架。在MUSELight的加持下，奇喵相机获得了 30%+ 的性能提升
+
+![alt text](assets_picture/base_knowledge/image-50.png)
+
+
+2023-05-31 ，腾讯音乐天琴实验室在 HuggingFace 公开发布了三项开源大模型加速版本，包含 LyraSD、LyraChatGLM 及 LyraBELLE，较之原版模型可提供更快的生成速度与更低的模型部署成本。
+
+
+
 
 
 
