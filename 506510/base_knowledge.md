@@ -891,6 +891,50 @@ depth library是stable diffusion里的一个拓展插件。
 FunASR是阿里巴巴通义实验室开源的端到端语音识别工具包，目前已经成为主流ASR工具包之一。其主要包括Python pipeline，SDK部署与海量开源工业ASR模型等。
 
 
+# 手推显存占用
+
+
+    显存占用 = 参数数量 x 该参数精度占用的 bytes 数
+    换算关系：Int8 需1 bytes, fp16 / bf16 数需 2 bytes, fp32 需要 4 bytes 
+
+![alt text](assets/base_knowledge/image-6.png)
+
+1 训练过程
+
+训练中的显存占用分两块，分别是：
+
+    模型状态，参数、梯度和优化器状态
+    剩余状态， 中间激活值、临时buffer、显存碎片等
+
+https://zhuanlan.zhihu.com/p/648924115
+
+![alt text](assets/base_knowledge/image-4.png)
+
+![alt text](assets/base_knowledge/image-5.png)
+
+
+![alt text](assets/base_knowledge/image-7.png)
+
+这部分比较固定，主要和参数量有关，和输入大小无关。   
+在整个训练过程中都要存在显存中。 模型参数一般只能通过并行切分（Tensor Parallelism/Pipeline Parallism）能减少。优化器状态一般通过ZeRO 来减少。   
+不同优化器的 K 值不同，算法的中间变量、框架的实现都有可能有一定区别。复旦 LOMO 的方法也是基于类似的思路重新改进 SGD 来减少 K 值和梯度部分显存。
+
+
+
+激活（activations）指的是前向传递过程中计算得到的，并在后向传递过程中需要用到的所有张量。
+
+![alt text](assets/base_knowledge/image-8.png)
+
+    这部分比较灵活，激活值与输入数据的大小（批次大小 b 和序列长度 ）成正相关。
+    在训练过程中是变化值，特别是 batch size 大的时候成倍增长很容易导致 OOM。
+    可以通过重计算、并行切分策略减少。
+
+
+
+下面是 GPT-3 和 LLaMA 为例计算的模型显存和中间激活值显存占用比例。
+
+
+
 
 
 

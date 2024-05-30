@@ -6192,15 +6192,214 @@ del没用
 forge和webui显存管理差异
 
 
+使用with结构确保推理结束后释放显存
+
+    with torch.no_grad():
+        # 推理过程
+        pass
 
 
-### 解决：可能是shared变量，也可能是Load
+
+### 通用推理过程显存占据解法
+
+实是由于显存泄漏造成的。PyTorch等深度学习框架在运行期间会动态申请和释放显存,但有时候由于一些原因(如对变量的引用、计算图的残留等),导致部分显存无法正确释放,持续累积就会造成显存占用越来越高。
+以下是一些建议的解决方案:
+
+在每次推理结束后手动清空缓存
+
+    import torch
+    torch.cuda.empty_cache()
+
+
+设置开始训练/推理前的设备选项,结束后将其设置回None
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+    # 推理过程
+    if device.type == "cuda":
+        torch.cuda.empty_cache()
+        model.to(torch.device('cpu'))
+
+
+使用with结构确保推理结束后释放显存
+
+    with torch.no_grad():
+        # 推理过程
+        pass
+
+定期重启程序。这是一个相对简单但不太理想的方法。  
+检查是否有冗余的中间变量占用显存,对不需要的中间变量使用del及时删除。    
+遇到复杂模型时,可以采用模型分片或梯度检查点等技术减小单次推理的显存需求。   
+升级PyTorch版本,新版本通常会修复一些显存泄漏的问题。   
+更改CUDA版本或更换显卡驱动版本,也有助于解决某些特殊情况下的显存泄漏。   
+
+
+
+#### del
+
+但需要注意,如果有其他地方仍然引用了该对象,则del不会真正删除该对象。
+
+    # 删除变量
+    a = [1, 2, 3]
+    del a  # 删除对列表的引用
+
+    # 删除列表元素
+    b = [4, 5, 6]
+    del b[1]  # 删除第2个元素
+
+    # 删除字典键值对 
+    c = {'x': 1, 'y': 2}
+    del c['x']  # 删除键'x'及其对应的值
+
+删除对象属性:可以删除类实例的属性。
+
+不完全是。删除对象的引用并不意味着该对象所占用的内存空间会立即被清理。    
+Python使用了自动内存管理机制,采用了引用计数(reference counting)来跟踪每个对象的引用数量。当一个对象的引用计数变为0时,该对象所占用的内存空间才会被真正释放。
+
+那么它的引用计数将变为0,Python的垃圾回收器会自动回收该列表占用的内存空间。
+
+    a = [1, 2, 3]
+    b = a
+    del a
+虽然del a删除了a的引用,但是b仍然引用着那个列表对象[1, 2, 3],它的引用计数不为0,所以该列表的内存空间不会被立即释放。    
+因此,del本身只是删除了某个特定的引用,真正释放对象占用的内存空间还需要等到对象的引用计数减为0时才会发生。在深度学习等占用大量内存的场景中,要格外注意内存管理,避免内存泄漏。    
+
+
+#### 梯度检查点
+
+
+梯度检查点(Gradient Checkpointing)是一种用于节省显存的技术
+
+
+它主要应用于训练大型深度神经网络模型时。    
+在训练深度神经网络时,需要计算每层的前向传播和反向传播,并存储中间层的输出(用于反向传播)和梯度(用于权重更新)。对于深层网络来说,这些中间结果会占用大量的内存。梯度检查点的思想是:在反向传播时,不存储每一层的中间输出,而是重新计算它们。这样做的代价是增加一些计算开销,但可以显著减少内存占用。
+
+具体来说,梯度检查点包含以下几个步骤:
+
+    切分计算图:将神经网络的前向传播划分为几个段(segment),每个段包含一些层。
+    前向传播存储输出:在前向传播时,只存储每个段的输出,而不存储中间层的输出。
+    反向传播重新计算:在反向传播时,对于每个段,首先重新计算该段的前向传播,得到中间层输出,然后使用这些输出计算梯度。
+    缓存段的输入:为了避免在反向传播时重新计算整个前向传播,需要缓存每个段的输入,以用于重新计算该段。
+
+通过这种方式,可以将内存消耗降低到存储每个段输出和输入所需的内存量,而不是存储整个网络的中间层输出和梯度。当然,这种做法增加了一些额外的计算量。   
+梯度检查点特别适用于内存较小、参数量极大的模型,可以极大提高内存利用效率。目前主流深度学习框架如PyTorch、TensorFlow等都已经支持自动或手动应用梯度检查点。
+
+在深度学习中,计算图(Computation Graph)是一种用于描述数学运算过程的抽象表示方式。它是由节点(Node)和边(Edge)组成的有向无环图(DAG, Directed Acyclic Graph)。
+
+
+具体来说:
+
+节点表示某种数学运算或数据,如加法、卷积运算、输入数据等。   
+边表示数据依赖关系或数据流向,连接着生产者节点和消费者节点。
+
+
+引入计算图的主要优点:
+
+    將复杂的数学运算过程模块化,便于构建和管理。
+    支持自动微分,根据计算图自动计算各节点的梯度。
+    可以方便地进行内存优化,如梯度检查点、内存重复利用等。
+    支持分布式并行计算,将计算图切分到不同设备执行。
+    支持符号化简,优化计算图结构降低冗余。
+
+#### with torch.no_grad():
+class _NoParamDecoratorContextManager(_DecoratorContextManager):
+
+    """Allow a context manager to be used as a decorator without parentheses"""
+
+    def __new__(cls, orig_func=None):
+        if orig_func is None:
+            return super().__new__(cls)
+        return cls()(orig_func)
+
+class no_grad(_NoParamDecoratorContextManager):
+
+    r"""Context-manager that disables gradient calculation.
+
+    Disabling gradient calculation is useful for inference, when you are sure
+    that you will not call :meth:`Tensor.backward()`. It will reduce memory
+    consumption for computations that would otherwise have `requires_grad=True`.
+
+    In this mode, the result of every computation will have
+    `requires_grad=False`, even when the inputs have `requires_grad=True`.
+    There is an exception! All factory functions, or functions that create
+    a new Tensor and take a requires_grad kwarg, will NOT be affected by
+    this mode.
+
+    This context manager is thread local; it will not affect computation
+    in other threads.
+
+    Also functions as a decorator.
+
+    .. note::
+        No-grad is one of several mechanisms that can enable or
+        disable gradients locally see :ref:`locally-disable-grad-doc` for
+        more information on how they compare.
+
+    def __init__(self) -> None:
+        if not torch._jit_internal.is_scripting():
+            super().__init__()
+        self.prev = False
+
+
+    def __enter__(self) -> None:
+        self.prev = torch.is_grad_enabled()
+        torch.set_grad_enabled(False)
+
+
+
+
+没用
+
+
+### 可能是shared变量，也可能是Load
+
+
+
+多写了几个    
+devices.torch_gc()     
+全局变量的赋值和调用都是用deepcopy隔离    
+基础显存12g    
+显存浮动大，这个没解决。一般的文生图并不会显存浮动。          
+
+![alt text](assets/IC-Light/631717052540_.pic.jpg)
+
+
+本质是    
+
+def torch_gc():
+
+    if torch.cuda.is_available():
+        with torch.cuda.device(get_cuda_device_string()):
+            torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
+
+
+
+
+修改过程：（但是自己没有试到最后，无法知道是否已经见效）      
+严格del后释放，deepcp隔离     
+手动释放torch.cuda.empty_cache()     
+
+
+## 显存浮动未解决
 
 
 
 
 
 
+
+
+## 隐患 没有输入前景图报错
+H, W, C = img.shape     
+    AttributeError: 'NoneType' object has no attribute 'shape'
+
+没有修改p模型，还可以复用原模型
+
+try except进行了模型复原操作   
+这在Model——patcher是不需要的   
+同时还可以少保存模型      
+     
 
 
 

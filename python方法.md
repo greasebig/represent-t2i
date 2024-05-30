@@ -420,6 +420,29 @@ Examples
            [2, 5],
            [3, 6]])
 
+
+# torch.cuda.ipc_collect()
+
+torch.cuda.ipc_collect() 是 PyTorch 中的一个函数,它用于手动触发 CUDA 内存的垃圾回收。它的作用是释放已经不再使用的 CUDA 内存空间,以便它们可以被重新分配和利用。    
+在某些情况下,PyTorch 可能无法及时释放 CUDA 内存,这可能会导致内存泄漏或内存不足的问题。调用 torch.cuda.ipc_collect() 可以强制立即回收这些未使用的内存块,从而避免这些问题。    
+然而,需要注意的是,这个函数只释放内部未使用的内存块,不会影响正在使用的 CUDA 内存。此外,频繁地调用此函数可能会导致性能下降,因为它会引入一些额外的开销。
+
+
+因此,在大多数情况下,您不需要直接调用 torch.cuda.ipc_collect()。PyTorch 会自动管理和回收 CUDA 内存。但是,如果您确实遇到了内存泄漏或内存不足的问题,并且已经尝试了其他方法(如 torch.cuda.empty_cache() 和 torch.cuda.reset_max_memory_cached())但无效,那么您可以考虑调用 torch.cuda.ipc_collect() 来手动触发垃圾回收。
+
+两者的主要区别在于:
+
+empty_cache()会立即释放PyTorch缓存的所有CUDA内存,包括正在使用和暂时不使用的部分。而ipc_collect()只会释放不再被使用的CUDA内存块。    
+empty_cache()的作用范围更广,会清空内部和外部缓存。而ipc_collect()仅在内部进行垃圾回收。   
+empty_cache()通常用于主动管理内存,在需要时释放资源。而ipc_collect()主要用于处理内存泄漏等异常情况下的内存回收。     
+
+因此,在正常情况下,如果希望立即释放尽可能多的CUDA内存,您应该优先使用torch.cuda.empty_cache()。而如果怀疑发生了内存泄漏,可以尝试调用torch.cuda.ipc_collect()来回收未使用的内存块。    
+通常情况下,您不需要频繁调用这两个函数,因为PyTorch会自动管理CUDA内存。但在某些情况下,手动调用它们可以帮助您更好地管理和监控CUDA内存的使用情况。
+
+
+
+
+
 # 深拷贝
     import copy
 
@@ -466,9 +489,65 @@ print("程序运行时间为：", run_time, "秒")
 
 
 
+# try except
+
+    try:
+        x = int(input("请输入一个数字: "))
+        y = 10 / x
+    except:
+        print("发生了一个异常!")
+
+    print("这行代码会被执行")
+
+这里的关键点是,除了Python内置的一些特殊异常(如SystemExit、KeyboardInterrupt等)之外,一旦异常被except块捕获并处理,程序就会继续执行except块之后的代码。    
+无论异常的类型是什么,只要被except块捕获,except块后面的代码都会继续执行。这就是为什么在您的例子中,print("这行代码不会被执行")会被执行。
+
+不需要finally    
 
 
+    try:
+        x = int(input("请输入一个数字: "))
+        y = 10 / x
+    except ZeroDivisionError:
+        print("除数不能为0!")
 
+    print("这行代码不会被执行")
+在上面的例子中,如果用户输入一个非数字字符,会引发ValueError异常,但是这个异常没有被捕获,因此程序会崩溃,print("这行代码不会被执行")就不会被执行了。
+
+因此,except块之后的代码是否会执行,取决于是否发生了异常,以及异常是否被成功捕获和处理了。如果异常被适当地捕获和处理,后面的代码就会继续执行;如果异常没有被捕获,程序就会崩溃,后面的代码不会被执行
+
+    try:
+        x = int(input("请输入一个数字: "))
+        y = 10 / x
+        print(f"结果: {y}")
+    except ValueError:
+        print("您输入的不是一个有效数字!")
+    except ZeroDivisionError:
+        print("除数不能为0!")
+    else:
+        print("运算成功!")
+    finally:
+        print("不管是否发生异常,都会执行这里的代码。")
+
+在上面的示例中,如果用户输入一个非数字字符,将会引发ValueError异常;如果用户输入0,将会引发ZeroDivisionError异常。相应的except语句块将会捕获并处理这些异常。如果没有发生异常,则会执行else语句块中的代码。无论是否发生异常,finally语句块中的代码都会被执行。
+
+    try:
+        # 一些可能引发异常的代码
+        pass
+    except Exception1:
+        # 如果发生Exception1类型的异常,执行这里的代码
+        pass
+    except Exception2:
+        # 如果发生Exception2类型的异常,执行这里的代码 
+        pass
+    else:
+        # 如果没有异常发生,执行这里的代码
+        pass
+    finally:
+        # 无论异常是否发生,都会执行这里的代码
+        pass
+
+else语句块是可选的,如果try语句块中的代码没有引发任何异常,就会执行else语句块中的代码。
 
 
 
