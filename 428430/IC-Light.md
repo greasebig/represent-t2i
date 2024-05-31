@@ -6383,6 +6383,117 @@ def torch_gc():
 
 ## 显存浮动未解决
 
+极有可能是变量定义转移和释放的问题    
+
+因为垃圾清理方式都一样  
+
+都是在末尾    
+
+forge     
+
+    def soft_empty_cache(force=False):
+        global cpu_state
+        if cpu_state == CPUState.MPS:
+            torch.mps.empty_cache()
+        elif is_intel_xpu():
+            torch.xpu.empty_cache()
+        elif torch.cuda.is_available():
+            if force or is_nvidia(): #This seems to make things worse on ROCm so I only do it for cuda
+                torch.cuda.empty_cache()
+                torch.cuda.ipc_collect()
+
+
+
+可以尝试的方案：  
+python    
+
+    #手动调用
+    gc.collectO函数回收垃圾gc.collect()
+
+
+可以使用以下指令进行安装：
+
+pip install -U memory_profiler
+
+在想进行分析的函数前面加上@profile，再运行
+
+python -m memory_profiler example.py
+
+![alt text](assets/IC-Light/image-106.png)
+
+
+
+### webui历史上的显存泄漏
+2022.12    
+刚出两个月报告的问题    
+
+
+
+
+我想说这种情况至少已经发生一个多月了。它发生得并不像我想象的那么快，但对我来说也不是那么一致。有时我可以运行 XY 图几个小时，它才会开始泄漏，有时它从一开始就会泄漏。   
+
+使用和切换检查点时发生内存泄漏
+
+重现问题的步骤
+
+    转到 txt2img，生成带有检查点的图像
+    更改检查点，生成另一幅图像
+    重复 5 次，直到计算机内存不足
+
+我观察到了同样的问题。我目前正在尝试使用一个模型生成 txt2img，然后将其发送到 img2img 并使用另一个模型在其基础上生成。我有 16GB 的 RAM，它很快就崩溃了。所以我又买了 16GB 的 RAM。现在有了 32GB 的 RAM，它仍然会在一段时间后崩溃，但持续时间更长。我对此有点恼火，所以我深入研究了代码并做了一个内存配置文件。
+
+似乎有两个原因导致这种情况，尽管它们都无法始终如一地重现。你只需要重复足够多次：
+
+这里的load_state_dict似乎会不时地消耗越来越多的 RAM。
+
+to(devices.cpu) 和 to(devices.device)似乎并不总是释放内存。同样，并不总是可重现。有时to(devices.cpu)会消耗比to(devices.device)释放更多的 RAM。      
+to(devices.cpu) and to(devices.device) doesn't seem to always release memory. Again, not always reproducible. Sometimes to(devices.cpu) will eat up more RAM than to(devices.device) releases.
+
+谷歌搜索显示这可能是一些垃圾收集或缓存问题。因此我尝试将
+
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    gc.collect()
+    devices.torch_gc()
+
+不，这似乎没有解决根本原因。
+
+stable-diffusion-webui/modules
+/sd_models.py
+
+def read_state_dict(checkpoint_file, print_global_state=False, map_location=None):
+
+    else:
+        # load from file
+        print(f"Loading weights [{sd_model_hash}] from {checkpoint_file}")
+
+        sd = read_state_dict(checkpoint_file)
+        model.load_state_dict(sd, strict=False)
+
+https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/685f9631b56ff8bd43bce24ff5ce0f9a0e9af490/modules/sd_models.py#L346-L356
+
+
+def reload_model_weights(sd_model=None, info=None):
+
+    else:
+        sd_model.to(devices.cpu)
+
+    sd_hijack.model_hijack.undo_hijack(sd_model)
+
+    load_model_weights(sd_model, checkpoint_info)
+
+    sd_hijack.model_hijack.hijack(sd_model)
+    script_callbacks.model_loaded_callback(sd_model)
+
+    if not shared.cmd_opts.lowvram and not shared.cmd_opts.medvram:
+        sd_model.to(devices.device)
+
+
+
+
+
+
+
 
 
 
@@ -6478,6 +6589,13 @@ def get_functions(x, ratio, original_shape):
 
 ## 思考
 iclight的训练数据怎么收集处理的
+
+其实更像是提供了一个端到端的突破   
+
+
+开发逻辑
+
+![alt text](assets/IC-Light/image-108.png)
 
 
 ## a1111 webui架构
@@ -6900,6 +7018,34 @@ SIGGRAPH 2021 技术视频
 Relightful Harmonization: Lighting-aware Portrait Background Replacement
 
 肖像协调旨在将拍摄对象合成到新的背景中，调整其灯光和颜色以确保与背景场景的和谐。现有的协调技术通常只专注于调整前景的全局颜色和亮度，而忽略了背景中的关键照明线索，例如明显的照明方向，从而导致不切实际的构图。我们推出 Relightful Harmonization，这是一种照明感知扩散模型，旨在使用任何背景图像无缝协调前景肖像的复杂照明效果。我们的方法分三个阶段展开。首先，我们引入一个照明表示模块，该模块允许我们的扩散模型对来自目标图像背景的照明信息进行编码。其次，我们引入了一个对齐网络，它将从图像背景中学习到的照明特征与从全景环境地图中学习到的照明特征对齐，这是场景照明的完整表示。最后，为了进一步提高所提出方法的真实感，我们引入了一种新颖的数据模拟管道，该管道可以从各种自然图像中生成合成训练对，用于细化模型。我们的方法在视觉保真度和照明连贯性方面优于现有基准，在现实测试场景中表现出卓越的泛化能力，突出了其多功能性和实用性。
+
+
+
+### IntrinsicCompositing
+
+https://github.com/compphoto/IntrinsicCompositing
+
+
+优化阴影反射    
+
+SIGGRAPH Asia 2023 论文“照明感知合成的内在协调”代码
+
+2024.1
+
+![alt text](assets/IC-Light/image-107.png)
+
+我们提出了一种用于野外图像的照明感知图像协调方法。我们的方法是在固有图像域中制定的。我们使用现成的网络为输入合成图像和背景图像生成反照率、阴影和表面法线。我们首先通过预测图像编辑参数来协调背景和前景的反照率。使用法线和阴影，我们估计了背景照明的简单照明模型。使用此照明模型，我们为前景渲染朗伯阴影，并使用通过自我监督在分割数据集上训练的网络对其进行优化。与之前的工作相比，我们是唯一能够模拟逼真照明效果的方法。
+
+
+合成是一项重要的图像编辑任务，需要将对象真实地融入新背景中。要实现自然的构图，需要通过称为图像协调的过程调整插入对象的外观。虽然现有文献涉及颜色协调，但同样重要的重新照明方面却经常被忽视，因为在多样化环境中真实地调整对象照明存在挑战。
+
+在这个项目中，我们解决了固有域中的图像协调问题，将图像分解为反射率（反照率）和照明（阴影）。我们采用两步方法：首先，在反照率空间中协调颜色，然后解决阴影域中具有挑战性的重新照明问题。我们的目标是为合成对象生成逼真的阴影，以反映新的照明环境。
+
+
+
+
+
+
 
 
 

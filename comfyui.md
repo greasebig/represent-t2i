@@ -29,6 +29,47 @@ python main.py --port 12345
 好像换大点变化数和重启cmd可以   
 
 
+# 启动，公网链接
+python main.py --port 8895 --listen 0.0.0.0    
+然后就能使用公网链接   
+
+
+因为 
+
+
+    if os.name == 'nt' and address == '0.0.0.0':
+            address = '127.0.0.1'
+        webbrowser.open(f"http://{address}:{port}")
+
+    try:
+        loop.run_until_complete(run(server, address=args.listen, port=args.port, verbose=not args.dont_print_server, call_on_start=call_on_start))
+    except KeyboardInterrupt:
+        logging.info("\nStopped server")
+
+
+默认是127.0.0.1    
+
+设置默认json     
+web/scripts/app.js     
+import { defaultGraph } from "./defaultGraph.js";    
+
+![alt text](assets/comfyui/image.png)
+
+解决方法    
+自己的json赋变量名调用   
+改成js文件   
+并且 export const defaultGraph =    
+
+import { defaultGraph } from "./AestheticPredictorV2.5-workflow.js";
+
+
+有时浏览器缓存了旧的    
+load default成功    
+
+
+
+
+
 # 结尾
 
 

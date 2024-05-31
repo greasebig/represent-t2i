@@ -377,6 +377,92 @@ SDXL-Turbo 是SDXL 1.0的精炼版本，经过实时合成训练。 SDXL-Turbo �
 
 
 
+## Phased Consistency Model
+
+使用 PCM 提升一致性模型的性能！
+
+1MMLab, CUHK 2Avolution AI 3Hedra 4Shanghai AI Lab 5Sensetime Research 6Stanford University
+
+https://arxiv.org/abs/2405.18407      
+阶段一致性模型
+
+[2024 年 5 月 28 日提交]
+
+
+PCM 在 1-16 步生成设置中的表现明显优于 LCM。虽然 PCM 专为多步细化而设计，但它实现的 1 步生成结果甚至优于或堪比以前最先进的专门设计的 1 步方法。此外，我们表明 PCM 的方法是多功能的并且适用于视频生成，使我们能够训练最先进的几步文本到视频生成器
+
+阶段一致性模型（PCM）是（可能是）当前大型扩散模型中快速文本条件图像生成的最强大的采样加速策略之一。
+
+杨松等人提出的一致性模型 (CM) 是一类很有前途的新型生成模型，可以在无条件和类条件设置下以极少的步骤（通常 2 步）生成高保真图像。先前的工作，潜在一致性模型 (LCM)，试图复制一致性模型在文本条件生成中的强大功能，但通常无法获得令人满意的结果，尤其是在低步长模式（1~4 步）下。相反，我们认为 PCM 是对原始一致性模型的更成功的扩展，可用于高分辨率、文本条件图像生成，更好地复制原始一致性模型在更高级生成设置中的强大功能。
+
+
+总的来说，我们认为 (L)CM 主要有三个局限性：
+
+    LCM 缺乏 CFG 选择的灵活性，并且对负面提示不敏感。
+    LCM 在不同的推理步长下无法得到一致的结果，步长过大（随机抽样误差）或过小（无力）时，其结果都比较模糊。
+    LCM 在低步长范围内产生不良且模糊的结果。
+
+
+
+我们概括了用于高分辨率文本条件图像生成的一致性模型的设计空间，分析并解决了先前工作 LCM 中的局限性。
+
+![alt text](assets/Hyper-SD/image-15.png)
+
+PCM 与目前公开的强大的快速生成模型相比，取得了先进的生成效果，包括基于 GAN 的方法：SDXL-Turbo，SD-Turbo，SDXL-Lightning；基于整流的方法：InstaFlow；基于 CM 的方法：LCM，SimpleCTM。
+
+
+
+
+
+### 原理
+
+![alt text](assets/Hyper-SD/image-16.png)
+
+
+一般说来，逆 SDE 的可能路径就是无穷多。而 ODE 轨迹没有随机性，基本上对采样来说更稳定。稳定扩散社区中应用的大多数调度器，包括 DDIM、DPM-solver、Euler 和 Heun 等，一般都是基于更好地近似 ODE 轨迹的原则。大多数基于蒸馏的方法，包括整流流、引导蒸馏，通常也可以看作是用更大的步长更好地近似 ODE 轨迹（尽管它们中的大多数没有讨论相关部分）。
+
+一致性模型旨在通过提炼或训练直接学习 ODE 轨迹的解点。
+
+在 PCM 中，我们将工作重点放在蒸馏上，这通常更容易学习。至于训练，我们将其留待将来研究。
+
+学习范式比较
+
+
+
+
+我们方法的核心思想是将整个 ODE 轨迹分为多个子轨迹。 下图说明了扩散模型 (DM)、一致性模型 (CM)、一致性轨迹模型 (CTM) 以及我们提出的分阶段一致性模型 (PCM) 之间的学习范式差异。
+
+![alt text](assets/Hyper-SD/image-18.png)
+
+![alt text](assets/Hyper-SD/image-19.png)
+
+![alt text](assets/Hyper-SD/image-17.png)
+
+For a better comparison, we also implement a baseline, which we termed as simpleCTM. We adapt the high-level idea of CTM from the k-diffusion framework into the DDPM framework with stable diffusion, and compare its performance. When trained with the same resource, our method achieves significant superior performance.
+
+
+
+## AnimateLCM
+: Let's Accelerate the Video Generation within 4 Steps!
+
+5.15
+
+    [2024.05]: 🔥🔥🔥 We release the training script for accelerating Stable Video Diffusion.
+    [2024.03]: 😆😆😆 We release the AnimateLCM-I2V and AnimateLCM-SVD for fast image animation.
+    [2024.02]: 🤗🤗🤗 Release pretrained model weights and Huggingface Demo.
+    [2024.02]: 💡💡💡 Technical report is available on arXiv.
+
+
+一致性模型是杨松教授提出的一类很有前途的新型生成模型，可以实现快速、高质量的生成。
+
+Animate-LCM 是遵循一致性模型在快速动画生成方面的一项先驱性和探索性工作，能够通过 4 个推理步骤生成高质量的动画。
+
+它依赖于解耦学习范式，首先学习图像生成先验，然后学习时间生成先验进行快速采样，大大提高了训练效率。
+
+AnimateLCM 的高级工作流程可以
+
+
+
 
 
 
