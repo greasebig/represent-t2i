@@ -1424,7 +1424,16 @@ class DreamBoothDataset(Dataset):
         pipeline.save_pretrained(args.output_dir)
 
 
+## 混淆项 train_dreambooth_lora.py
 
+这些不是inpaint模型的      
+
+https://github.com/huggingface/diffusers/tree/main/examples/dreambooth
+
+https://github.com/huggingface/diffusers/blob/main/examples/dreambooth/train_dreambooth_lora.py
+
+
+但是输入命令，数据集都可以是一致的，只是训练脚本内部稍微不一样       
 
 
 

@@ -1051,20 +1051,124 @@ RealFill是一种个性化文本到图像修复模型的方法，例如仅给定
 
 
 
-
-
-
-
-
-
-
-
-
 ### 很多
 
 
 
 
+
+# 其他
+
+
+## original DDPM implementation
+
+https://github.com/hojonathanho/diffusion
+
+TPU
+
+TensorFlow 
+
+
+
+
+## PyTorch DDPM implementation
+https://github.com/pesser/pytorch_diffusion
+
+
+
+## DDIM implementation
+https://github.com/ermongroup/ddim
+
+
+
+
+
+https://github.com/ermongroup/ncsnv2 (code structure).    
+Improved Techniques for Training Score-Based Generative Models
+
+
+
+
+
+
+## Generative Modeling by Estimating Gradients of the Data Distribution
+[Submitted on 12 Jul 2019 (v1), last revised 10 Oct 2020 (this version, v3)]        
+Generative Modeling by `Estimating Gradients of the Data Distribution `      
+
+
+我们引入了一种新的生成模型，其中通过`Langevin动力学`使用通过`分数匹配估计的数据分布梯度`来生成样本。由于`当数据驻留在低维流形上时，梯度可能定义不清且难以估计，因此我们用不同级别的高斯噪声扰动数据，并共同估计相应的分数`，即所有噪声水平的扰动数据分布梯度的向量场。      
+Because gradients can be ill-defined and hard to estimate when the data resides on low-dimensional manifolds, we perturb the data with different levels of Gaussian noise, and jointly estimate the corresponding scores, i.e., the vector fields of gradients of the perturbed data distribution for all noise levels.
+
+
+
+对于采样，我们提出了一种退火的Langevin动力学，其中我们使用梯度，当采样过程接近数据流形时，噪声水平逐渐降低。    
+For sampling, we propose an annealed Langevin dynamics where we use gradients corresponding to gradually decreasing noise levels as the sampling process gets closer to the data manifold.
+
+
+Our framework allows flexible model architectures, requires no sampling during training or the use of adversarial methods, and provides a learning objective that can be used for principled model comparisons.     
+我们的框架允许灵活的模型架构，在训练或使用对抗性方法时不需要采样，并提供了一个可用于原则性模型比较的学习目标。我们的模型在 MNIST、CelebA 和 CIFAR-10 数据集上生成的样本与 GAN 相当，在 CIFAR-10 上获得了 8.87 分的最新初始得分。此外，我们证明了我们的模型通过图像修复实验学习有效的表示。
+
+Additionally, we demonstrate that our models learn effective representations via image inpainting experiments.
+
+
+
+
+
+
+
+
+
+## Improved Techniques for Training Score-Based Generative Models
+[Submitted on 16 Jun 2020 (v1), last revised 23 Oct 2020 (this version, v2)]     
+
+Improved Techniques for Training Score-Based Generative Models
+
+by Yang Song and Stefano Ermon, Stanford AI Lab.
+
+改进了训练基于分数的生成模型的技术
+
+
+基于分数的生成模型可以生成与 GAN 相当的高质量图像样本，`而无需对抗性优化`。但是，现有的训练程序仅限于低分辨率的图像（通常低于 32x32），并且在某些设置下可能不稳定。我们提供了一种新的理论分析，从高维空间的分数模型中学习和抽样，解释了现有的故障模式，并激发了跨数据集泛化的新解决方案。为了增强稳定性，我们还建议保持模型权重的指数移动平均线。通过这些改进，我们可以`毫不费力地将基于分数的生成模型扩展到分辨率从 64x64 到 256x256 的前所未有的图像`。我们基于分数的模型可以生成高保真样本，`在各种图像数据集（包括 CelebA、FFHQ 和多个 LSUN 类别）上与一流的 GAN 相媲美`。
+
+
+在加速推理的turbo流中，又将对抗优化引了回来，想要快速。从统一视角讲，加速方案是一致的，但这样说回来就没有优化进步的任何期望和前景了       
+
+当初的GAN应该也能用来做快速渲染，生视频吧。    
+不知道以前有没有cn类的框架，应该也有吧     
+从前不可考，大多重复，包括现在的自己，抄别人，抄过去，都在抄啊       
+
+We significantly improve the method proposed in `Generative Modeling by Estimating Gradients of the Data Distribution.`
+
+我们通过估计数据分布的梯度显着改进了生成建模中提出的方法。基于分数的生成模型是灵活的神经网络，经过训练可以捕获基础数据分布的分数函数，即指向数据密度增长最快的方向的向量场。我们提出了提高基于分数的生成模型性能的新技术，将它们缩放到以前不可能的高分辨率图像。无需对抗性训练，它们可以产生与 GAN 相媲美的清晰多样的图像样本。
+
+ they can produce sharp and diverse image samples that rival GANs
+
+
+Note: The method has been extended by the subsequent work Score-Based Generative Modeling through Stochastic Differential Equations (code) that allows better sample quality and exact log-likelihood computation.
+
+
+
+
+
+
+
+## Score-Based Generative Modeling through Stochastic Differential Equations
+Score-VE and Score-VP implementations
+
+https://github.com/yang-song/score_sde_pytorch
+
+
+arxiv    
+[Submitted on 26 Nov 2020 (v1), last revised 10 Feb 2021 (this version, v2)]     
+Score-Based Generative Modeling through Stochastic Differential Equations
+
+
+
+ICLR     
+Published: 13 Jan 2021, Last Modified: 03 Apr 2024 有点奇怪            
+ICLR 2021 Oral        
+
+   
 
 
 
