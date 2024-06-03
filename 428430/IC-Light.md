@@ -6578,11 +6578,42 @@ def get_functions(x, ratio, original_shape):
 
 
 
+### 修复显存泄漏bug
+
+这个代码片段定义了一个数据模型的字段和属性，使用了Python中的Pydantic库。Pydantic是一个用于数据验证和设置管理的库，通常用于定义和验证模型类的数据结构。这个代码片段中有几个关键点需要解释：
+
+Pydantic和Field：
+
+Field是Pydantic中的一个函数，用于定义模型字段的属性，例如默认值和验证规则。在这个代码中，immutable=True意味着这些字段一旦被赋值，就不能再修改。
+
+immutable 不变的
+
+
+字段定义：
+
+model: ModelType = Field(immutable=True)：   
+model字段的类型是ModelType，并且这个字段是不可变的。   
+load_device: torch.device = Field(immutable=True)：   
+load_device字段的类型是torch.device，用于指定运行推理的设备，同样是不可变的。
+
+
+weight_inplace_update: bool = Field(immutable=True, default=False)：    
+第二个weight_inplace_update字段的类型也是布尔值，默认值为False，并且不可变。
 
 
 
+用了一些 .clear() 函数   
+这个感觉很难迁移到自己的代码     
+
+huchenlei的webui版本没有hires，没有重新加载权重，这些满足也很麻烦    
+但是他的显存管理确实很好     
 
 
+从进步角度讲两种方法都能学习patcher代码     
+
+但其实huchenlei的就已经还好，直接用他的吧     
+
+改自己的看不懂显存管理逻辑，不好迁移    
 
 
 
