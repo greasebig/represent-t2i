@@ -950,6 +950,95 @@ https://zhuanlan.zhihu.com/p/648924115
 
 
 
+# prompt
+小括号和中括号可用于调整权重，其中，小括号（）可增加为 1.1 倍权重，中括号[]代表减弱为 0.91 倍权重(相当于除以 1.1)，多次嵌套括号效果相乘。
+
+画面质量：masterpiece(大师之作）,best/high quailty（顶级画质），extreme details(极致细节），high resolution（高分辨率）
+
+画面风格：monochrome（单色画），grayscale（灰度图）， realistic（写实），pixel art（像素 ），watercolor（水彩）， ink and wash painting（水墨）
+
+
+远景（wide sho）：人物+环境，人物通常小于画面高度的一半，甚至只是一个点，用于表现宏观的场面，全方位表现开阔的环境。
+
+
+
+全景（panorama）：全景要以人物为主体，将人物全身置于画面中。
+
+
+中景（medium shot ）：最常用的景别，一般指人物膝盖以上的部分，中景可以突出人物状态，常用于叙事。
+
+
+近景（close shot ）：指人物胸部以上的部位，镜头主观性强，画面视觉范围小，细节清晰。
+
+特写（close-up）：取景只取某个局部，会具有强烈的视觉感受。
+
+
+
+
+
+# Disco Diffusion
+2023年断更   
+
+【年份】从2021年10月开始更新，已更新到v5.7 Update: Dec 31st 2022
+
+【团队】主创Somnai（@Somnai_dreams）和 Adam Letts（@gandamu_ml）发布于Google Colab平台
+
+
+
+【特点】适合风景、物体，画生物会出现恐怖谷掉san警告⚠
+
+【技术关键词】CLIP-Guided Diffusion、Diffusion Models、CLIP模型（技术细节一言两语理解不透，先记录，产品实际体验最重要 ）
+
+
+![alt text](assets_picture/base_knowledge/image-51.png)
+
+End.作为AI产品的杂记
+由于是个人玩家上传到开源平台的，多半作为有点基础人士的小玩具使用，并不是商业化产品，也没有独立的前端。
+
+
+
+# GFPGAN 
+最近更新2024.4
+
+GFPGAN旨在开发用于真实世界面部修复的实用算法。
+
+腾讯
+
+它利用封装在预训练人脸 GAN（例如 StyleGAN2）中的丰富多样的先验来恢复盲人脸。      
+It leverages rich and diverse priors encapsulated in a pretrained face GAN (e.g., StyleGAN2) for blind face restoration.
+
+🚩 更新
+
+✅ 添加 RestoreFormer 推理代码。
+✅ 添加 V1.4 模型，它比 V1.3 产生更多细节和更好的标识。
+✅ 添加 V1.3 模型，可产生更自然的恢复结果，并在非常低质量/高质量输入上产生更好的结果。在 Model zoo， Comparisons.md 中查看更多内容
+✅ 与 Gradio 集成到 Huggingface 空间中。请参阅 Gradio Web 演示。
+✅ 支持使用 Real-ESRGAN 增强非人脸区域（背景）。
+✅ 我们提供 GFPGAN 的干净版本，它不需要 CUDA 扩展
+
+
+ 其他推荐项目：
+▶️ Real-ESRGAN：一种实用的通用图像恢复算法
+▶️ BasicSR：开源图像和视频恢复工具箱
+▶️ facexlib：提供有用的人脸关系函数的集合
+▶️ HandyView：一个基于 PyQt5 的图像查看器，便于查看和比较
+
+[Submitted on 11 Jan 2021 (v1), last revised 11 Jun 2021 (this version, v2)]      
+Towards Real-World Blind Face Restoration with Generative Facial Prior
+
+
+
+盲人脸修复通常依赖于面部先验，例如面部几何先验或参考先验，以恢复逼真和忠实的细节。然而，非常低质量的输入无法提供准确的几何先验，而高质量的参考则无法访问，从而限制了在实际场景中的适用性。在这项工作中，我们提出了GFP-GAN，它利用封装在预训练面部GAN中的丰富多样的先验来恢复盲面。这种生成式面部先验（GFP）通过新颖的通道分割空间特征变换层被整合到面部修复过程中，这使得我们的方法在真实度和保真度之间实现了良好的平衡。得益于强大的生成式面部先验和精致设计，我们的GFP-GAN只需一次前向传递即可共同恢复面部细节并增强色彩，而GAN反转方法在推理时需要昂贵的图像特定优化。大量的实验表明，我们的方法在合成和真实世界的数据集上都取得了优于现有技术的性能。
+
+
+![alt text](assets_picture/base_knowledge/image-52.png)
+
+
+![alt text](assets_picture/base_knowledge/image-53.png)
+
+![alt text](assets_picture/base_knowledge/image-54.png)
+
+
 
 
 
