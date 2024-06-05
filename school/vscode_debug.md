@@ -22,7 +22,9 @@ launch.json
 }
 
 
-# debugpy配置
+
+
+## 原始配置2
 launch.json
 
 {
@@ -44,7 +46,7 @@ launch.json
     ]
 }
 
-
+# debugpy配置
 ## 使用方式
   
 
@@ -53,7 +55,7 @@ launch.json
 
 
 
-服务器环境pip install debugpy 
+服务器环境 pip install debugpy 
 
 本地终端netstat -a        
 找到一个未占用的端口号     
@@ -61,7 +63,7 @@ State显示为LISTENing即为未占用
 135端口一般用不了，权限不够       
 用7890        
 
-
+### 配置
 
 修改launch.json中内容为：
 
@@ -88,7 +90,7 @@ Step4：假设run 该Python脚本的命令为：python xxx.py -arg1 ARG1 -arg2 A
 执行上述命令，终端处于执行中，没有任何返回。接下来在程序中设置断点，按下F5键，即可进入VSCode的调试模式。调试方式与不带参数的情况相同。
 
 
-
+win7 vscode 连断点都打不了，即使使用这个也没办法调试
 
 
 
