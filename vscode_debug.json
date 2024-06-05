@@ -110,6 +110,8 @@ pip install debugpy
 
 python3 -m debugpy --listen 50678  --wait-for-client train.py
 
+python3 -m debugpy --listen 50688  --wait-for-client webui.py --xformers
+
 F5
 
 这个方法好像能让我的win7进行debug     

@@ -75,6 +75,10 @@ hibli style beautiful Caribbean beach tropical (sunset) - Negative prompt: soft 
 ![alt text](assets/hidiffusion/image-5.png)    
 
 ## ToDo 
+大约提升40%的速度    
+不支持论文说的1536和2048的分辨率   
+但是感觉细节没那么好，如头发阴影      
+
 https://github.com/feffy380/sd-webui-token-downsampling
 
 
@@ -134,6 +138,10 @@ token downsampling是对token merging的改进
 
 
 ## ToMe
+
+构图改变
+
+
 https://github.com/SLAPaper/a1111-sd-webui-tome    
 
 Token Merging for Stable Diffusion
@@ -192,6 +200,36 @@ tomesd.remove_patch(model)
 
 
 ![alt text](assets/hidiffusion/image-7.png)
+
+
+
+
+
+
+
+
+
+
+
+
+
+## CutDiffusion
+
+[提交日期：2024 年 4 月 23 日]     
+CutDiffusion：一种简单、快速、廉价且强大的扩散外推方法
+
+CutDiffusion: A Simple, Fast, Cheap, and Strong Diffusion Extrapolation Method
+
+将大型预训练的低分辨率扩散模型转换为更高分辨率的需求，即扩散外推，可显著提高扩散的适应性。我们提出了无需调整的 CutDiffusion，旨在简化和加速扩散外推过程，使其更经济实惠并提高性能。CutDiffusion 遵循现有的逐块外推，但将标准块扩散过程分为专注于全面结构去噪的初始阶段和专注于特定细节细化的后续阶段。全面的实验凸显了 CutDiffusion 的众多强大优势：（1）简单的方法构建，无需第三方参与即可实现简洁的高分辨率扩散过程；（2）通过单步高分辨率扩散过程实现快速的推理速度，并且需要更少的推理块；（3）由于逐块推理和全面结构去噪期间的块数更少，GPU 成本低廉；（4）强大的生成性能，源于对特定细节细化
+
+
+林明宝，林志航，詹文懿，曹柳娟，季蓉蓉
+
+
+https://github.com/lmbxmu/CutDiffusion
+
+
+
 
 
 
