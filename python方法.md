@@ -550,6 +550,37 @@ print("程序运行时间为：", run_time, "秒")
 else语句块是可选的,如果try语句块中的代码没有引发任何异常,就会执行else语句块中的代码。
 
 
+# self
+
+是的,在Python中,您可以使用任何有效的变量名来替代self或cls。Python本身并不限制您必须使用self或cls,这只是一种常见约定和最佳实践。
+
+
+
+
+    class MyClass:
+        def method(a, value):
+            # 在这里,a代表类本身(类方法)
+            print(f"Class value: {value}")
+
+        def other_method(aaa, x, y):
+            # 在这里,aaa代表实例本身(实例方法)
+            print(f"Instance value: {x + y}")
+
+        @classmethod
+        def class_method(bb, value):
+            # 在这里,bb代表类本身(类方法)
+            print(f"Class value: {value}")
+
+
+但是,使用self和cls作为变量名有以下优点:
+
+遵循Python的命名约定,增强代码的可读性。
+在大型项目中,使用这些约定可以减少混淆,并与其他Python开发人员保持一致。
+一些代码检查工具和lint工具可能会对不遵循约定的代码发出警告。
+
+因此,尽管您可以使用其他变量名,但还是建议您坚持使用self和cls,这是Python社区中的标准做法。
+
+
 
 
 

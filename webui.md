@@ -157,7 +157,7 @@ git config --global  --unset http.https://github.com.proxy
 
 
 
-# hires 精绘 高修
+# hires 精绘 高修 超分？？？
 
 在comfyui的实现也是对latant做最近邻差值再采样一次    
 相当于refiner模型变异    
@@ -249,11 +249,28 @@ webui.py设置了5秒间隔，用处是在程序运行时候每5秒监听一次�
 比如这次    
 正好停到前向传播的unet的SpatialTransformer    
 
-
+解决：不把断点打在时间循环处
 
 
 # 内部参数
 ![alt text](assets/webui/image-19.png)
+
+
+
+
+# 升级插件
+check update   
+applly and quit    
+
+# 端口映射
+
+demo.launch(server_name="127.0.0.1", server_port=27121, share=True)这个端口怎么设置才能在https://px-star-1.matpool.com:27121这个链接上查看gradio
+
+
+server_name="0.0.0.0", server_port=8895
+
+
+
 
 
 
