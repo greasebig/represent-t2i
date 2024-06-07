@@ -1,17 +1,23 @@
 # pipe.scheduler 修改
 
-
-
-
     euler_anc = EulerAncestralDiscreteScheduler.from_pretrained(repo_id, subfolder="scheduler")
     euler = EulerDiscreteScheduler.from_pretrained(repo_id, subfolder="scheduler")
     dpm = DPMSolverMultistepScheduler.from_pretrained(repo_id, subfolder="scheduler")
 
 
+如果修改是改     
+pipe.scheduler.config      
+还是pipe.scheduler底下的参数？      
+有同名的      
+然后是from_pretrained看起来已经加载了一些东西？？？？
 
+感觉不是改config，pipe也有config     
+真正的权重好像在pipe底下，      
+这个大问题就是直接改pipe.scheduler是否有效，不会已经预加载了吧      
 
-
-
+=赋值会自动调用diffusionpipeline底下方法setattr       
+类似webui的p赋值也会调用内置方法       
+这种是怎么设计的？      
 
 
 

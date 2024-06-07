@@ -579,6 +579,32 @@ Edit
 
 
 
+## 关于deepcopy和全局变量的正确赋值和正确释放
+
+原来是切换是命名错误没跳进if    
+
+依然是正确的    
+
+    if not 'global_ckpt' in globals():
+        global global_ckpt
+        global_ckpt = {}
+        global global_scheduler
+        global_scheduler = {}
+    if model_name in global_ckpt:  # 如果保存有，而且同名，复用
+        pipe = global_ckpt[model_name]
+    else: # 加载新的，或者不存在
+        global_ckpt = {}
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
+        global_ckpt[model_name] = CutDiffusionSDXLPipeline.from_single_file(model_name, torch_dtype=torch.float16).to("cuda")
+        pipe = global_ckpt[model_name]
+        global_scheduler[model_name] = copy.deepcopy(pipe.scheduler)
+
+
+果然啊        
+
+
+
 
 
 
