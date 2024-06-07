@@ -21,6 +21,97 @@ pipe.scheduler.config
 
 
 
+官方文档           
+pipeline.scheduler = DPMSolverMultistepScheduler.from_config(pipeline.scheduler.config)       
+然后应该就是直接改变pipeline.scheduler底下参数即可，可以一试        
+
+DPM++ 2M	DPMSolverMultistepScheduler	    
+DPM++ 2M Karras	DPMSolverMultistepScheduler	init with use_karras_sigmas=True
+DPM++ 2M SDE	DPMSolverMultistepScheduler	init with algorithm_type="sde-dpmsolver++"      
+DPM++ 2M SDE Karras	DPMSolverMultistepScheduler	init with and use_karras_sigmas=Truealgorithm_type="sde-dpmsolver++"
+
+
+试了一下好像不是直接 pipeline.scheduler 改？？？algorithm_type    
+这个从config读取好像直接构建        
+不知道怎么只改一个变量     
+
+
+这是iclight gradio加载方式
+
+    ddim_scheduler = DDIMScheduler(
+        num_train_timesteps=1000,
+        beta_start=0.00085,
+        beta_end=0.012,
+        beta_schedule="scaled_linear",
+        clip_sample=False,
+        set_alpha_to_one=False,
+        steps_offset=1,
+    )
+
+    euler_a_scheduler = EulerAncestralDiscreteScheduler(
+        num_train_timesteps=1000,
+        beta_start=0.00085,
+        beta_end=0.012,
+        steps_offset=1
+    )
+
+    dpmpp_2m_sde_karras_scheduler = DPMSolverMultistepScheduler(
+        num_train_timesteps=1000,
+        beta_start=0.00085,
+        beta_end=0.012,
+        algorithm_type="sde-dpmsolver++",
+        use_karras_sigmas=True,
+        steps_offset=1
+    )
+
+这是我根据文档改的加载方式，感觉这样才比较正确，在from_config之前进行参数设置
+
+    dpmpp_2m_sde_karras_scheduler2config = copy.deepcopy(global_scheduler[model_name])
+    dpmpp_2m_sde_karras_scheduler2config.config.use_karras_sigmas=True
+
+    dpmpp_2m_karras_scheduler = DPMSolverMultistepScheduler.from_config(
+        dpmpp_2m_sde_karras_scheduler2config
+    )
+
+    dpmpp_2m_sde_karras_scheduler2config.config.algorithm_type="sde-dpmsolver++"
+    dpmpp_2m_sde_karras_scheduler2 = DPMSolverMultistepScheduler.from_config(
+        dpmpp_2m_sde_karras_scheduler2config
+    )
+
+
+
+好像也不对        
+解析的时候解出另外的东西      
+
+
+    # 隔离措施
+    
+    dpmpp_2m_sde_karras_scheduler2config = copy.deepcopy(global_scheduler[model_name])
+    temp = DPMSolverMultistepScheduler.from_config(
+        dpmpp_2m_sde_karras_scheduler2config.config
+    )
+    
+    temp.config.use_karras_sigmas=True
+    # config成功赋值，但是底下没读进去？
+    dpmpp_2m_karras_scheduler = DPMSolverMultistepScheduler.from_config(
+        temp.config
+    )
+
+    temp.config.algorithm_type="sde-dpmsolver++"
+    dpmpp_2m_sde_karras_scheduler2 = DPMSolverMultistepScheduler.from_config(
+        temp.config
+    )
+
+
+
+有可能是那些数字强制赋值了
+
+
+    def extract_init_dict(cls, config_dict, **kwargs):
+        # Skip keys that were not present in the original config, so default __init__ values were used
+        used_defaults = config_dict.get("_use_default_values", [])
+        config_dict = {k: v for k, v in config_dict.items() if k not in used_defaults and k != "_use_default_values"}
+这个位置被赋原始值 false
 
 
 
@@ -28,10 +119,7 @@ pipe.scheduler.config
 
 
 
-
-
-
-#pipeline参数：
+# pipeline参数：
 
 # StableDiffusionPipeline
 ```
