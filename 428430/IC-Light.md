@@ -6676,6 +6676,26 @@ process_images_inner中调用
 
 
 
+## 6.7最新iclight插件
+rembg装这个后4机启动不了      
+webui py疯狂输出终端     
+launch py卡住
+
+
+3机测试    
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## 思考
 iclight的训练数据怎么收集处理的

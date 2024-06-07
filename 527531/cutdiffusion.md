@@ -439,6 +439,143 @@ TypeError: 'Image' object is not iterable
 
 
 
+## 写文件
+
+
+
+    class StreamTee(object):
+        """
+        将输出重定向到多个流,例如sys.stdout到终端和日志文件。
+        """
+        def __init__(self, *streams):
+            self.streams = streams
+            
+        def write(self, data):
+            for stream in self.streams:
+                stream.write(data)
+                
+        def flush(self):
+            for stream in self.streams:
+                stream.flush()
+
+
+    log_file = open("output.txt", "a+")
+    # 重定向标准输出到两个地方
+    sys.stdout = StreamTee(sys.stdout, log_file)
+
+    selected_model_type = ModelType(model_type)
+    print(selected_model_type.model_name)
+    print(scheduler_type)
+
+    results = process(prompt, image_width, image_height, num_samples, seed, steps, a_prompt, n_prompt, float(cfg), selected_model_type.model_name,scheduler_type)
+    # 关闭日志文件
+    log_file.close()
+
+
+stream.write(data)
+ValueError: I/O operation on closed file.
+
+    # StreamTee类的定义
+    class StreamTee(object):
+        """
+        将输出重定向到多个流,例如sys.stdout到终端和日志文件。
+        """
+        def __init__(self, *streams):
+            self.streams = streams
+            
+        def write(self, data):
+            for stream in self.streams:
+                stream.write(data)
+                stream.flush()  # 及时将缓冲区数据写入文件
+                
+        def flush(self):
+            pass  # 不需要执行任何操作
+
+在这个版本中,我们没有显式地关闭日志文件,而是依赖Python在程序退出时自动关闭所有打开的文件。另外,我们在StreamTee的write方法中添加了stream.flush()语句,这样可以确保每次写入操作后,缓冲区的数据都会及时刷新到文件中,避免数据丢失。
+
+通过这种方式,我们可以避免在关闭文件后继续向其写入数据,从而规避ValueError: I/O operation on closed file.错误的发生。
+
+
+
+刚才你写的程序执行后，比如，
+当前时间:当前时间:  2024年06月07日 14时51分40秒2024年06月07日 14时51分40秒
+
+Edit
+看起来是由于多线程或多进程同时向文件写入导致的乱序问题。在你之前的代码中,我们重定向了sys.stdout,这意味着所有的print语句都会通过多个流(终端和文件)输出。由于多个线程或进程同时向文件写入,可能会导致写入操作交错,从而出现乱序的情况。
+
+为了解决这个问题,我们可以使用线程安全的队列来确保记录的有序性。下面是修改后的代码:
+
+    python
+
+    Copy code
+    import sys
+    import threading
+    import queue
+
+    # 创建一个线程安全的队列
+    log_queue = queue.Queue()
+
+    # 以追加模式打开文件,如果文件不存在则创建
+    log_file = open("output.txt", "a+")
+
+    # 定义一个线程,从队列中取出消息并写入文件
+    def log_worker():
+        while True:
+            record = log_queue.get()
+            if record is None:
+                break
+            log_file.write(record + '\n')
+            log_file.flush()
+            log_queue.task_done()
+
+    # 启动日志记录线程
+    log_thread = threading.Thread(target=log_worker, daemon=True)
+    log_thread.start()
+
+    # 重定向标准输出到队列
+    sys.stdout = StreamTeeQueue(sys.stdout, log_queue)
+
+    # 现在所有的print语句都会输出到终端和文件
+    print("Hello, World!")
+    print(f"当前时间: {datetime.datetime.now()}")
+
+    # 等待队列中的消息全部写入文件
+    log_queue.join()
+    # 发送结束信号
+    log_queue.put(None)
+    # 等待日志线程结束
+    log_thread.join()
+
+    # 关闭日志文件
+    log_file.close()
+
+    # StreamTeeQueue类的定义
+    class StreamTeeQueue(object):
+        """
+        将输出重定向到多个流,包括sys.stdout到终端和日志队列。
+        """
+        def __init__(self, stream, queue):
+            self.stream = stream
+            self.queue = queue
+
+        def write(self, data):
+            self.stream.write(data)
+            self.queue.put(data)
+
+        def flush(self):
+            self.stream.flush()
+在这个版本中,我们创建了一个线程安全的队列log_queue。所有的print语句将通过StreamTeeQueue类的write方法将消息写入终端和队列。我们启动了一个单独的线程log_worker,它会从队列中取出消息并顺序地写入文件。
+
+在程序退出之前,我们需要等待队列中的所有消息都被写入文件。我们首先调用log_queue.join()等待队列中的所有任务完成,然后发送None作为结束信号,最后等待日志线程结束。
+
+通过这种方式,我们将写入文件的操作从主线程中分离出来,由单独的线程顺序处理,从而避免了多线程同时写入导致的乱序问题。
+
+执行这个程序,你应该能看到日志文件中的记录是有序的,即使在终端上可能由于多线程输出而出现乱序。
+
+### 解决
+不如写个logger
+
+或者就是终端输入命令时候做下改变
 
 
 

@@ -1,5 +1,31 @@
+# pipe.scheduler 修改
 
-pipeline参数：
+
+
+
+    euler_anc = EulerAncestralDiscreteScheduler.from_pretrained(repo_id, subfolder="scheduler")
+    euler = EulerDiscreteScheduler.from_pretrained(repo_id, subfolder="scheduler")
+    dpm = DPMSolverMultistepScheduler.from_pretrained(repo_id, subfolder="scheduler")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#pipeline参数：
 
 # StableDiffusionPipeline
 ```
