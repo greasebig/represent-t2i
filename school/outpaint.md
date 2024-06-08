@@ -1442,7 +1442,7 @@ https://github.com/huggingface/diffusers/blob/main/examples/dreambooth/train_dre
 diffutorch201环境不需要特别安装，我看了一下都满足    
 数据集 /data/lujunda/207/explosion   
 模型在上一个文件夹   
- 
+
 代码位置 /data/lujunda/new-diffuser/diffuser
 s-main/examples/research_projects/dreambooth_inpaint     
     
@@ -1468,6 +1468,10 @@ diffusers这种文档缺陷好大
 不能分桶      
 
 唯一优势在于khoya没有专门的inpaint lora训练
+
+
+文本 explosion Grayscale image
+
 
 
 
