@@ -115,6 +115,12 @@ DPM++ 2M SDE Karras	DPMSolverMultistepScheduler	init with and use_karras_sigmas=
 
 
 
+## 修改config再使用 from_config 赋值往往失败
+只能是直接构造     
+而不是用from_config      
+
+
+
 
 
 

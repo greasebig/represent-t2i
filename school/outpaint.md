@@ -1438,6 +1438,38 @@ https://github.com/huggingface/diffusers/blob/main/examples/dreambooth/train_dre
 
 
 
+# 训练 dreambooth lora
+diffutorch201环境不需要特别安装，我看了一下都满足    
+数据集 /data/lujunda/207/explosion    
+代码位置 /data/lujunda/new-diffuser/diffuser
+s-main/examples/research_projects/dreambooth_inpaint     
+模型在上一个文件夹       
+
+需要inpaint模型     
+
+
+https://github.com/runwayml/stable-diffusion#inpainting-with-stable-diffusion
+
+https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/Features#inpainting-model-sd2  
+
+Inpainting Model SD2      
+Model specifically designed for inpainting trained on SD 2.0 512 base.
+
+512 inpainting (2.0) - (model+yaml) - .safetensors      
+inpainting_mask_weight or inpainting conditioning mask strength works on this too.
+
+https://huggingface.co/webui/stable-diffusion-2-inpainting/tree/main
+
+
+diffusers这种文档缺陷好大       
+不能自定义每个图片的prompt       
+不能分桶      
+
+唯一优势在于khoya没有专门的inpaint lora训练
+
+
+
+
 
 
 # stable-diffusion-infinity-xl
@@ -1469,6 +1501,7 @@ https://github.com/huggingface/diffusers/blob/main/examples/dreambooth/train_dre
 
 # webui inpaint script 局限
 https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/Features#inpainting-model-sd2     
+
 https://github.com/runwayml/stable-diffusion#inpainting-with-stable-diffusion
 
 功能里面没有image_condition的设置，全图输入，这个局限太大了   
