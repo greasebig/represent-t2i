@@ -1472,7 +1472,26 @@ diffusers这种文档缺陷好大
 
 文本 explosion Grayscale image
 
+## 脚本无法转inpaint???
+获取Inpaint方式一般融合权重，但这样的格式也是webui格式      
 
+考虑直接用sd1.4训练一个Lora试一下，普通训练      
+diffusers训练      
+
+
+可以转      
+
+但是使用最新环境 代码就转不了
+
+
+ValueError: Cannot load /data/master/lujunda/207/stable-diffusion-2-inpainting-diffusers2 because conv_in.weight expected shape tensor(..., device='meta', size=(320, 4, 3, 3)), but got torch.Size([320, 9, 3, 3]). If you want to instead overwrite randomly initialized weights, please make sure to pass both `low_cpu_mem_usage=False` and `ignore_mismatched_sizes=True`. For more information, see also: https://github.com/huggingface/diffusers/issues/1619#issuecomment-1345604389 as an example.
+
+
+我看research文档写得不行，让load inpaint，代码却不行    
+
+ unrecognized arguments: --low_cpu_mem_usage=False --ignore_mismatched_sizes=True
+
+这难道是环境和代码版本冲突？？？
 
 
 
