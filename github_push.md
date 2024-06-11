@@ -15,7 +15,8 @@ git clone git@gitee.com:btc8/sd-webui-ic-light.git
 
 # 推拉
 
-## 法1
+
+## 一般推拉法1
 git clone git@gitee.com:btc8/sd-webui-ic-light.git
 
 git add .    
@@ -111,6 +112,137 @@ git remote -v
 git push --set-upstream origin master      
 如果是新建的分支,需要先将本地分支与远程分支关联   
 
+
+
+要查看当前所在的 Git 分支，可以使用以下命令：
+
+git branch
+
+    * base_on_patcher
+    master
+
+
+查看所有远程和本地分支：
+
+git branch -a
+
+切换到另一个分支：
+
+git checkout branch-name
+
+创建并切换到新分支：
+
+git checkout -b new-branch-name
+
+删除本地分支：
+
+git branch -d branch-name
+
+删除远程分支：
+
+git push origin --delete branch-name
+
+
+
+
+
+
+### 创建和push新分支
+git clone https://github.com/your-username/your-repository.git    
+cd your-repository    
+创建新分支   
+创建一个新分支，并切换到该分支。假设新分支的名字为 new-feature：   
+git checkout -b new-feature    
+将修改的文件添加到暂存区：    
+git add .      
+提交你的修改，并添加提交信息：     
+git commit -m "Add new feature or fix something"     
+推送新分支到远程仓库    
+将新分支推送到远程仓库：    
+git push origin new-feature   
+
+8. 创建 Pull Request（可选）   
+推送后，你可以到 GitHub 上打开你的仓库，并创建一个 Pull Request，从新分支 new-feature 合并到主分支（通常是 main 或 master）。
+
+
+### 互换分支名字
+    # 获取最新的远程分支
+    git fetch origin
+
+    # 切换到 main 分支并获取最新的更新
+    git checkout main
+    git pull origin main
+
+    # 将 main 分支重命名为 old-main
+    git branch -m main old-main
+
+    # 将 new-feature 分支重命名为 main
+    git branch -m new-feature main
+
+    # 强制推送新的 main 分支到远程仓库
+    git push -f origin main
+
+    # 确保远程仓库的 HEAD 指向新的 main 分支
+    git push origin --delete main
+    git push origin main
+
+    # 删除远程的 old-main 分支
+    git push origin --delete old-main
+
+你就成功地将远程的 main 分支与 new-feature 分支互换了。注意，强制推送（git push -f）可能会覆盖远程分支的历史记录，因此请谨慎使用，并确保所有团队成员知晓这一更改。
+
+修改分支名称并不会变更你或仓库其他成员本地的代码分支，请使用以下命令对你的本地仓库分支进行变更：
+
+    git branch -m master <BRANCH>
+    git fetch origin
+    git branch -u origin/<BRANCH>
+    git remote set-head origin -a
+
+这就麻烦了   
+还是别改了    
+
+分支保护是为了防止相关成员推送代码到重要的分支（例如 master 分支），便于仓库的分支管理，点击前往分支设置管理保护分支规则。
+
+    常规分支：仓库成员（开发者权限及以上）可推送分支
+    保护分支：可自定义保护策略，默认仓库管理员才能管理（推送）被保护的分支
+    只读分支：任何人都无法推送代码（包括管理员和所有者），需要推送代码时应设为“常规”或“保护”分支
+
+
+
+
+### 拉取原地更新
+git clone https://github.com/username/repository.git    
+cd repository    
+获取所有远程分支  
+更新本地的远程分支信息：      
+git fetch origin      
+切换到dev分支    
+如果分支已经存在于本地，你可以直接切换到dev分支：     
+git checkout dev     
+如果dev分支在本地还不存在，可以使用以下命令创建并切换到dev分支：    
+git checkout -b dev origin/dev      
+git pull origin dev     
+
+
+git branch 查看本地已有分支
+
+获取远程分支列表    
+使用 git branch -r 命令查看远程仓库中的所有分支：
+
+获取所有分支列表（包括本地和远程分支）    
+使用 git branch -a 命令查看本地和远程所有分支：
+
+  
+获取详细信息    
+要查看远程分支的详细信息，可以使用 git ls-remote 命令：
+
+
+
+### 直接克隆dev分支
+是的，你可以在克隆仓库的时候直接指定克隆dev分支。这样做可以避免克隆整个仓库的默认分支（通常是main或master），然后再切换分支。使用--branch选项可以直接克隆指定的分支。以下是具体的命令：    
+git clone --branch dev <repository-url>
+
+
 ### origin
 
 在运行 git push 命令时,不加任何参数的话,Git 会尝试将代码推送到 origin 远程仓库
@@ -128,13 +260,61 @@ git remote add origin https://github.com/user/repo.git
 
 
 
+### changes
+
+git checkout -b dev origin/dev
+error: Your local changes to the following files would be overwritten by checkout:
+        modules/processing.py
+        modules/scripts.py
+Please commit your changes or stash them before you switch branches.
+Aborting
+
+如果你想暂时保存当前的更改，可以使用 git stash 命令。这样可以在不提交的情况下保存更改，并切换到其他分支：
+
+暂存更改：
+
+git stash
+
+切换到 dev 分支：
+
+git checkout -b dev origin/dev
+
+恢复暂存的更改（可选，如果你想在新分支上应用这些更改）：
+
+git stash pop
+
+选项 3: 丢弃本地更改
+如果你确定不需要保留当前更改，可以丢弃它们：
+
+丢弃本地更改：
+
+git reset --hard
+切换到 dev 分支：
+
+git checkout -b dev origin/dev
+
+查看工作区中的更改  
+使用 git status 查看当前工作区中的更改状态：
+
+这将显示哪些文件被修改、添加或删除了。
 
 
+查看具体的更改内容    
+使用 git diff 查看具体的更改内容。它会显示未暂存的更改：
+
+查看已暂存的更改   
+如果你已经使用 git add 暂存了一些更改，可以使用以下命令查看已暂存的更改：
+
+git diff --cached
 
 
+查看所有更改（包括未暂存和已暂存）
+使用 git diff HEAD 查看相对于最新提交的所有更改，包括已暂存和未暂存的更改：
 
+在使用 git diff 查看更改时，Git 通常会将输出发送到一个分页器（如 less），以便你可以方便地滚动查看内容。当你完成查看并希望退出分页器时，可以按以下键：
 
-
+退出分页器
+按 q 键：这将退出 less 或其他分页器，返回到命令行提示符。
 
 
 # .gitignore

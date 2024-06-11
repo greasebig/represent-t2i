@@ -6701,8 +6701,850 @@ launch py卡住
 
 先上线   
 
+## 修改67之前的版本，增加hires
+    new_x = torch.cat([x, c_concat], dim=1)
+        RuntimeError: Sizes of tensors must match except in dimension 1. Expected size 128 but got size 64 for tensor number 1 in the list.
+
+解禁后进入hires后会爆这个错
+
+主要是不知道model_patcher工作原理     
+这个应该涉及到调用，但 hires 没有调用     
+hires没有调用前处理环节          
+
+我的旧方法中是缓存模型，然后更改函数定义       
+但这样缺点就是同时有两个模型     
+同时我不知道显存泄露的原因       
+这是最大的问题，理论上缓存多一个模型也不会有太大的消耗         
+deepcopy用错了，应该是     
 
 
+
+都在process.py中    
+
+    def process_images_inner(p: StableDiffusionProcessing) -> Processed:
+
+    调用script.process
+
+    然后进入
+    class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
+        def sample(self, conditioning, unconditional_conditioning, seeds, subseeds, subseed_strength, prompts):
+        这里面直接调用
+            def sample_hr_pass(self, samples, decoded_samples, seeds, subseeds, subseed_strength, prompts):
+
+然后还有个问题可能是如果二次调用script.process，会不会把模型权重加两次       
+
+67前版本已经实现hr计算
+
+forge中方便实现这个功能是因为process_before_every_sampling   
+
+
+每个推理步都调用 apply_c_concat       
+
+hires 切换正确，调用 model_patcher      
+
+
+class LatentDiffusion(DDPM):
+
+    def apply_model(self, x_noisy, t, cond, return_ids=False):
+            if isinstance(cond, dict):
+                # hybrid case, cond is expected to be a dict
+                pass
+            else:
+                if not isinstance(cond, list):
+                    cond = [cond]
+                key = 'c_concat' if self.model.conditioning_key == 'concat' else 'c_crossattn'
+                cond = {key: cond}
+
+            x_recon = self.model(x_noisy, t, **cond)
+            从这里进入下面代码
+
+            if isinstance(x_recon, tuple) and not return_ids:
+                return x_recon[0]
+            else:
+                return x_recon
+
+
+调用model_patcher位置在    
+class DiffusionWrapper(pl.LightningModule):
+
+    def forward(self, x, t, c_concat: list = None, c_crossattn: list = None, c_adm=None):
+        if self.conditioning_key is None:
+            out = self.diffusion_model(x, t)
+        elif self.conditioning_key == 'concat':
+            xc = torch.cat([x] + c_concat, dim=1)
+            out = self.diffusion_model(xc, t)
+        elif self.conditioning_key == 'crossattn':
+            if not self.sequential_cross_attn:
+                cc = torch.cat(c_crossattn, 1)
+            else:
+                cc = c_crossattn
+            if hasattr(self, "scripted_diffusion_model"):
+                # TorchScript changes names of the arguments
+                # with argument cc defined as context=cc scripted model will produce
+                # an error: RuntimeError: forward() is missing value for argument 'argument_3'.
+                out = self.scripted_diffusion_model(x, t, cc)
+            else:
+                out = self.diffusion_model(x, t, context=cc) 
+                进入这里  唯一值得担忧的是 c_concat ，还好没有影响
+        elif self.conditioning_key == 'hybrid':
+            xc = torch.cat([x] + c_concat, dim=1)
+            cc = torch.cat(c_crossattn, 1)
+            out = self.diffusion_model(xc, t, context=cc)
+
+        elif self.conditioning_key == 'hybrid-adm':
+            assert c_adm is not None
+            xc = torch.cat([x] + c_concat, dim=1)
+            cc = torch.cat(c_crossattn, 1)
+            out = self.diffusion_model(xc, t, context=cc, y=c_adm)
+
+patcher   
+
+    def apply_c_concat(unet, old_forward: Callable) -> Callable:
+        def new_forward(x, timesteps=None, context=None, **kwargs):
+            # Expand according to batch number.
+
+            concat_conds这个好像没有重新计算 torch.Size([1, 4, 64, 64])
+
+            c_concat = torch.cat( # 在这里每次调用
+                ([concat_conds.to(x.device)] * (x.shape[0] // concat_conds.shape[0])),
+                dim=0,
+            )
+            new_x = torch.cat([x, c_concat], dim=1)
+
+            x: torch.Size([2, 4, 128, 128])
+            c_concat torch.Size([2, 4, 64, 64])
+
+
+            return old_forward(new_x, timesteps, context, **kwargs)
+
+        return new_forward
+
+    # Patch unet forward.
+    p.model_patcher.add_module_patch(
+        "diffusion_model", ModulePatch(create_new_forward_func=apply_c_concat)
+    )
+
+concat_conds 从哪里传入的没找到       
+forge版也不知道在哪里传     
+
+
+相加不成功，被类似 try机制退出   
+比较神奇的是，进入script中定义的函数，竟然还能使用script中的变量    
+
+
+patcher实现封装
+
+    def _wrapped_call_impl(self, *args, **kwargs):
+        if self._compiled_call_impl is not None:
+            return self._compiled_call_impl(*args, **kwargs)  # type: ignore[misc]
+        else:
+            return self._call_impl(*args, **kwargs)
+
+
+感觉像是被绑定了     
+我重新调用了前处理    
+前处理结果正确  
+但是 传入 apply_c_concat 的还是 torch.Size([1, 4, 64, 64])
+
+model patcher 调用 apply_c_concat 顺序   
+
+def process_images_inner(p: StableDiffusionProcessing) -> Processed:
+
+    samples_ddim = p.sample(conditioning=p.c, unconditional_conditioning=p.uc, seeds=p.seeds, subseeds=p.subseeds, subseed_strength=p.subseed_strength, prompts=p.prompts)
+
+
+def model_patcher_hook(logger: logging.Logger):
+
+    """Patches StableDiffusionProcessing to add
+    - model_patcher
+    - hr_model_patcher
+    fields to StableDiffusionProcessing classes, and apply patches before
+    calling sample methods
+    """
+
+    def hook_sample(patcher_field_name: str):
+        def decorator(func: Callable) -> Callable:
+            @functools.wraps(func)
+            def wrapped_sample_func(self, *args, **kwargs):
+                patcher: ModelPatcher = getattr(self, patcher_field_name)
+                assert isinstance(patcher, ModelPatcher)
+                patcher.patch_model() 进入这里
+                logger.info(f"Patch p.{patcher_field_name}.")
+
+                try:
+                    return func(self, *args, **kwargs)
+                finally:
+                    patcher.unpatch_model()
+                    logger.info(f"Unpatch p.{patcher_field_name}.")
+
+            return wrapped_sample_func
+
+        return decorator
+
+
+class ModelPatcher(BaseModel, Generic[ModelType]):
+
+    def patch_model(self, patch_weights: bool = True):
+        assert not self.is_patched, "Model is already patched."
+        self._patch_modules() 进入这里
+        if patch_weights:
+            self._patch_weights()
+        self.is_patched = True
+        return self.model
+
+    def _patch_modules(self):
+        for key, module_patches in self.module_patches.items():
+            module = self.get_attr(key)
+            old_forward = module.forward
+            self.module_backup[key] = old_forward
+            for module_patch in module_patches:
+                module.forward = module_patch.create_new_forward_func(
+                    module, module.forward
+                ) 进入这里
+
+                module ： unet
+
+
+
+def apply_ic_light(
+    p: StableDiffusionProcessing,
+    args: ICLightArgs,
+):
+
+    def apply_c_concat(unet, old_forward: Callable) -> Callable:
+        def new_forward(x, timesteps=None, context=None, **kwargs):
+            # Expand according to batch number.
+            c_concat = torch.cat( # 在这里每次调用
+                ([concat_conds.to(x.device)] * (x.shape[0] // concat_conds.shape[0])),
+                dim=0,
+            )
+            new_x = torch.cat([x, c_concat], dim=1)
+            return old_forward(new_x, timesteps, context, **kwargs)
+
+        return new_forward
+
+
+最初    
+p.model_patcher.add_module_patch(
+        "diffusion_model", ModulePatch(create_new_forward_func=apply_c_concat)
+    )
+
+
+def hook_sample(patcher_field_name: str):
+        def decorator(func: Callable) -> Callable:
+            @functools.wraps(func)
+            def wrapped_sample_func(self, *args, **kwargs):
+                patcher: ModelPatcher = getattr(self, patcher_field_name)
+                assert isinstance(patcher, ModelPatcher)
+                patcher.patch_model()
+                logger.info(f"Patch p.{patcher_field_name}.")
+
+                try:
+                    return func(self, *args, **kwargs) 继续推理
+
+
+
+                finally:
+                    patcher.unpatch_model()
+                    logger.info(f"Unpatch p.{patcher_field_name}.")
+
+            return wrapped_sample_func
+
+        return decorator
+
+return func
+
+class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
+
+熟悉的地方
+
+    def sample(self, conditioning, unconditional_conditioning, seeds, subseeds, subseed_strength, prompts):
+        进入这里
+        self.sampler = sd_samplers.create_sampler(self.sampler_name, self.sd_model)
+
+
+
+        else:
+            # here we generate an image normally
+
+            x = self.rng.next()
+            samples = self.sampler.sample(self, x, conditioning, unconditional_conditioning, image_conditioning=self.txt2img_image_conditioning(x))
+            del x
+
+            if not self.enable_hr:
+                return samples
+
+            devices.torch_gc()
+
+            if self.latent_scale_mode is None:
+                decoded_samples = torch.stack(decode_latent_batch(self.sd_model, samples, target_device=devices.cpu, check_for_nans=True)).to(dtype=torch.float32)
+            else:
+                decoded_samples = None
+
+        with sd_models.SkipWritingToConfig():
+            sd_models.reload_model_weights(info=self.hr_checkpoint_info)
+
+        return self.sample_hr_pass(samples, decoded_samples, seeds, subseeds, subseed_strength, prompts)
+
+
+
+这个位置调用hook
+
+def process_images_inner(p: StableDiffusionProcessing) -> Processed:
+
+samples_ddim = p.sample(conditioning=p.c, unconditional_conditioning=p.uc, seeds=p.seeds, subseeds=p.subseeds, subseed_strength=p.subseed_strength, prompts=p.prompts)
+
+
+
+hr进入script正确    
+concat_conds  torch.Size([1, 4, 128, 128])       
+
+此时    
+p.model_patcher    
+p.model_patcher.is_patched= True
+
+重新 
+def apply_c_concat    
+add_module_patch    
+
+self.module_patches  
+len(self.module_patches) 1    
+self.module_patches['diffusion_model']     
+0 ModulePatch(create_new_forward_func=<function apply_ic_light.<locals>.apply_c_concat at 0x7f6e983f7010>)    
+
+self.module_patches[key].append(module_patch)    
+
+self.module_patches['diffusion_model']    
+0  
+1   
+
+p.model_patcher.add_patches(
+        patches={
+            "diffusion_model." + key: (value.to(dtype=dtype, device=device),)
+            for key, value in ic_model_state_dict.items()
+        }
+    )
+
+
+
+
+class ModelPatcher(BaseModel, Generic[ModelType]):
+
+    def add_patches(
+        self,
+        patches: Dict[str, Union[Tuple[torch.Tensor], Tuple[str, torch.Tensor]]],
+        strength_patch: float = 1.0,
+        strength_model: float = 1.0,
+    ):
+        """ComfyUI-compatible interface to add weight patches."""
+
+        def parse_value(
+
+
+        return self.add_weight_patches(
+            {
+                key: WeightPatch(
+                    **parse_value(value),
+                    alpha=strength_patch,
+                    strength_model=strength_model,
+                )
+                for key, value in patches.items()
+            }
+        )
+
+
+    def add_weight_patches(self, weight_patches: Dict[str, WeightPatch]) -> List[str]:
+        return [
+            key
+            for key, weight_patch in weight_patches.items()
+            if self.add_weight_patch(key, weight_patch)
+        ]
+
+
+
+导致    
+self.weight_patches['diffusion_model.input_blocks.0.0.bias']    
+               
+0  
+1    
+
+都是以append相加上去
+
+
+    def apply_c_concat(unet, old_forward: Callable) -> Callable:
+        def new_forward(x, timesteps=None, context=None, **kwargs):
+            # Expand according to batch number.
+            c_concat = torch.cat( # 在这里每次调用
+
+forward的时候直接调用这里    
+好像并没有进入判断是否已经加模型  
+
+
+还没完全理解这个机制     
+
+
+def process_images_inner(p: StableDiffusionProcessing) -> Processed:
+
+samples_ddim = p.sample(conditioning=p.c, unconditional_conditioning=p.uc, seeds=p.seeds, subseeds=p.subseeds, subseed_strength=p.subseed_strength, prompts=p.prompts)
+
+在 process_images_inner 会调用 patcher机制    
+
+但是hr中不会触发这个
+
+    StableDiffusionProcessingTxt2Img.sample = hook_sample("model_patcher")(
+        StableDiffusionProcessingTxt2Img.sample
+    )
+    StableDiffusionProcessingImg2Img.sample = hook_sample("model_patcher")(
+        StableDiffusionProcessingImg2Img.sample
+    )
+    StableDiffusionProcessingTxt2Img.sample_hr_pass = hook_sample("hr_model_patcher")(
+        StableDiffusionProcessingTxt2Img.sample_hr_pass
+    )
+    logger.info("sample hooks applied")
+
+按照写法，他是hook到这些位置   
+StableDiffusionProcessingTxt2Img.sample    
+也就是在 StableDiffusionProcessingTxt2Img.sample 调用之前做hook     
+也就是在 process_images_inner 之后做hook    
+process_images_inner中启动 p.sample 就是在用 StableDiffusionProcessingTxt2Img.sample    
+
+
+试一下
+
+
+
+StableDiffusionProcessingTxt2Img.sample_hr_pass = hook_sample("hr_model_patcher")(
+        sample_hr_pass
+    )
+
+
+from extensions.sd-forge-ic-light.scripts.ic_light_script import sample_hr_pass
+
+我在这个地方改动的位置有     
+
+    try:
+        if self.scripts is not None:
+            self.scripts.process(self)  
+
+        amples = self.sampler.sample_img2img(self, samples, noise, self.hr_c, self.hr_uc, steps=self.hr_second_pass_steps or self.steps, image_conditioning=image_conditioning)
+    except:
+        self.sample_hr_pass = StableDiffusionProcessingTxt2Img.sample_hr_pass
+
+同时作还原    
+
+hook 我只修改了 sample部分     
+
+所以安装可能需要我这个版本的 model_patcher 以及 iclight     
+
+
+from extensions.sd-forge-ic-light.scripts.ic_light_script import sample_hr_pass
+                          ^
+    SyntaxError: invalid syntax
+
+
+请注意，Python 模块名不能包含连字符。如果你的模块或目录有连字符，需要将它们重命名为下划线。
+
+from extensions.sd_forge_ic_light.scripts.ic_light_script import sample_hr_pass
+
+    scripts/model_patcher_hook.py", line 14, in <module>
+        from extensions.sd_forge_ic_light.scripts.ic_light_script import sample_hr_pass
+    extensions/sd_forge_ic_light/scripts/ic_light_script.py", line 11, in <module>
+            from libiclight.args import ICLightArgs, BGSourceFC, BGSourceFBC, ModelType
+        ModuleNotFoundError: No module named 'libiclight'
+
+from extensions.sd_forge_ic_light.libiclight.args import ICLightArgs, BGSourceFC, BGSourceFBC, ModelType
+
+这些要重写大路径     
+
+libiclight的definition就是__init__.py
+
+整个ic的路径都重写，换种方式可以直接在model patcher定义    
+
+script太乱 直接定义在patcher   
+
+
+![alt text](assets/IC-Light/image-109.png)
+
+
+Hook launch_sampling instead of sample   
+昨天更新     
+这个保证hr能调用patcher机制    
+但是还是要重新写个判断对模型的权重操作    
+
+
+extensions/sd_forge_ic_light/scripts/ic_light_script.py", line 186, in __init__
+        from libiclight.forge_backend import apply_ic_light
+    ModuleNotFoundError: No module named 'libiclight'
+
+
+
+这个不知道什么原因      
+
+变回原始引入方式    
+不使用大路径    
+
+
+
+    try:
+        from lib_modelpatcher.model_patcher import ModulePatch
+    except ImportError as e:
+        print("Please install sd-webui-model-patcher")
+        raise e
+
+
+引用别的位置的例子       
+
+    from ldm_patched.modules import model_management
+    from ldm_patched.modules.model_patcher import ModelPatcher
+    from ldm_patched.modules.model_base import BaseModel
+
+
+有点乱    
+快不起来     
+
+切回小路径不再报错        
+
+
+class KDiffusionSampler(sd_samplers_common.Sampler):
+
+    def sample_img2img(self, p, x, noise, conditioning, unconditional_conditioning, steps=None, image_conditioning=None):
+
+    samples = self.launch_sampling(t_enc + 1, lambda: self.func(self.model_wrap_cfg, xi, extra_args=self.sampler_extra_args, disable=False, callback=self.callback_state, **extra_params_kwargs))
+
+    果然新版在这里调用
+
+
+hr之后调用 patcher机制      
+
+self.is_patched False   
+这里竟然还是 False     
+那么就是担心权重的问题      
+
+但是里面的    
+self.module_patches defaultdict(<class 'list'>, {})     
+self.weight_patches defaultdict(<class 'list'>, {})     
+
+什么都没patch     
+但是普通生图是正常的     
+
+
+
+    def get_model_patcher(self: StableDiffusionProcessing) -> ModelPatcher:
+        if isinstance(self, StableDiffusionProcessingTxt2Img) and self.is_hr_pass:
+            return self.hr_model_patcher
+        return self.model_patcher
+
+    StableDiffusionProcessing.get_model_patcher = get_model_patcher
+
+
+
+
+class KDiffusionSampler(sd_samplers_common.Sampler):
+
+    def sample(self, p, x, conditioning, unconditional_conditioning, steps=None, image_conditioning=None):
+
+    def sample_img2img(self, p, x, noise, conditioning, unconditional_conditioning, steps=None, image_conditioning=None):
+
+有两个launch路口     
+
+
+先看普通生图    
+
+前人工作还是很爽的     
+
+但是增加 hr_model_patcher 后普通生图不对？？    
+
+
+第一次确实有时有问题
+
+    def hook_sample():
+        def decorator(func: Callable) -> Callable:
+            @functools.wraps(func)
+            def wrapped_sample_func(self: Sampler, *args, **kwargs):
+                patcher: ModelPatcher = self.p.get_model_patcher()
+                重新赋值
+                assert isinstance(patcher, ModelPatcher)
+                patcher.patch_model()
+                logger.info(f"Patch {patcher.name}.")
+
+                try:
+                    return func(self, *args, **kwargs)
+                finally:
+                    patcher.unpatch_model()
+                    logger.info(f"Unpatch {patcher.name}.")
+
+            return wrapped_sample_func
+
+        return decorator
+
+patch_model
+
+    def patch_model(self, patch_weights: bool = True):
+        assert not self.is_patched, "Model is already patched."
+        self._patch_modules()
+        if patch_weights:
+            self._patch_weights()
+        self.is_patched = True
+        return self.model
+
+
+    def _patch_modules(self):
+        for key, module_patches in self.module_patches.items():
+            module = self.get_attr(key)
+            old_forward = module.forward
+            self.module_backup[key] = old_forward
+            for module_patch in module_patches:
+                module.forward = module_patch.create_new_forward_func(
+                    module, module.forward
+                ) 进入这里
+
+跳进查看   
+concat_conds正确    
+但是还是不知道怎么传进去的   
+
+    def apply_c_concat(unet, old_forward: Callable) -> Callable:
+        def new_forward(x, timesteps=None, context=None, **kwargs):
+            # Expand according to batch number.
+            c_concat = torch.cat( # 在这里每次调用
+                ([concat_conds.to(x.device)] * (x.shape[0] // concat_conds.shape[0])),
+                dim=0,
+            )
+            new_x = torch.cat([x, c_concat], dim=1)
+            return old_forward(new_x, timesteps, context, **kwargs)
+
+
+    def _patch_weights(self):
+
+        for key, weight_patches in self.weight_patches.items():
+            assert key in self.model_keys, f"Key {key} not found in model."
+            old_weight = self.get_attr(key)
+            self.weight_backup[key] = old_weight
+
+            new_weight = old_weight
+            for weight_patch in weight_patches:
+                new_weight = weight_patch.apply(new_weight, key)
+
+            if self.weight_inplace_update:
+                self.copy_to_param(key, new_weight)
+            else:
+                self.set_attr_param(key, new_weight)
+
+
+
+
+    def apply(
+        self, model_weight: torch.Tensor, key: Optional[str] = None
+    ) -> torch.Tensor:
+        """Apply the patch to model weight."""
+        if self.strength_model != 1.0:
+            model_weight *= self.strength_model
+
+        try:
+            if self.patch_type == PatchType.DIFF:
+                assert isinstance(self.weight, torch.Tensor)
+                return self._patch_diff(model_weight, key) 
+                进入这里    
+
+
+            elif self.patch_type == PatchType.LORA:
+                assert isinstance(self.weight, LoRAWeight)
+                return self._patch_lora(model_weight)
+            else:
+                raise NotImplementedError(
+                    f"Patch type {self.patch_type} is not implemented."
+
+
+return model_weight + self.alpha * self.weight.to(model_weight.device)
+
+
+model_weight   old         
+self.weight   patch     
+
+
+
+    def _patch_weights(self):
+        for key, weight_patches in self.weight_patches.items():
+            assert key in self.model_keys, f"Key {key} not found in model."
+            old_weight = self.get_attr(key)
+            self.weight_backup[key] = old_weight
+
+            new_weight = old_weight
+            for weight_patch in weight_patches:
+                new_weight = weight_patch.apply(new_weight, key)
+        if self.weight_inplace_update:
+            self.copy_to_param(key, new_weight)
+        else:
+            self.set_attr_param(key, new_weight) 
+            进入这个，当初解决了显存泄露    
+
+
+    def set_attr(obj, attr, value):
+        attrs = attr.split(".")
+        for name in attrs[:-1]:
+            obj = getattr(obj, name)
+        prev = getattr(obj, attrs[-1]) 都是nn module的方法 直接调用
+        setattr(obj, attrs[-1], value) 原地替换 
+        return prev
+
+
+    class ModelPatcher(BaseModel, Generic[ModelType]):
+
+        def set_attr(self, key: str, value: Any) -> Any:
+            if key == ".":
+                value = getattr(self.model, key)
+                setattr(self.model, key, value)
+                return value
+
+            return set_attr(self.model, key, value)
+            这种写法会调用类外的同名方法
+
+
+
+class PatchType(Enum):
+
+        DIFF = "diff"
+        LORA = "lora"
+        LOKR = "lokr"
+        LOHA = "loha"
+        GLORA = "glora"
+
+hr调用concat是
+正确的
+
+唯一担心就是权重的问题
+
+但是hr生图结果还是没调用ic模型和初始图像       
+
+
+我知道了是patcher的问题 没有成功赋值      
+普通和hires都用不了    
+
+而且这个问题也可能在中间出现      
+那问题就打了     
+
+patcher启动了，但是是空字典     
+更像是script process没进去iclight   
+
+
+610版本model-patcher使用起来感觉比较灵活      
+因为把触发机制放在了更加后面    
+不会发生定义的问题   
+不用改变patcher源码
+
+## todo
+
+- [x] 增加不提取前景选项
+- [x] 基于Model_Patcher实现，方便适配hires。同时代码上也相对简洁一些。
+- [ ] 缓存rmbg 不过当前的也不大 就一个lora大小
+- [ ] 细节恢复模块
+- [ ] RMBG采用更原始的rembg实现
+- [ ] 设想：可调节的权重混合强度
+- [ ] 设想：前景提取使用带有边缘blur效果的模型，过渡更自然
+
+
+当前版本v1.0.5的可能缺陷:只支持webui 不支持forge
+
+
+
+(webui193)git checkout -b dev origin/dev
+error: Your local changes to the following files would be overwritten by checkout:
+        modules/processing.py
+        modules/scripts.py
+Please commit your changes or stash them before you switch branches.
+Aborting
+
+
+processing.py
+
+## 读取权重
+
+    with devices.without_autocast() if devices.unet_needs_upcast else devices.autocast():
+
+        ###########自己加的内容
+        '''
+        content = str(p.sd_model.state_dict().keys())
+        # 将内容按逗号分隔并换行
+        lines = content.split(",")
+        # 定义文件名
+        filename = "/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/a1111webui193/stable-diffusion-webui/sd_model.txt"
+        # 将内容写入txt文件，每个元素占一行
+        with open(filename, "w", encoding="utf-8") as file:
+            for line in lines:
+                file.write(line + "\n")
+        print(f"内容已成功保存到 {filename}")
+
+        content = str(p.sd_model.model.state_dict().keys())
+        # 将内容按逗号分隔并换行
+        lines = content.split(",")
+        # 定义文件名
+        filename = "/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/a1111webui193/stable-diffusion-webui/model.txt"
+        # 将内容写入txt文件，每个元素占一行
+        with open(filename, "w", encoding="utf-8") as file:
+            for line in lines:
+                file.write(line + "\n")
+        print(f"内容已成功保存到 {filename}")
+
+        content = str(p.sd_model.model.diffusion_model.state_dict().keys())
+        # 将内容按逗号分隔并换行
+        lines = content.split(",")
+        # 定义文件名
+        filename = "/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/a1111webui193/stable-diffusion-webui/diffusion_model.txt"
+        # 将内容写入txt文件，每个元素占一行
+        with open(filename, "w", encoding="utf-8") as file:
+            for line in lines:
+                file.write(line + "\n")
+        print(f"内容已成功保存到 {filename}")
+        '''
+
+
+        samples_ddim = p.sample(conditioning=p.c, unconditional_conditioning=p.uc, seeds=p.seeds, subseeds=p.subseeds, subseed_strength=p.subseed_strength, prompts=p.prompts)
+
+
+    diff --git a/modules/scripts.py b/modules/scripts.py
+    index 70ccfbe4..fb316ac0 100644
+    --- a/modules/scripts.py
+    +++ b/modules/scripts.py
+    @@ -200,6 +200,14 @@ class Script:
+    
+            pass
+    
+    +    def process_before_every_sampling(self, p, *args, **kwargs):^M
+    +        """^M
+    +        Similar to process(), called before every sampling.^M
+    +        If you use high-res fix, this will be called two times.^M
+    +        """^M
+    +^M
+    +        pass^M
+    +^M
+        def postprocess_batch(self, p, *args, **kwargs):
+            """
+            Same as process_batch(), but called for every batch after it has been ge
+    nerated.
+    @@ -849,6 +857,14 @@ class ScriptRunner:
+                    script.process_batch(p, *script_args, **kwargs)
+                except Exception:
+                    errors.report(f"Error running process_batch: {script.filename}",
+    exc_info=True)
+    +    ^M
+    +    def process_before_every_sampling(self, p, **kwargs):^M
+    +        for script in self.alwayson_scripts:^M
+    +            try:^M
+    +                script_args = p.script_args[script.args_from:script.args_to]^M
+    +                script.process_before_every_sampling(p, *script_args, **kwargs)
+    ^M
+    +            except Exception:^M
+    +                errors.report(f"Error running process_before_every_sampling: {sc
+    ript.filename}", exc_info=True)^M
+    
+        def postprocess(self, p, processed):
+            for script in self.ordered_scripts('postprocess'):
+
+
+
+ git reset --hard     
+HEAD is now at 1c0a0c4c Merge branch 'dev'
+
+还可以切分支不会变extensions
 
 
 
@@ -6720,8 +7562,36 @@ iclight的训练数据怎么收集处理的
 ![alt text](assets/IC-Light/image-108.png)
 
 
+
+## 上传位置和路径
+主要是每次得重新找，    
+同时命令也不记得 也不知道    
+怎么初始化文件夹？？       
+
+
+可以直接拉取最新的下来
+
+git clone git@gitee.com:btc8/sd-webui-ic-light.git
+
+改了再    
+git add .
+git push
+
+注意在新分支修改   
+
+
+
+
 ## a1111 webui架构
 ![alt text](assets/IC-Light/229259967-15556a72-774c-44ba-bab5-687f854a0fc7.png)   
+
+
+
+
+
+
+
+
 
 
 # 原理
