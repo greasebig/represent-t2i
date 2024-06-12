@@ -1494,6 +1494,106 @@ ValueError: Cannot load /data/master/lujunda/207/stable-diffusion-2-inpainting-d
 这难道是环境和代码版本冲突？？？
 
 
+    Version:0.9 StartHTML:0000000105 EndHTML:0000001719 StartFragment:0000000141 EndFragment:0000001683
+    export MODEL_NAME="/data/master/lujunda/207/stable-diffusion-v1-4"
+    export INSTANCE_DIR="/data/master/lujunda/207/explosion"
+    export OUTPUT_DIR="/data/master/lujunda/207/output_dreambooth"
+
+    python train_dreambooth_inpaint.py \
+      --pretrained_model_name_or_path=$MODEL_NAME  \
+      --instance_data_dir=$INSTANCE_DIR \
+      --output_dir=$OUTPUT_DIR \
+      --instance_prompt="a photo of sks explosion, grepscale image" \
+      --resolution=512 \
+      --train_batch_size=1 \
+      --gradient_accumulation_steps=1 \
+      --learning_rate=5e-6 \
+      --lr_scheduler="constant" \
+      --lr_warmup_steps=0 \
+      --max_train_steps=400 \
+
+
+报错
+
+    sample = self.mid_block(sample)
+    File "/home/kongzhi/miniconda3/envs/diffuserslowacce/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1130, in _call_impl
+        return forward_call(*input, **kwargs)
+    File "/home/kongzhi/miniconda3/envs/diffuserslowacce/lib/python3.9/site-packages/diffusers/models/unets/unet_2d_blocks.py", line 738, in forward
+        hidden_states = attn(hidden_states, temb=temb)
+    File "/home/kongzhi/miniconda3/envs/diffuserslowacce/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1130, in _call_impl
+        return forward_call(*input, **kwargs)
+    File "/home/kongzhi/miniconda3/envs/diffuserslowacce/lib/python3.9/site-packages/diffusers/models/attention_processor.py", line 549, in forward
+        return self.processor(
+    File "/home/kongzhi/miniconda3/envs/diffuserslowacce/lib/python3.9/site-packages/diffusers/models/attention_processor.py", line 794, in __call__
+        query = attn.to_q(hidden_states)
+    File "/home/kongzhi/miniconda3/envs/diffuserslowacce/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1130, in _call_impl
+        return forward_call(*input, **kwargs)
+    File "/home/kongzhi/miniconda3/envs/diffuserslowacce/lib/python3.9/site-packages/torch/nn/modules/linear.py", line 114, in forward
+        return F.linear(input, self.weight, self.bias)
+    RuntimeError: CUDA error: CUBLAS_STATUS_INVALID_VALUE when calling `cublasSgemmStridedBatched( handle, opa, opb, m, n, k, &alpha, a, lda, stridea, b, ldb, strideb, &beta, c, ldc, stridec, num_batches)`
+    Steps:   0%|  
+
+
+
+旧环境跑
+
+
+    询问了同事，同事说因为是CUBLAS的问题，可以尝试卸载虚拟环境中的CUBLAS相关包试试，成功。
+
+    也就是卸载了nvidia-cublas-cu11=11.10.3.66， 不过具体原因还是没有搞清楚。
+
+
+
+
+
+pip uninstall nvidia-cublas-cu11
+
+WARNING: Skipping nvidia-cublas-cu11 as it is not installed.
+
+
+echo $LD_LIBRARY_PATH     
+/usr/local/cuda-11.6/lib64:/usr/local/cuda-11.6/lib64:
+
+
+
+
+unset LD_LIBRARY_PATH
+
+可以的
+
+
+
+
+    File "/data/master/lujunda/diffusers-main/examples/research_projects/dreambooth_inpaint/train_dreambooth_inpaint.py", line 733, in main
+        noise_pred = unet(latent_model_input, timesteps, encoder_hidden_states).sample
+    File "/home/kongzhi/miniconda3/envs/diffuserslowacce/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1130, in _call_impl
+        return forward_call(*input, **kwargs)
+    File "/home/kongzhi/miniconda3/envs/diffuserslowacce/lib/python3.9/site-packages/diffusers/models/unets/unet_2d_condition.py", line 1173, in forward
+        sample = self.conv_in(sample)
+    File "/home/kongzhi/miniconda3/envs/diffuserslowacce/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1130, in _call_impl
+        return forward_call(*input, **kwargs)
+    File "/home/kongzhi/miniconda3/envs/diffuserslowacce/lib/python3.9/site-packages/torch/nn/modules/conv.py", line 457, in forward
+        return self._conv_forward(input, self.weight, self.bias)
+    File "/home/kongzhi/miniconda3/envs/diffuserslowacce/lib/python3.9/site-packages/torch/nn/modules/conv.py", line 453, in _conv_forward
+        return F.conv2d(input, weight, bias, self.stride,
+    RuntimeError: Given groups=1, weight of size [320, 4, 3, 3], expected input[1, 9, 64, 64] to have 4 channels, but got 9 channels instead
+    Steps:   0%|                      
+
+
+这份代码好像用不了     
+这竟然没处理？？？   
+
+
+## khoya ss连一个Lora
+
+
+
+
+
+
+
+
+
 
 
 

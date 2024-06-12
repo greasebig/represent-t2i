@@ -262,6 +262,16 @@ git remote add origin https://github.com/user/repo.git
 
 ### changes
 
+    # 查看所有本地分支
+    git branch
+
+    # 切换到指定的分支
+    git checkout 分支名
+
+    git pull   
+    拉最新
+
+
 git checkout -b dev origin/dev
 error: Your local changes to the following files would be overwritten by checkout:
         modules/processing.py

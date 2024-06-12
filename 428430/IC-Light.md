@@ -7546,6 +7546,175 @@ HEAD is now at 1c0a0c4c Merge branch 'dev'
 
 还可以切分支不会变extensions
 
+## pip install rembg后启动 webui.py 终端会一直闪动
+
+
+    [2024-06-12 07:51:44,160][DEBUG][numba.core.ssa] - on stmt: $1436build_tuple.36 = build_tuple(items=[Var(y.2, estimate_alpha_sm.py:592), Var(x.2, estimate_alpha_sm.py:592)])
+    [2024-06-12 07:51:44,161][DEBUG][numba.core.ssa] - on stmt: final_alpha[$1436build_tuple.36] = $1428binary_add.32
+    [2024-06-12 07:51:44,161][DEBUG][numba.core.ssa] - on stmt: jump 1447
+    [2024-06-12 07:51:44,161][DEBUG][numba.core.ssa] - ==== SSA block rewrite pass on 1444
+    [2024-06-12 07:51:44,161][DEBUG][numba.core.ssa] - Running <numba.core.ssa._FreshVarHandler object at 0x7f69015571f0>
+    [2024-06-12 07:51:44,162][DEBUG][numba.core.ssa] - on stmt: $const1444.0 = const(NoneType, None)
+
+
+开启代理尝试    
+
+
+还是会跳
+
+不debug
+
+不会跳
+
+但会下载一个东西
+
+    ] - Attempting to acquire lock 140200195635712 on /root/.cache/huggingface/hub/.locks/models--openai--clip-vit-large-patch14/a2bf730a0c7debf160f7a6b50b3aaf3703e7e88ac73de7a314903141db026dcb.lock
+
+    cwd=/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/a1111webui193/stable-diffusion-webui/extensions/sd-forge-ic-light, stdin=None, shell=False, universal_newlines=False)
+    Running on local URL:  http://127.0.0.1:7860
+    model.safetensors:   2%|▌                       | 41.9M/1.71G [00:10<07:25, 3.74MB/s]Traceback (most recent call last):
+    File "/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/a1111webui193/stable-diffusion-webui/webui.py", line 162, in <module>
+        webui()
+    File "/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/a1111webui193/stable-diffusion-webui/webui.py", line 79, in webui
+        app, local_url, share_url = shared.demo.launch(
+    File "/root/miniconda3/envs/webui310/lib/python3.10/site-packages/gradio/blocks.py", line 1971, in launch
+        raise ValueError(
+    ValueError: When localhost is not accessible, a shareable link must be created. Please set share=True or check your proxy settings to allow access to localhost.
+    model.safetensors:  16%|███▉                     | 273M/1.71G [01:18<07:35, 3.16MB/
+
+咱这是啥东西    
+
+好像因为装了这个不好用了      
+
+    Failed to create model quickly; will retry using slow method.
+    /teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/ComfyUI/models/checkpoints/0307_Rocky_sdxl_PrivateImaging_model.safetensors
+    Running on local URL:  http://127.0.0.1:7860
+    Traceback (most recent call last):
+    File "/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/a1111webui193/stable-diffusion-webui/webui.py", line 162, in <module>
+        webui()
+    File "/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/a1111webui193/stable-diffusion-webui/webui.py", line 79, in webui
+        app, local_url, share_url = shared.demo.launch(
+    File "/root/miniconda3/envs/webui310/lib/python3.10/site-packages/gradio/blocks.py", line 1971, in launch
+        raise ValueError(
+    ValueError: When localhost is not accessible, a shareable link must be created. Please set share=True or check your proxy settings to allow access to localhost.
+
+
+我并没有debug
+
+-R的代理 未关闭     
+-L转端口
+
+unset http_proxy https_proxy  all_proxy  
+
+
+可以使用了
+
+如果使用-R代理，使用export    
+
+会发生    
+
+If this is a private repository, make sure to pass a token having permission to this repo either by logging in with `huggingface-cli login` or by passing `token=<your_token>`
+
+可以试试使用all pocxy的     
+
+
+
+
+## todo
+首次启动生成问题
+
+rmbg加速
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## 细节恢复代码
+
+    h, w, c = ic_light_image.shape
+    original_image = cv2.resize(original_image, (w, h))
+
+    获取光照图像的高度（h）、宽度（w）和通道数（c），然后将原始图像调整为与光照图像相同的尺寸。
+
+    if len(ic_light_image.shape) == 2:
+        ic_light_image = cv2.cvtColor(ic_light_image, cv2.COLOR_GRAY2RGB)
+    elif ic_light_image.shape[2] == 4:
+        ic_light_image = cv2.cvtColor(ic_light_image, cv2.COLOR_RGBA2RGB)
+
+    处理光照图像的颜色空间
+
+    主要是对用户自定义和代码自动生成的做一个统一
+
+    如果光照图像是灰度图（只有两个维度），将其转换为RGB图像。如果是带有Alpha通道的图像（四个通道），将其转换为RGB图像。
+
+    确保图像都是RGB图像
+
+    assert ic_light_image.shape[2] == 3
+    assert original_image.shape[2] == 3
+
+    归一化图像数据
+    ic_light_image = ic_light_image.astype(np.float32) / 255.0
+    original_image = original_image.astype(np.float32) / 255.0
+
+    对图像进行高斯模糊处理
+
+
+    blurred_ic_light = cv2.GaussianBlur(ic_light_image, (blur_radius, blur_radius), 0)
+    blurred_original = cv2.GaussianBlur(original_image, (blur_radius, blur_radius), 0)
+
+    计算差分高斯（DoG）并恢复细节
+
+
+    DoG = original_image - blurred_original + blurred_ic_light
+    DoG = np.clip(DoG * 255.0, 0, 255).astype(np.uint8)
+    计算差分高斯图像（DoG），并将结果重新缩放到0-255范围内，然后转换回uint8类型。
+
+    返回处理后的图像
+
+    return Image.fromarray(DoG)
+
+函数的主要目的是通过对输入的光照图像和原始图像进行高斯模糊和差分高斯处理，恢复图像中的细节，并输出为Pillow的Image对象。
+
+**差分高斯（DoG, Difference of Gaussians）**方法
+
+高斯模糊：   
+高斯模糊是一种平滑处理，会模糊掉图像中的细节。对于一幅图像，应用不同半径的高斯模糊能够去除细节并保留图像的整体结构。
+
+
+差分高斯（DoG）：    
+差分高斯是指在不同尺度（模糊程度）的高斯模糊图像之间计算差异，以增强图像的边缘和细节。具体来说，通过原始图像减去模糊后的图像，再加上另一个模糊后的图像，可以强调出细节和边缘。
+
+original_image - blurred_original：原始图像减去模糊后的图像，这一步突出显示了原始图像中的细节和边缘，因为模糊后的图像去除了细节。    
++ blurred_ic_light：再加上光照图像的模糊版本，这一步通过引入光照图像中的细节来补充原始图像中的信息，使得最终图像更为细致和自然。
+
+光照信息本来就可以 blur     
+
+
+函数能够突出图像中的细节和边缘，使得处理后的图像在视觉上更为清晰和细腻。这个方法的效果尤其明显在具有复杂细节的图像上。
+
+会不会造成人体边缘更加明显？？    
+
+
+模糊去除平滑细节：高斯模糊去除了图像中的高频成分（即细节和噪声），只保留低频成分（即整体轮廓和大面积的平滑区域）。     
+`差分操作增强细节：通过将原始图像减去其模糊版本，可以获取高频成分（即细节）`，然后通过与另一模糊图像的结合，细节得到了进一步增强。
+
+
+这种方法的一个典型应用是增强图像的对比度和细节，使得边缘和纹理更加明显
+
 
 
 
