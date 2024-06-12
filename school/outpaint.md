@@ -1584,9 +1584,557 @@ unset LD_LIBRARY_PATH
 这竟然没处理？？？   
 
 
-## khoya ss连一个Lora
+# khoya ss练一个Lora
+
+然后考虑提前合并权重？？    
+确实也可以，但这样不能随时调整lora强度  
 
 
+犹记得 diffusers训练lora也能使用3090    
+
+https://github.com/kohya-ss/sd-scripts/blob/main/docs/train_README-zh.md
+
+https://github.com/kohya-ss/sd-scripts/blob/main/docs/train_network_README-zh.md#other-scripts
+
+有个gui版本的,但感觉不太好用      
+
+这个库为所有脚本支持使用 mask loss 训练，但可能要魔改一些地方      
+还有支持 scheduled huen loss     
+
+![alt text](assets_picture/outpaint/image-3.png)
+
+这个东西一直在更新         
+
+grad_hook之类的
+
+![alt text](assets_picture/outpaint/image-4.png)
+
+## 数据准备
+但是请勿使用极小的图像，若其尺寸比训练分辨率（稍后将提到）还小，建议事先使用超分辨率AI等进行放大。另外，请注意不要使用过大的图像（约为3000 x 3000像素以上），因为这可能会导致错误，建议事先缩小。
+
+
+可以使用几种方法指定训练数据。以下是其中的一些方法（每个名称都不是通用的，而是该存储库自定义的定义）。有关正则化图像的信息将在稍后提供。
+
+1.DreamBooth、class + identifier方式（可使用正则化图像）
+
+将训练目标与特定单词（identifier）相关联进行训练。无需准备说明。例如，当要学习特定角色时，由于无需准备说明，因此比较方便，但由于训练数据的所有元素都与identifier相关联，例如发型、服装、背景等，因此在生成时可能会出现无法更换服装的情况。
+
+2.DreamBooth、说明方式（可使用正则化图像）
+
+事先给每个图片写说明（caption），存放到文本文件中，然后进行训练。例如，通过将图像详细信息（如穿着白色衣服的角色A、穿着红色衣服的角色A等）记录在caption中，可以将角色和其他元素分离，并期望模型更准确地学习角色。
+
+3.微调方式（不可使用正则化图像）
+
+先将说明收集到元数据文件中。支持分离标签和说明以及预先缓存latents等功能，以加速训练（这些将在另一篇文档中介绍）。（虽然名为fine tuning方式，但不仅限于fine tuning。）
+
+![alt text](assets_picture/outpaint/image-5.png)
+
+如果您想要训练LoRA、Textual Inversion而不需要准备说明（caption）文件，则建议使用DreamBooth class+identifier。如果您能够准备caption文件，则DreamBooth Captions方法更好。如果您有大量的训练数据并且不使用正则化图像，则请考虑使用fine-tuning方法。
+
+对于DreamBooth也是一样的，但不能使用fine-tuning方法。
+
+若要进行微调，只能使用fine-tuning方式。
+
+
+详细数据集格式       
+https://github.com/kohya-ss/sd-scripts/blob/main/docs/config_README-ja.md
+
+
+DreamBooth，class+identifier方法（可使用正则化图像）
+在该方法中，每个图像将被视为使用与 class identifier 相同的标题进行训练（例如 shs dog）。
+
+这样一来，每张图片都相当于使用标题“分类标识 class identifier ”（例如“shs dog”）进行训练。
+
+
+
+
+
+
+## 直接跑
+1.DreamBooth、class + identifier方式（可使用正则化图像）
+
+最简单的
+
+不写caption
+
+同时不打算调整分辨率    
+不打算分桶     
+
+我这个也简单些不使用正则化图像
+
+
+class是训练目标的一般类别。例如，如果要学习特定品种的狗，则class将是“dog”。对于动漫角色，根据模型不同，可能是“boy”或“girl”，也可能是“1boy”或“1girl”。
+
+identifier是用于识别训练目标并进行学习的单词。可以使用任何单词，但是根据原始论文，“Tokenizer生成的3个或更少字符的罕见单词”是最好的选择
+
+
+（作为identifier，我最近使用的一些参考是“shs sts scs cpc coc cic msm usu ici lvl cic dii muk ori hru rik koo yos wny”等。最好是不包含在Danbooru标签中的单词。）
+
+step 2. 决定是否使用正则化图像，并在使用时生成正则化图像
+正则化图像是为防止前面提到的语言漂移，即整个类别被拉扯成为训练目标而生成的图像。如果不使用正则化图像，例如在 shs 1girl 中学习特定角色时，即使在简单的 1girl 提示下生成，也会越来越像该角色。这是因为 1girl 在训练时的标题中包含了该角色的信息。
+
+就是dreambooth 损失
+
+
+如果您只想在LoRA或DreamBooth中使用特定的角色，则可以不使用正则化图像。
+
+
+在Textual Inversion中也不需要使用（如果要学习的token string不包含在标题中，则不会学习任何内容）。
+
+
+Textual Inversion
+
+或者我可以训练一个 Textual Inversion？？？
+
+
+一般情况下，使用在训练目标模型时只使用类别名称生成的图像作为正则化图像是常见的做法（例如 1girl）。但是，如果生成的图像质量不佳，可以尝试修改提示或使用从网络上另外下载的图像。
+
+（由于正则化图像也被训练，因此其质量会影响模型。）
+
+
+通常，准备数百张图像是理想的（图像数量太少会导致类别图像无法被归纳，特征也不会被学习）。
+
+如果要使用生成的图像，生成图像的大小通常应与训练分辨率（更准确地说，是bucket的分辨率，见下文）相匹配。
+
+
+创建一个文本文件，并将其扩展名更改为.toml。例如，您可以按以下方式进行描述：
+
+训练设置
+
+## toml文件
+
+    [general]
+    enable_bucket = false                        # 是否使用Aspect Ratio Bucketing
+
+    [[datasets]]
+    resolution = 512                            # 训练分辨率
+    batch_size = 1                              # 批次大小
+
+    [[datasets.subsets]]
+    image_dir = ''                     # 指定包含训练图像的文件夹
+    class_tokens = 'cpc explosion'                # 指定标识符类
+    num_repeats = 10                          # 训练图像的重复次数
+
+删除
+
+    # 以下仅在使用正则化图像时进行描述。不使用则删除
+    
+    [[datasets.subsets]]
+    is_reg = true
+    image_dir = 'C:\reg'                      # 指定包含正则化图像的文件夹
+    class_tokens = 'girl'                     # 指定class
+    num_repeats = 1                           # 正则化图像的重复次数，基本上1就可以了
+
+训练分辨率
+
+指定一个数字表示正方形（如果是 512，则为 512x512），如果使用方括号和逗号分隔的两个数字，则表示横向×纵向（如果是[512,768]，则为 512x768）。在SD1.x系列中，原始训练分辨率为512。指定较大的分辨率，如 [512,768] 可能会减少纵向和横向图像生成时的错误。
+
+
+关于重复次数
+重复次数用于调整正则化图像和训练用图像的数量。由于正则化图像的数量多于训练用图像，因此需要重复使用训练用图像来达到一对一的比例，从而实现训练。
+
+请将重复次数指定为“ 训练用图像的重复次数×训练用图像的数量≥正则化图像的重复次数×正则化图像的数量 ”。
+
+（1个epoch（指训练数据过完一遍）的数据量为“训练用图像的重复次数×训练用图像的数量”。如果正则化图像的数量多于这个值，则剩余的正则化图像将不会被使用。）
+
+
+## 其他
+
+DreamBooth，文本说明（caption）方式（可使用正则化图像）
+
+微调方法(fine tuning)      
+步骤 1. 准备元数据      
+将caption和标签整合到管理文件中称为元数据。它的扩展名为 .json，格式为json。由于创建方法较长，因此在本文档的末尾进行描述。
+
+步骤 2. 编写设置文件      
+创建一个文本文件，将扩展名设置为 .toml。例如，可以按以下方式编写：
+
+
+1个epoch的步骤数通常为“数据量÷批次大小”，但如果使用Aspect Ratio Bucketing，则略微增加（由于不同bucket的数据不能在同一个批次中，因此步骤数会增加）。
+
+长宽比分桶（Aspect Ratio Bucketing）
+Stable Diffusion 的 v1 是以 512*512 的分辨率进行训练的，但同时也可以在其他分辨率下进行训练，例如 256*1024 和 384*640。这样可以减少裁剪的部分，希望更准确地学习图像和标题之间的关系。
+
+此外，由于可以在任意分辨率下进行训练，因此不再需要事先统一图像数据的长宽比。
+
+此值可以被设定，其在此之前的配置文件示例中已被启用（设置为 true）。
+
+只要不超过作为参数给出的分辨率区域（= 内存使用量），就可以按 64 像素的增量（默认值，可更改）在垂直和水平方向上调整和创建训练分辨率。
+
+在机器学习中，通常需要将所有输入大小统一，但实际上只要在同一批次中统一即可。
+
+这下面的就算了
+
+以前的指定格式（不使用 .toml 文件，而是使用命令行选项指定）      
+这是一种通过命令行选项而不是指定 .toml 文件的方法。有 DreamBooth 类+标识符方法、DreamBooth caption方法、微调方法三种方式。
+
+DreamBooth、类+标识符方式
+指定文件夹名称以指定迭代次数。还要使用 train_data_dir 和 reg_data_dir 选项。
+
+第1步。准备用于训练的图像
+创建一个用于存储训练图像的文件夹。此外，按以下名称创建目录。
+
+<迭代次数>_<标识符> <类别>
+不要忘记下划线_。
+
+
+
+## 其他2   命令行参数
+--v2 / --v_parameterization
+
+如果使用 Hugging Face 的 stable-diffusion-2-base 或来自它的微调模型作为学习目标模型（对于在推理时指示使用 v2-inference.yaml 的模型），- 当使用-v2 选项与 stable-diffusion-2、768-v-ema.ckpt 及其微调模型（对于在推理过程中使用 v2-inference-v.yaml 的模型），- 指定两个 -v2和 --v_parameterization 选项。
+
+以下几点在 Stable Diffusion 2.0 中发生了显着变化。
+
+    使用分词器
+    使用哪个Text Encoder，使用哪个输出层（2.0使用倒数第二层）
+    Text Encoder的输出维度(768->1024)
+    U-Net的结构（CrossAttention的头数等）
+    v-parameterization（采样方式好像变了）
+    其中base使用1-4，非base使用1-5（768-v）。使用 1-4 进行 v2 选择，使用 5 进行 v_parameterization 选择。
+
+
+--pretrained_model_name_or_path
+
+指定要从中执行额外训练的模型。您可以指定Stable Diffusion检查点文件（.ckpt 或 .safetensors）、diffusers本地磁盘上的模型目录或diffusers模型 ID（例如“stabilityai/stable-diffusion-2”）。
+
+--dataset_config
+
+指定描述数据集配置的 .toml 文件。
+
+--max_train_steps / --max_train_epochs
+
+指定要训练的步数或epoch数。如果两者都指定，则 epoch 数优先。
+
+相当于魔改diffusers
+
+--gradient_checkpointing
+
+通过逐步计算权重而不是在训练期间一次计算所有权重来减少训练所需的 GPU 内存量。关闭它不会影响准确性，但打开它允许更大的批次大小，所以那里有影响。
+
+另外，打开它通常会减慢速度，但可以增加批次大小，因此总的训练时间实际上可能会更快。
+
+
+
+--xformers / --mem_eff_attn
+
+当指定 xformers 选项时，使用 xformers 的 CrossAttention。如果未安装 xformers 或发生错误（取决于环境，例如 mixed_precision="no"），请指定 mem_eff_attn 选项而不是使用 CrossAttention 的内存节省版本（xformers 比 慢）。
+
+--save_precision
+
+指定保存时的数据精度。为 save_precision 选项指定 float、fp16 或 bf16 将以该格式保存模型（在 DreamBooth 中保存 Diffusers 格式时无效，微调）。当您想缩小模型的尺寸时请使用它。
+
+
+--save_model_as （DreamBooth, fine tuning 仅有的）
+
+您可以从 ckpt, safetensors, diffusers, diffusers_safetensors 中选择模型保存格式。
+
+--save_model_as=safetensors 指定喜欢当读取Stable Diffusion格式（ckpt 或safetensors）并以diffusers格式保存时，缺少的信息通过从 Hugging Face 中删除 v1.5 或 v2.1 信息来补充。
+
+--clip_skip
+
+2 如果指定，则使用文本编码器 (CLIP) 的倒数第二层的输出。如果省略 1 或选项，则使用最后一层。
+
+*SD2.0默认使用倒数第二层，训练SD2.0时请不要指定。
+
+如果被训练的模型最初被训练为使用第二层，则 2 是一个很好的值。
+
+如果您使用的是最后一层，那么整个模型都会根据该假设进行训练。因此，如果再次使用第二层进行训练，可能需要一定数量的teacher数据和更长时间的训练才能得到想要的训练结果。
+
+
+--max_token_length
+
+默认值为 75。您可以通过指定“150”或“225”来扩展令牌长度来训练。使用长字幕训练时指定。
+
+但由于训练时token展开的规范与Automatic1111的web UI（除法等规范）略有不同，如非必要建议用75训练。
+
+与clip_skip一样，训练与模型训练状态不同的长度可能需要一定量的teacher数据和更长的学习时间。
+
+
+--persistent_data_loader_workers
+
+在 Windows 环境中指定它可以显着减少时期之间的延迟。
+
+--weighted_captions
+
+如果指定，将启用类似于 Automatic1111 的 Web UI 的加权标题。它可以用于“文本倒置和XTI”以外的学习。它不仅对字幕有效，而且对 DreamBooth 方法的标记字符串有效。
+
+加权标题表示法与 Web UI 几乎相同，您可以使用 (abc)、[abc]、(abc:1.23) 等。嵌套也是可能的。请勿在括号内包含逗号，因为这会导致提示随机播放/退出时括号映射不正确。
+
+
+--noise_offset 本文的实现：https://www.crosslabs.org//blog/diffusion-with-offset-noise
+
+看起来它可能会为整体更暗和更亮的图像产生更好的结果。它似乎对 LoRA 训练也有效。指定一个大约 0.1 的值似乎很好。
+
+
+--debug_dataset
+
+通过添加此选项，您可以在训练之前检查将训练什么样的图像数据和标题。按 Esc 退出并返回命令行。按 S 进入下一步（批次），按 E 进入下一个epoch。
+
+*图片在 Linux 环境（包括 Colab）下不显示。
+
+
+--cache_latents
+
+在主内存中缓存 VAE 输出以减少 VRAM 使用。除 flip_aug 之外的任何增强都将不可用。此外，整体训练速度略快。
+
+--min_snr_gamma
+
+指定最小 SNR 加权策略。细节是这里请参阅。论文中推荐5。
+
+
+--adaptive_noise_scale（实验选项）
+
+该选项根据每个通道潜在值的平均值的绝对值自动调整噪声偏移值。--noise_offset同时指定时有效。噪声偏移值noise_offset + abs(mean(latents, dim=(2,3))) * adaptive_noise_scale通过 计算。由于 Latent 接近正态分布，因此最好指定 1/10 之间的值并与 Noise_Offset 相同。
+
+也可以指定负值，在这种情况下噪声偏移将被限制在 0 以上。
+
+--multires_noise_iterations/--multires_noise_discount
+
+多分辨率噪声（金字塔噪声）设置。有关更多信息，请参阅PR#471和本页用于扩散模型训练的多分辨率噪声。
+
+--multires_noise_iterations当您指定 的值时，它变得有效。 610 左右的值似乎不错。--multires_noise_discount0.1 至请指定大约0.3的值（当数据集相对较小时，PR作者推荐，例如用于LoRA学习）或大约0.8的值（原文章推荐）（默认为0.3）。
+
+
+自动captioning    
+如果您只想训练没有标题的标签，请跳过。    
+如果您只想学习标签而不使用标题，请跳过此部分。
+
+另外，手动准备caption时，请准备在与教师数据图像相同的目录下，文件名相同，扩展名.caption等。每个文件应该是只有一行的文本文件。
+
+使用 BLIP 添加caption
+最新版本不再需要 BLIP 下载、权重下载和额外的虚拟环境。按原样工作。
+
+运行 finetune 文件夹中的 make_captions.py。
+
+
+会生成扩展名为 .caption 的caption文件。
+
+
+由 DeepDanbooru 标记     
+如果不想给danbooru标签本身打标签，请继续“标题和标签信息的预处理”。
+
+标记是使用 DeepDanbooru 或 WD14Tagger 完成的。 WD14Tagger 似乎更准确。如果您想使用 WD14Tagger 进行标记，请跳至下一章。
+
+它会被这样标记（信息量很大...）。
+
+在与教师数据图像相同的目录中创建具有相同文件名和扩展名.txt 的标记文件。它很慢，因为它是一个接一个地处理的。
+
+如果有多个教师数据文件夹，则对每个文件夹执行。
+
+WD14Tagger标记
+
+
+在与教师数据图像相同的目录中创建具有相同文件名和扩展名.txt 的标记文件。
+
+预处理caption和标签信息      
+将caption和标签作为元数据合并到一个文件中，以便从脚本中轻松处理。
+
+
+
+caption预处理       
+要将caption放入元数据，请在您的工作文件夹中运行以下命令（如果您不使用caption进行训练，则不需要运行它）（它实际上是一行，依此类推）。指定 --full_path 选项以将图像文件的完整路径存储在元数据中。如果省略此选项，则会记录相对路径，但 .toml 文件中需要单独的文件夹规范。
+
+python merge_captions_to_metadata.py --full_path <教师资料夹>
+　  --in_json <要读取的元数据文件名> <元数据文件名>
+
+
+标签预处理
+同样，标签也收集在元数据中（如果标签不用于训练，则无需这样做）。
+
+python merge_dd_tags_to_metadata.py --full_path <教师资料夹> 
+    --in_json <要读取的元数据文件名> <要写入的元数据文件名>
+
+标题和标签清理
+到目前为止，标题和DeepDanbooru标签已经被整理到元数据文件中。然而，自动标题生成的标题存在表达差异等微妙问题（※），而标签中可能包含下划线和评级（DeepDanbooru的情况下）。因此，最好使用编辑器的替换功能清理标题和标签。
+
+※例如，如果要学习动漫中的女孩，标题可能会包含girl/girls/woman/women等不同的表达方式。另外，将"anime girl"简单地替换为"girl"可能更合适。
+
+我们提供了用于清理的脚本，请根据情况编辑脚本并使用它。
+
+（不需要指定教师数据文件夹。将清理元数据中的所有数据。）
+
+python clean_captions_and_tags.py <要读取的元数据文件名> <要写入的元数据文件名>
+
+
+预先获取 latents
+※ 这一步骤并非必须。即使省略此步骤，也可以在训练过程中获取 latents。但是，如果在训练时执行 random_crop 或 color_aug 等操作，则无法预先获取 latents（因为每次图像都会改变）。如果不进行预先获取，则可以使用到目前为止的元数据进行训练。
+
+提前获取图像的潜在表达并保存到磁盘上。这样可以加速训练过程。同时进行 bucketing（根据宽高比对训练数据进行分类）。
+
+请在工作文件夹中输入以下内容。
+
+python prepare_buckets_latents.py --full_path <教师资料夹>  
+<要读取的元数据文件名> <要写入的元数据文件名> 
+    <要微调的模型名称或检查点> 
+    --batch_size <批次大小> 
+    --max_resolution <分辨率宽、高> 
+    --mixed_precision <准确性>
+
+教师数据文件夹中，latents以numpy的npz格式保存。
+
+您可以使用--min_bucket_reso选项指定最小分辨率大小，--max_bucket_reso指定最大大小。默认值分别为256和1024。例如，如果指定最小大小为384，则将不再使用分辨率为256 * 1024或320 * 768等。如果将分辨率增加到768 * 768等较大的值，则最好将最大大小指定为1280等。
+
+
+
+
+如果指定--flip_aug选项，则进行左右翻转的数据增强。虽然这可以使数据量伪造一倍，但如果数据不是左右对称的（例如角色外观、发型等），则可能会导致训练不成功。
+
+对于翻转的图像，也会获取latents，并保存名为\ *_flip.npz的文件，这是一个简单的实现。在fline_tune.py中不需要特定的选项。如果有带有_flip的文件，则会随机加载带有和不带有flip的文件。
+
+
+## 开始训练 训练命令
+
+
+python train_network.py 
+    --pretrained_model_name_or_path=<.ckpt或.safetensord或Diffusers版模型目录> 
+    --dataset_config=<数据集配置的.toml文件> 
+    --output_dir=<训练过程中的模型输出文件夹>  
+    --output_name=<训练模型输出时的文件名> 
+    --save_model_as=safetensors 
+    --prior_loss_weight=1.0 
+    --max_train_steps=400 
+    --learning_rate=1e-4 
+    --mixed_precision="fp16" 
+    --cache_latents 
+    --gradient_checkpointing
+    --save_every_n_epochs=1 
+    --network_module=networks.lora
+
+删除
+
+    --optimizer_type="AdamW8bit" 
+    --xformers 
+
+
+此外，还可以指定以下选项：
+
+    --network_dim
+    指定LoRA的RANK（例如：--network_dim=4）。默认值为4。数值越大表示表现力越强，但需要更多的内存和时间来训练。而且不要盲目增加此数值。
+    --network_alpha
+    指定用于防止下溢并稳定训练的alpha值。默认值为1。如果与network_dim指定相同的值，则将获得与以前版本相同的行为。
+    --persistent_data_loader_workers
+    在Windows环境中指定可大幅缩短epoch之间的等待时间。
+    --max_data_loader_n_workers
+    指定数据读取进程的数量。进程数越多，数据读取速度越快，可以更有效地利用GPU，但会占用主存。默认值为“8或CPU同步执行线程数-1的最小值”，因此如果主存不足或GPU使用率超过90％，则应将这些数字降低到约2或1。
+    --network_weights
+    在训练之前读取预训练的LoRA权重，并在此基础上进行进一步的训练。
+    --network_train_unet_only
+    仅启用与U-Net相关的LoRA模块。在类似fine tuning的学习中指定此选项可能会很有用。
+    --network_train_text_encoder_only
+    仅启用与Text Encoder相关的LoRA模块。可能会期望Textual Inversion效果。
+    --unet_lr
+    当在U-Net相关的LoRA模块中使用与常规学习率（由--learning_rate选项指定）不同的学习率时，应指定此选项。
+    --text_encoder_lr
+    当在Text Encoder相关的LoRA模块中使用与常规学习率（由--learning_rate选项指定）不同的学习率时，应指定此选项。可能最好将Text Encoder的学习率稍微降低（例如5e-5）。
+    --network_args
+    可以指定多个参数。将在下面详细说明。
+    当未指定--network_train_unet_only和--network_train_text_encoder_only时（默认情况），将启用Text Encoder和U-Net的两个LoRA模块。
+
+
+Successfully installed einops-0.8.0
+
+Successfully installed toml-0.10.2
+
+
+Successfully installed imagesize-1.4.1
+
+ pip install opencv-python==4.7.0.68
+
+
+pip install voluptuous==0.13.1 easygui==0.98.3 altair==4.2.2 
+
+ImportError: Using `low_cpu_mem_usage=True` or a `device_map` requires Accelerate: `pip install accelerate`
+
+train_network.py: error: unrecognized arguments: --low_cpu_mem_usage=False
+
+
+pip install accelerate==0.25.0
+
+
+
+    # for kohya_ss library
+    -e .
+
+这个没运行
+
+
+![alt text](assets_picture/outpaint/image-6.png)
+
+
+跑起来了
+
+400步 batch 1 repeat 10
+
+两分钟
+
+
+## 第二次训练
+
+
+python train_network.py \
+    --pretrained_model_name_or_path='/data/master/lujunda/207/stable-diffusion-v1-4'\
+    --dataset_config='/data/master/lujunda/207/sd-scripts/mytoml.toml'\
+    --output_dir='./207_output_dim16'  \
+    --output_name='207'\
+    --save_model_as=safetensors \
+    --prior_loss_weight=1.0 \
+    --max_train_steps=400 \
+    --learning_rate=1e-4 \
+    --mixed_precision="fp16" \
+    --cache_latents \
+    --gradient_checkpointing\
+    --save_every_n_epochs=1 \
+    --network_module=networks.lora\
+    --max_train_epochs=60\
+    --network_dim=16
+
+
+
+prepare tokenizer
+Traceback (most recent call last):
+  File "/home/kongzhi/miniconda3/envs/diffuserslowacce/lib/python3.9/site-packages/urllib3/connectionpool.py", line 467, in _make_request
+    self._validate_conn(conn)
+  File "/home/kongzhi/miniconda3/envs/diffuserslowacce/lib/python3.9/site-packages/urllib3/connectionpool.py", line 1096, in _validate_conn
+    conn.connect()
+
+还要联网才能训练
+
+
+6289m   
+1核心   
+
+
+    create LoRA network. base dim (rank): 16, alpha: 1
+    neuron dropout: p=None, rank dropout: p=None, module dropout: p=None
+    create LoRA for Text Encoder:
+    create LoRA for Text Encoder: 72 modules.
+    create LoRA for U-Net: 192 modules.
+    enable LoRA for text encoder
+    enable LoRA for U-Net
+    CrossAttnDownBlock2D False -> True
+    CrossAttnDownBlock2D False -> True
+    CrossAttnDownBlock2D False -> True
+    DownBlock2D False -> True
+    UNetMidBlock2DCrossAttn False -> True
+    UpBlock2D False -> True
+    CrossAttnUpBlock2D False -> True
+    CrossAttnUpBlock2D False -> True
+    CrossAttnUpBlock2D False -> True
+    prepare optimizer, data loader etc.
+    use AdamW optimizer | {}
+    override steps. steps for 60 epochs is / 指定エポックまでのステップ数: 48600
+    running training / 学習開始
+    num train images * repeats / 学習画像の数×繰り返し回数: 810
+    num reg images / 正則化画像の数: 0
+    num batches per epoch / 1epochのバッチ数: 810
+    num epochs / epoch数: 60
+    batch size per device / バッチサイズ: 1
+    gradient accumulation steps / 勾配を合計するステップ数 = 1
+    total optimization steps / 学習ステップ数: 48600
+    steps:   0%|                                                                       | 0/48600 [00:00<?, ?it/s]
+    epoch 1/60
+    steps:   1%|▎                                          | 395/48600 [02:37<5:20:51,  2.50it/s, avr_loss=0.117]
 
 
 
