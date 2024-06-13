@@ -2137,6 +2137,98 @@ Traceback (most recent call last):
     steps:   1%|▎                                          | 395/48600 [02:37<5:20:51,  2.50it/s, avr_loss=0.117]
 
 
+## 测试
+400step        
+81图        
+810 1 epoch
+
+
+400step dim4       
+5 10 epoch lora dim 16          
+
+real模型
+
+cpc explosion, <lora:207:1>
+
+400step
+
+![alt text](assets/outpaint/image-31.png)
+
+
+cpc explosion, <lora:207:1>
+Steps: 20, Sampler: DPM++ 2M, Schedule type: Karras, CFG scale: 7, Seed: 966911465, Size: 512x512, Model hash: 15012c538f, Model: realisticVisionV51_v51VAE, Clip skip: 2, ControlNet 0: "Module: none, Model: None, Weight: 1.0, Resize Mode: Crop and Resize, Processor Res: 512, Threshold A: 0.5, Threshold B: 0.5, Guidance Start: 0.0, Guidance End: 1.0, Pixel Perfect: False, Control Mode: Balanced", ControlNet 1: "Module: none, Model: None, Weight: 1.0, Resize Mode: Crop and Resize, Processor Res: 512, Threshold A: 0.5, Threshold B: 0.5, Guidance Start: 0.0, Guidance End: 1.0, Pixel Perfect: False, Control Mode: Balanced", ControlNet 2: "Module: none, Model: None, Weight: 1.0, Resize Mode: Crop and Resize, Processor Res: 512, Threshold A: 0.5, Threshold B: 0.5, Guidance Start: 0.0, Guidance End: 1.0, Pixel Perfect: False, Control Mode: Balanced", Lora hashes: "207: fd0e0d7d115e", Version: v1.9.3
+
+
+
+
+cpc explosion, <lora:207-000005:1>
+
+
+![alt text](assets/outpaint/image-32.png)
+
+
+
+cpc explosion, <lora:207-000010:1>
+
+
+![alt text](assets/outpaint/image-33.png)
+
+
+
+cpc explosion
+
+
+![alt text](assets/outpaint/image-34.png)
+
+
+
+训练数据一览
+
+![alt text](assets/outpaint/image-35.png)
+
+ 总结
+
+单纯 lora   
+统一tag  
+文生图效果还可以            
+
+
+## 扩图测试
+
+![alt text](assets/outpaint/image-39.png)
+
+
+
+cpc explosion, <lora:207-000005:1>
+
+inpaint模型
+
+blur 64         
+
+
+cpc explosion, <lora:207-000005:1>
+
+![alt text](assets/outpaint/image-36.png)
+
+
+
+cpc explosion, <lora:207:1>
+
+
+![alt text](assets/outpaint/image-37.png)
+
+会自己加
+
+![alt text](assets/outpaint/image-38.png)
+
+
+
+![alt text](assets/outpaint/image-40.png)
+
+
+![alt text](assets/outpaint/image-41.png)
+
+
 
 
 # openoutpaint启用
