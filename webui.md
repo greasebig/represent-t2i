@@ -262,7 +262,12 @@ webui.py设置了5秒间隔，用处是在程序运行时候每5秒监听一次�
 check update   
 applly and quit    
 
-# 端口映射
+# 端口映射 部署
+
+python webui.py --xformers --port 8895 --listen   
+python webui.py --xformers --port=8895 --listen
+
+两个都可以
 
 demo.launch(server_name="127.0.0.1", server_port=27121, share=True)这个端口怎么设置才能在https://px-star-1.matpool.com:27121这个链接上查看gradio
 
@@ -270,9 +275,42 @@ demo.launch(server_name="127.0.0.1", server_port=27121, share=True)这个端口�
 server_name="0.0.0.0", server_port=8895
 
 
+python webui.py --xformers 
+
+start_server
+    raise OSError(
+OSError: Cannot find empty port in range: 8895-8895. You can specify a different port by setting the GRADIO_SERVER_PORT environment variable or passing the `server_port` parameter to `launch()`.
+Applying attention optimization: xformers... done.
+
+找到占用端口的进程ID（PID）
+
+lsof -i :8895
+
+kill -9 1234
 
 
+方法二：重启系统
+如果找不到具体进程或无法终止进程，重启系统可以释放所有端口。
 
+方法三：检查并关闭特定应用程序
+某些应用程序可能会占用端口8895，关闭这些应用程序可以释放端口。常见的应用程序包括：
+
+    本地运行的开发服务器
+    容器化应用（例如Docker）
+
+检查Docker容器
+
+如果使用Docker，可以查看正在运行的容器：
+
+
+docker ps   
+找到使用特定端口的容器后，停止容器：
+
+
+docker stop [CONTAINER_ID]
+
+方法四：配置系统防火墙
+某些情况下，系统防火墙或网络安全软件可能会占用或阻止端口。检查并调整防火墙设置，确保端口未被占用。
 
 
 # 结尾
