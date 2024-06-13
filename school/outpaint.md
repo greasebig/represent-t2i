@@ -2139,6 +2139,106 @@ Traceback (most recent call last):
 
 
 
+# openoutpaint启用
+python webui.py --xformers --port=8895 --listen --api
+
+这时可选模型，但还是灰的，同时采样器等其他无可选项
+
+python webui.py --xformers --port=8895 --listen --api --cors-allow-origins=http://0.0.0.0:8895
+
+一样的结果
+
+python webui.py --xformers --port=8895 --listen --api --cors-allow-origins=https://hz-t2.matpool.com:29930/
+
+还是一样 应该说这个不起作用
+
+
+
+AUTOMATIC1111 webUI Extension       
+openOutpaint is now available as a native A1111 extension directly from within webUI.     
+ Simply open the "Extensions" tab, open the "Available" subtab, and click the "Load From" button with the default index URL value. openOutpaint should appear in the list of available extensions you can install directly into webUI. Doing so will allow you to remove the --cors-allow-origins flag from your webui-user launch script, but does still require the --api flag to be set. You can also enable the --lock-oo-submodule flag to prevent the extension from updating the main openOutpaint component as of d903006 in the event that you wish to checkout and use a particular revision.
+
+openOutpaint 现在可作为原生 A1111 扩展直接从 webUI 中使用。只需打开“扩展”选项卡，打开“可用”子选项卡，然后单击带有默认索引 URL 值的“加载自”按钮。openOutpaint 应出现在可直接安装到 webUI 中的可用扩展列表中。这样做将允许您--cors-allow-origins从 webui-user 启动脚本中删除该标志，但仍需要--api设置该标志。如果您希望签出并使用特定修订版，您还可以启用该标志以防止扩展更新自d903006--lock-oo-submodule起的主要 openOutpaint 组件。
+
+
+采样器选择器允许您选择您喜欢的 SD 采样器。当 openOutpaint 启动或刷新时，这些采样器的列表会更新。
+
+
+
+
+主页指示     
+
+    quickstart speedrun     
+    edit your cors-allow-origins to include https://zero01101.github.io and run webUI
+    go to https://zero01101.github.io/openOutpaint/ and fill in the host value with your webUI API address
+    click things and do stuff
+
+
+
+python webui.py --xformers --port=8895 --listen --api --cors-allow-origins=https://zero01101.github.io/openOutpaint/
+
+去到网站是黄色的       
+cor error       
+
+
+python webui.py --xformers --port=8895 --listen --api --cors-allow-origins=https://zero01101.github.io
+
+这个竟然可以好神奇       
+
+extensions 竟然一直不行，也不知道是什么神奇原因
+
+realist模型
+
+ocean floor scientific expedition, underwater wildlife
+
+people, person, humans, human, divers, diver, glitch, error, text, watermark, bad quality, blurry
+
+生图
+
+![alt text](assets/outpaint/image-25.png)
+
+
+扩图    
+sd inpaint      
+
+
+ocean floor scientific expedition
+
+ underwater wildlife, people, person, humans, human, divers, diver, glitch, error, text, watermark, bad quality, blurry
+
+
+
+img2img 结果
+
+![alt text](assets/outpaint/image-26.png)
+
+
+
+
+t2i     
+
+![alt text](assets/outpaint/image-28.png)
+
+![alt text](assets/outpaint/image-29.png)
+
+
+只能dream       
+t2i
+
+
+img2img就是只能inpaint
+
+而且边界感太明显     
+开启soft inpaint    
+
+mask blur 64
+
+![alt text](assets/outpaint/image-30.png)
+
+比较难以控制 严重依赖文本 同时初始图像信息输入也要大      
+
+
+
 
 
 

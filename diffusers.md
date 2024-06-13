@@ -122,6 +122,28 @@ DPM++ 2M SDE Karras	DPMSolverMultistepScheduler	init with and use_karras_sigmas=
 
 
 
+# from_pretrained
+pipe = DiffusionPipeline.from_pretrained(
+      "stabilityai/sdxl-turbo", 
+      torch_dtype=torch.float16, variant="fp16",
+      cache_dir = 
+
+这样写好像只会下载fp16的diffuser模型，会过滤其他    
+
+不会下载webui模型
+
+cache_dir 不会使用     
+重新读取的时候好像只读取单纯软连接   
+读不进文件     
+
+重下载一遍 换新的 cache_dir 也不可以     
+
+原来是可以的    
+没有移到cuda自然没有显存占用
+
+
+
+
 
 
 

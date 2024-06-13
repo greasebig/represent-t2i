@@ -7625,6 +7625,67 @@ If this is a private repository, make sure to pass a token having permission to 
 
 当务之急 ： rmbg加速
 
+v1.0.6    加速优化完成
+
+首次启动生成问题    
+不想解决，估计是patcher 和 iclight先后调用的问题，可能是冲突？？？
+
+
+
+
+    # Get input
+    input_rgb: np.ndarray = args.get_input_rgb(device=device) #在这里调用 rmbg
+
+
+    def get_input_rgb(self, device: torch.device) -> np.ndarray:
+        """Returns rgb image in format [H, W, C=3]"""
+        start_time = time.time()
+        if self.remove_bg:
+            input_fg = self.input_fg[..., :3]
+            alpha = BriarmbgService().run_rmbg(img=input_fg, device=device)
+
+            init的时候就加载模型，run再调用
+            勾选会进入init
+            BriarmbgService()这个位置开始Init
+
+            input_rgb: np.ndarray = make_masked_area_grey(input_fg, alpha)
+        else:
+            if self.input_fg.shape[-1] == 4:
+                input_rgb = make_masked_area_grey(
+                    self.input_fg[..., :3],
+                    self.input_fg[..., 3:].astype(np.float32) / 255.0,
+                )
+            else:
+                input_rgb = self.input_fg
+        end_time = time.time()
+        run_time = end_time - start_time
+        print("背景去除整个过程 运行时间为：", run_time, "秒")
+        assert input_rgb.shape[-1] == 3, "Input RGB should have 3 channels."
+        return input_rgb
+
+rmbg模型首次加载 运行时间为： 8.070481777191162 秒
+
+本地加载      
+
+不使用deepcopy     
+ 1024 hires 2048    
+ A: 17.45 GB, R: 21.63 GB,         
+
+静态2816
+
+1024 hires 1536     
+A: 17.36 GB, R: 21.35 GB,    
+
+静态2834
+
+不勾选背景取出不会进入init
+
+
+
+
+
+
+
 
 
 
@@ -7731,11 +7792,14 @@ iclight的训练数据怎么收集处理的
 
 可以直接拉取最新的下来
 
+ 1 机 登入组里ssh
+
 git clone git@gitee.com:btc8/sd-webui-ic-light.git
 
 改了再    
-git add .
-git push
+git add .     
+git commit -m "v1.0.6"   
+git push origin base_on_patcher     
 
 注意在新分支修改   
 

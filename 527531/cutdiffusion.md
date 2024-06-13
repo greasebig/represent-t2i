@@ -176,6 +176,14 @@ scheduler
 
 # gradio demo编写
 
+部署位置：    
+/mnt/    
+lujunda/CutDiffusion/cutdiffusion2.py       
+
+
+
+
+
 
     model_type = gr.Dropdown(
         label="Model",
