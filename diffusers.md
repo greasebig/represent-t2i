@@ -214,6 +214,14 @@ python scripts/convert_original_stable_diffusion_to_diffusers.py --checkpoint_pa
 --half  fp16
 
 
+tokenizer.json: 100%|███████████████████████████████| 2.22M/2.22M [00:01<00:00, 1.80MB/s]
+config.json: 100%|██████████████████████████████████| 4.88k/4.88k [00:00<00:00, 13.5MB/s]
+
+
+
+
+
+
 
 
 
