@@ -7892,6 +7892,43 @@ forge的是实现是
 除非能够监听整个采样过程，听到中断则在这里调用一个复原的小东西         
 
 
+在Python中，你可以使用线程或者异步编程来实现这个监听功能。下面是使用线程的一个简单示例：
+
+    import threading
+
+    # 全局变量
+    p = "something"
+
+    # 监听函数
+    def interrupt_listener():
+        global p
+        input("按下 Enter 来中断：")
+        p = None
+        print("监听函数执行完成")
+
+    # 启动监听线程
+    listener_thread = threading.Thread(target=interrupt_listener)
+    listener_thread.start()
+
+    # 主程序
+    while p is not None:
+        # 主程序逻辑
+        pass
+
+    print("全局变量 p 被设置为 None")
+这个程序会在启动时开始一个线程来监听键盘输入。当用户按下回车键时，监听函数会执行，将全局变量 p 设置为 None。主程序会持续运行，直到 p 被设置为 None。
+
+
+另外的重要问题是： 我还需要找到interrupt和skip按键的监听，然后看看能不能覆盖，或者短暂覆盖，      
+而不是全局覆盖，后续生成不会有多余设置       
+
+
+
+
+
+
+
+
 
 
 
