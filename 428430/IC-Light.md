@@ -5447,11 +5447,11 @@ class StableDiffusionProcessingImg2Img(StableDiffusionProcessing):
 调用
 
     if self.scripts is not None:
-                ICLightForge.process_before_every_sampling(p=self,
-                                                x=self.init_latent, 初始的框内输入图片
-                                                noise=x, 随机采样 的高斯噪声
-                                                c=conditioning,
-                                                uc=unconditional_conditioning)
+        ICLightForge.process_before_every_sampling(p=self,
+                                x=self.init_latent, 初始的框内输入图片
+                                noise=x, 随机采样 的高斯噪声
+                                c=conditioning,
+                                uc=unconditional_conditioning)
 
 
 
@@ -7766,6 +7766,70 @@ original_image - blurred_original：原始图像减去模糊后的图像，这�
 
 
 这种方法的一个典型应用是增强图像的对比度和细节，使得边缘和纹理更加明显
+
+
+
+
+
+## 6.14报错
+
+
+ x_recon = self.model(x_noisy, t, **cond)
+      File "/root/miniconda3/envs/webui310/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1518, in _wrapped_call_impl
+        return self._call_impl(*args, **kwargs)
+      File "/root/miniconda3/envs/webui310/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1527, in _call_impl
+        return forward_call(*args, **kwargs)
+      File "/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/a1111webui193/stable-diffusion-webui/repositories/stable-diffusion-stability-ai/ldm/models/diffusion/ddpm.py", line 1335, in forward
+        out = self.diffusion_model(x, t, context=cc)
+      File "/root/miniconda3/envs/webui310/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1518, in _wrapped_call_impl
+        return self._call_impl(*args, **kwargs)
+      File "/root/miniconda3/envs/webui310/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1527, in _call_impl
+        return forward_call(*args, **kwargs)
+      File "/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/a1111webui193/stable-diffusion-webui/extensions/sd-webui-ic-light/libiclight/a1111_backend.py", line 95, in new_forward
+        return old_forward(new_x, timesteps, context, **kwargs)
+      File "/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/a1111webui193/stable-diffusion-webui/modules/sd_unet.py", line 91, in UNetModel_forward
+        return original_forward(self, x, timesteps, context, *args, **kwargs)
+      File "/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/a1111webui193/stable-diffusion-webui/repositories/stable-diffusion-stability-ai/ldm/modules/diffusionmodules/openaimodel.py", line 797, in forward
+        h = module(h, emb, context)
+      File "/root/miniconda3/envs/webui310/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1518, in _wrapped_call_impl
+        return self._call_impl(*args, **kwargs)
+
+
+ x = layer(x)
+      File "/root/miniconda3/envs/webui310/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1518, in _wrapped_call_impl
+        return self._call_impl(*args, **kwargs)
+      File "/root/miniconda3/envs/webui310/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1527, in _call_impl
+        return forward_call(*args, **kwargs)
+      File "/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/a1111webui193/stable-diffusion-webui/extensions-builtin/Lora/networks.py", line 516, in network_Conv2d_forward
+        network_apply_weights(self)
+      File "/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/a1111webui193/stable-diffusion-webui/extensions-builtin/Lora/networks.py", line 391, in network_apply_weights
+        network_restore_weights_from_backup(self)
+      File "/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/a1111webui193/stable-diffusion-webui/extensions-builtin/Lora/networks.py", line 340, in network_restore_weights_from_backup
+        self.weight.copy_(weights_backup)
+    RuntimeError: The size of tensor a (8) must match the size of tensor b (4) at non-singleton dimension 1
+
+好像是因为我先启动了   openoutpaint????
+inpaint模型？？
+
+python webui.py --xformers --port=8895 --listen --api --cors-allow-origins=https://zero01101.github.io
+
+
+
+第二次发现这个问题
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

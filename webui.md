@@ -122,6 +122,18 @@ python launch.py
 而comfyui会自动调用xformers
 
 
+huchenlei     
+命令行参数：--opt-split-attention --xformers
+
+
+
+
+
+
+
+
+
+
 
 
 # 安装方式

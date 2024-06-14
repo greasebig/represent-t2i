@@ -2195,6 +2195,9 @@ cpc explosion
 
 ## 扩图测试
 
+![alt text](assets/outpaint/831718294386_.pic.jpg)
+
+
 ![alt text](assets/outpaint/image-39.png)
 
 
@@ -2227,6 +2230,127 @@ cpc explosion, <lora:207:1>
 
 
 ![alt text](assets/outpaint/image-41.png)
+
+
+real模型
+
+![alt text](assets/outpaint/image-46.png)
+
+![alt text](assets/outpaint/image-47.png)
+
+inpaint 
+
+
+![alt text](assets/outpaint/image-48.png)
+
+
+为什么感觉不好用了？
+
+
+
+![alt text](assets/outpaint/image-49.png)
+
+
+
+anything inpaint
+
+![alt text](assets/outpaint/image-50.png)
+
+坏图很多
+
+文字
+
+仿佛lora没起作用
+
+文生图正确
+
+![alt text](assets/outpaint/image-51.png)
+
+
+![alt text](assets/outpaint/image-52.png)
+
+![alt text](assets/outpaint/image-53.png)
+
+
+![alt text](assets/outpaint/image-54.png)
+
+(pure black background:5)     
+text, (white:2), color     
+
+![alt text](assets/outpaint/image-55.png)
+
+![alt text](assets/outpaint/image-56.png)
+
+先检测出爆炸位置，扣出爆炸，再加纯黑背景
+
+
+## 问题
+
+感觉可以直接训练inpaint专属模型
+
+inpaint lora脚本不完善
+
+lora再去做inpaint效果不好：可以再测试script的outpaint    
+
+或者加强文本控制？
+
+
+![alt text](assets/outpaint/921718295966_.pic.jpg)
+
+![alt text](assets/outpaint/931718295989_.pic.jpg)
+
+
+
+百度两边扩：    
+![alt text](assets/outpaint/941718296069_.pic.jpg)
+
+
+![alt text](assets/outpaint/981718342388_.pic.jpg)
+
+mask 星绘
+
+一朵娇艳欲滴的花朵，花瓣层层叠叠，花蕊金黄
+
+原有也被重绘
+
+
+## outpaint mk2
+
+real
+
+cpc explosion, <lora:207-000005:1>
+
+![alt text](assets/outpaint/image-42.png)
+
+
+![alt text](assets/outpaint/image-43.png)
+
+80 eu a
+
+
+![alt text](assets/outpaint/image-44.png)
+
+
+
+inpaint
+
+
+![alt text](assets/outpaint/image-45.png)
+
+控不住
+
+Networks with errors: 207-000005 (68)
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -120,12 +120,27 @@ ft_norm False --lr_anneal_steps 15000
 
 
 
+# ssh config
+
+
+    Host 3090-5
+    HostName px-star-2.matpool.com
+    User root
+    Port 28445
+
+    Host 3090-4
+    HostName hz-t2.matpool.com
+    User root
+    Port 27414
+
+
+    Host 3090-3
+    HostName hz-t3.matpool.com
+    User root
+    Port 26368
 
 
 
 
 
-
-
-
-
+# 结尾 

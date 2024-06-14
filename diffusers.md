@@ -143,13 +143,85 @@ cache_dir 不会使用
 
 
 
+神奇的是scp 后软连接直接被赋值  源目标直接为空    
+
+![alt text](assets/diffusers/image-21.png)
+
+
+
+
+# from_single_file
+global_ckpt[model_name] = CutDiffusionSDXLPipeline.from_single_file(model_name, torch_dtype=torch.float16).to("cuda")
+
+
+pipe = DiffusionPipeline.from_single_file(
+      "/mnt/WujieAITeam/models/test/Rocky_私人影像模型V2/0525_sdxl_影楼_model_10_40_8-new.safetensors", 
+      custom_pipeline="/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/MixDQ/MixDQ",
+      torch_dtype=torch.float16, variant="fp16",
+  )
+
+AttributeError: type object 'DiffusionPipeline' has no attribute 'from_single_file'
+
+pipe = StableDiffusionXLPipeline.from_single_file(
+      "/mnt/WujieAITeam/models/test/Rocky_私人影像模型V2/0525_sdxl_影楼_model_10_40_8-new.safetensors", 
+      custom_pipeline="/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/MixDQ/MixDQ",
+      torch_dtype=torch.float16, variant="fp16",
+  )
+
+
+
+
+
+# sd1.5 diffusers正确关闭safechecker方式
+错误
+
+    pipe.config.requires_safety_checker=False
+正确
+
+    pipe.requires_safety_checker=False
+    或者#pipe.safety_checker=None
+
+虽然参数在config里，但是不在里面改    
+而且diffuser会自动忽略不存在键名    
+而且nas这种vscode debug不会跳转到原函数，估计是因为环境和代码保存的机器不一样，无法进去手动修改    
+![alt text](assets/diffusers参数/image.png)    
+另外config之外也有同名键，是真正起作用的    
+![alt text](assets/diffusers参数/image-1.png)    
+
+
+
+# 模型互转
+
+## diffusers转ckpt safetensors
+
+python scripts/convert_diffusers_to_original_stable_diffusion.py --model_path model_dir --checkpoint_path path_to_ckpt.ckpt
+
+## ckpt safetensors 转 diffusers
+
+
+python scripts/convert_original_stable_diffusion_to_diffusers.py --checkpoint_path --original_config_file  --dump_path  --from_safetensors    
+
+
+
+
+    python scripts/convert_original_stable_diffusion_to_diffusers.py \
+    --checkpoint_path \
+    --original_config_file  \
+    --dump_path  \
+    --from_safetensors    
+
+
+--half  fp16
+
+
+
 
 
 
 
 # pipeline参数：
 
-# StableDiffusionPipeline
+## StableDiffusionPipeline
 ```
 class StableDiffusionPipeline(
     DiffusionPipeline,
@@ -193,7 +265,7 @@ class StableDiffusionPipeline(
     """
 ```
 
-## __call__
+### __call__
 ```
     @torch.no_grad()
     @replace_example_docstring(EXAMPLE_DOC_STRING)
@@ -307,7 +379,7 @@ class StableDiffusionPipeline(
 ```
 
 
-# DiffusionPipeline
+## DiffusionPipeline
 没有 __call__   
 用以读取配置文件，自动识别出类型，即 StableDiffusionPipeline   
 然后调用他的 __call__      
@@ -452,7 +524,7 @@ class DiffusionPipeline(ConfigMixin, PushToHubMixin):
                 Load weights from a specified variant filename such as `"fp16"` or `"ema"`. This is ignored when
                 loading `from_flax`.
 ```
-# ConfigMixin
+## ConfigMixin
 ```
 class ConfigMixin:
     r"""
@@ -473,7 +545,7 @@ class ConfigMixin:
 ```
 
 
-# StableDiffusionXLPipeline
+## StableDiffusionXLPipeline
 ```
 class StableDiffusionXLPipeline(
     DiffusionPipeline,
@@ -531,7 +603,7 @@ class StableDiffusionXLPipeline(
 
 
 ```
-## call
+### call
 没有 bin 桶 参数
 ```
 @torch.no_grad()
@@ -713,7 +785,7 @@ class StableDiffusionXLPipeline(
 
 
 
-# PixArtSigmaPipeline pipeline_pixart_alpha
+## PixArtSigmaPipeline pipeline_pixart_alpha
 ```
 def pipeline_pixart_alpha_call(
         self,
@@ -837,24 +909,6 @@ class PixArtSigmaPipeline(PixArtAlphaPipeline):
 
 
 ```
-
-## sd1.5 diffusers正确关闭safechecker方式
-错误
-
-    pipe.config.requires_safety_checker=False
-正确
-
-    pipe.requires_safety_checker=False
-    或者#pipe.safety_checker=None
-
-虽然参数在config里，但是不在里面改    
-而且diffuser会自动忽略不存在键名    
-而且nas这种vscode debug不会跳转到原函数，估计是因为环境和代码保存的机器不一样，无法进去手动修改    
-![alt text](assets/diffusers参数/image.png)    
-另外config之外也有同名键，是真正起作用的    
-![alt text](assets/diffusers参数/image-1.png)    
-
-
 
 # 库中集成方法
 
