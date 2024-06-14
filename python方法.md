@@ -550,6 +550,21 @@ print("程序运行时间为：", run_time, "秒")
 else语句块是可选的,如果try语句块中的代码没有引发任何异常,就会执行else语句块中的代码。
 
 
+## ctrl c
+默认情况不会被捕获   
+可以通过 except KeyboardInterrupt捕获
+
+
+
+
+
+
+
+
+
+
+
+
 # self
 
 是的,在Python中,您可以使用任何有效的变量名来替代self或cls。Python本身并不限制您必须使用self或cls,这只是一种常见约定和最佳实践。

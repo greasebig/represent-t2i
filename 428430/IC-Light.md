@@ -7818,16 +7818,78 @@ python webui.py --xformers --port=8895 --listen --api --cors-allow-origins=https
 第二次发现这个问题
 
 
+## 隐患
+    def process(self, p: StableDiffusionProcessing, *args, **kwargs):
+        """
+        This function is called before processing begins for AlwaysVisible scripts.
+        You can modify the processing object (p) here, inject hooks, etc.
+        args contains all values returned by components from ui()
+
+        A1111 impl.
+        Known issue: Currently does not support hires-fix.
+        TODO:
+        - process_before_every_sampling hook
+        - find a better place to call model_patcher.patch_model()
+        """
+        #if self.backend_type != BackendType.A1111:   # 像是这几个的问题。设置成a1111私有
+        #    return
+
+        args = ICLightArgs.fetch_from(p)
+        if not args.enabled:
+            return
+        
+        # 获取当前时间戳
+        current_timestamp = time.time()
+        # 添加8小时的秒数(8 * 60 * 60)
+        new_timestamp = current_timestamp + (8 * 60 * 60)
+        # 自定义格式化字符串
+        custom_format = "%Y年%m月%d日 %H时%M分%S秒"
+        # 格式化修改后的时间戳
+        current_time = time.strftime(custom_format, time.localtime(new_timestamp))
+        print("当前时间:", current_time)
+
+        if isinstance(p, StableDiffusionProcessingTxt2Img) and p.enable_hr:
+            pass#raise NotImplementedError("Hires-fix is not yet supported in A1111.")
+
+            p.sample_hr_pass = MethodType(sample_hr_pass, p) # 有可能会被 interrupt然后出错
+
+            
+        self.apply_ic_light(p, args) 
 
 
+p.sample_hr_pass = MethodType(sample_hr_pass, p) # 有可能会被 interrupt然后出错
+
+隐患有点大？
+
+如果hires     
+则赋值新的sample     
+在普通生图结束后进入新的hires   
+这是如果被打断    
+那么后面可能会错        
+从赋值一开始就有隐患       
+
+这个最好就放在调用hires之前一点点 进行赋值     
+这个需要在插件外部   
+那就要改原普通函数了，这可真麻烦
+
+或者是保证插件异常退出能够设置一个恢复
+唯一可能可行的        
+
+forge的是实现是      
+原hires函数已经适配，     
+不需要更改原hires函数       
+
+这有点扯了
 
 
+我更改原hires函数    
+这个在整个过程生效         
+即使插件执行结束，还在生效，直至整个代码运行结束    
 
 
+超巨大bug     
 
-
-
-
+除非能够监听整个采样过程，听到中断则在这里调用一个复原的小东西         
 
 
 
