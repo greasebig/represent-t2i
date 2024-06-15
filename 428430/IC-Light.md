@@ -7923,13 +7923,130 @@ forge的是实现是
 而不是全局覆盖，后续生成不会有多余设置       
 
 
+这个问题及其容易发生在用户要求多图生成，但是中间打断
+
+
+## webui skip
+
+    "Denoising strength": "Determines how little respect the algorithm should have for image's content. At 0, nothing will change, and at 1 you'll get an unrelated image. With values below 1.0, processing will take less steps than the Sampling Steps slider specifies.",
+
+    "Skip": "Stop processing current image and continue processing.",
+
+    "Interrupt": "Stop processing images and return any results accumulated so far.",
+
+    "Save": "Write image to a directory (default - log/images) and generation parameters into csv file.",
+
+    "X values": "Separate values for X axis using commas.",
+    "Y values": "Separate values for Y axis using commas.",
+
+
+shared.state.skipped = False   
+shared.state.interrupted = False
+
+def process_batch(p, input_dir, output_dir, inpaint_mask_dir, args, to_scale=False, scale_by=1.0, use_png_info=False, png_info_props=None, png_info_dir=None):
+   
+
+    for i, image in enumerate(batch_images):
+        state.job = f"{i+1} out of {len(batch_images)}"
+        if state.skipped:
+            state.skipped = False
+            这个是怎么跳过的？       
+            监听的吗
+
+
+        if state.interrupted or state.stopping_generation:
+            break
+    return batch_results
+
+def run_postprocessing(extras_mode, image, image_folder, input_dir, output_dir, show_extras_results, *args, save_output: bool = True):
+ 
+    for image_placeholder, name in data_to_process:
+        image_data: Image.Image
+
+        shared.state.nextjob()
+        shared.state.textinfo = name
+        shared.state.skipped = False
+        这样写 觉得有点不合适？？
+        我还要去看怎么监听skip按钮的。算了吧，不想找了   
+
+        if shared.state.interrupted:
+            break
+
+
+        ......
+        
+        if shared.state.skipped:
+            continue
+
+    devices.torch_gc()
+    shared.state.end()
+    return outputs, ui_common.plaintext_to_html(infotext), ''
+
+class ScriptPostprocessingRunner:
+
+    def run(self, pp: PostprocessedImage, args):
+        for script, process_args in scripts:
+            if shared.state.skipped:
+                break
+
+有点太多了
+
+
+/a1111webui193/stable-diffusion-webui/modules/ui_toprow.py
+
+class Toprow:
+    """Creates a top row UI with prompts, generate button, styles, extra little buttons for things, and enables some functionality related to their operation"""
+
+    def create_submit_box(self):
+        with gr.Row(elem_id=f"{self.id_part}_generate_box", elem_classes=["generate-box"] + (["generate-box-compact"] if self.is_compact else []), render=not self.is_compact) as submit_box:
+            self.submit_box = submit_box
+
+            self.interrupt = gr.Button('Interrupt', elem_id=f"{self.id_part}_interrupt", elem_classes="generate-box-interrupt", tooltip="End generation immediately or after completing current batch")
+            self.skip = gr.Button('Skip', elem_id=f"{self.id_part}_skip", elem_classes="generate-box-skip", tooltip="Stop generation of current batch and continues onto next batch")
+            self.interrupting = gr.Button('Interrupting...', elem_id=f"{self.id_part}_interrupting", elem_classes="generate-box-interrupting", tooltip="Interrupting generation...")
+            self.submit = gr.Button('Generate', elem_id=f"{self.id_part}_generate", variant='primary', tooltip="Right click generate forever menu")
+
+            def interrupt_function():
+                if not shared.state.stopping_generation and shared.state.job_count > 1 and shared.opts.interrupt_after_current:
+                    shared.state.stop_generating()
+                    gr.Info("Generation will stop after finishing this image, click again to stop immediately.")
+                else:
+                    shared.state.interrupt()
+
+            self.skip.click(fn=shared.state.skip)
+            self.interrupt.click(fn=interrupt_function, _js='function(){ showSubmitInterruptingPlaceholder("' + self.id_part + '"); }')
+            self.interrupting.click(fn=interrupt_function)
 
 
 
 
+document.addEventListener('keydown', function(e) {
+    const isEnter = e.key === 'Enter' || e.keyCode === 13;
+    const isCtrlKey = e.metaKey || e.ctrlKey;
+    const isAltKey = e.altKey;
+    const isEsc = e.key === 'Escape';
+
+    const generateButton = get_uiCurrentTabContent().querySelector('button[id$=_generate]');
+    const interruptButton = get_uiCurrentTabContent().querySelector('button[id$=_interrupt]');
+    const skipButton = get_uiCurrentTabContent().querySelector('button[id$=_skip]');
+
+
+    if (isAltKey && isEnter) {
+        skipButton.click();
+        e.preventDefault();
+    }
+
+
+这应该是gradio涉及的js
 
 
 
+
+程序的这个好像也不是线程监听，只是他会完成一次生图才打断
+
+不会在采样推理中间打断 
+
+所以没事？？？
 
 
 
