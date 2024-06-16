@@ -2341,6 +2341,161 @@ inpaint
 
 Networks with errors: 207-000005 (68)
 
+class ExtraNetworkLora(extra_networks.ExtraNetwork):
+
+    def __init__(self):
+        super().__init__('lora')
+
+        self.errors = {}
+        """mapping of network names to the number of errors the network had during operation"""
+
+    def deactivate(self, p):
+        if self.errors:
+            p.comment("Networks with errors: " + ", ".join(f"{k} ({v})" for k, v in self.errors.items()))
+
+            self.errors.clear()
+
+
+
+## 文生图测试lora
+lora是使用activate和deactivate进行卸载    
+也是script脚本形式     
+
+
+### real
+
+cpc explosion, <lora:207-000005:1>
+
+![alt text](assets/outpaint/image-57.png)
+
+
+cpc explosion
+
+
+![alt text](assets/outpaint/image-58.png)
+
+
+### inpaint
+
+cpc explosion
+
+
+![alt text](assets/outpaint/image-59.png)
+
+
+
+cpc explosion, <lora:207-000005:1>
+
+    [2024-06-16 01:57:02,313][DEBUG][root] - Network 207-000005 layer diffusion_model_input_blocks_
+    1_1_transformer_blocks_0_attn2_to_k: The size of tensor a (1024) must match the size of tensor 
+    b (768) at non-singleton dimension 1                                                           
+    [2024-06-16 01:57:02,320][DEBUG][root] - Network 207-000005 layer diffusion_model_input_blocks_
+    1_1_transformer_blocks_0_attn2_to_v: The size of tensor a (1024) must match the size of tensor 
+    b (768) at non-singleton dimension 1                                                           
+    [2024-06-16 01:57:02,345][DEBUG][root] - Network 207-000005 layer diffusion_model_input_blocks_
+    2_1_transformer_blocks_0_attn2_to_k: The size of tensor a (1024) must match the size of tensor 
+    b (768) at non-singleton dimension 1                                                           
+    [2024-06-16 01:57:02,352][DEBUG][root] - Network 207-000005 layer diffusion_model_input_blocks_
+    2_1_transformer_blocks_0_attn2_to_v: The size of tensor a (1024) must match the size of tensor 
+    b (768) at non-singleton dimension 1                                                           
+    [2024-06-16 01:57:02,404][DEBUG][root] - Network 207-000005 layer diffusion_model_input_blocks_
+    4_1_transformer_blocks_0_attn2_to_k: The size of tensor a (1024) must match the size of tensor 
+    b (768) at non-singleton dimension 1                                                           
+    [2024-06-16 01:57:02,412][DEBUG][root] - Network 207-000005 layer diffusion_model_input_blocks_
+    4_1_transformer_blocks_0_attn2_to_v: The size of tensor a (1024) must match the size of tensor 
+    b (768) at non-singleton dimension 1                                                           
+    [2024-06-16 01:57:02,446][DEBUG][root] - Network 207-000005 layer diffusion_model_input_blocks_
+    5_1_transformer_blocks_0_attn2_to_k: The size of tensor a (1024) must match the size of tensor 
+    b (768) at non-singleton dimension 1                                                           
+    [2024-06-16 01:57:02,453][DEBUG][root] - Network 207-000005 layer diffusion_model_input_blocks_
+    5_1_transformer_blocks_0_attn2_to_v: The size of tensor a (1024) must match the size of tensor 
+    b (768) at non-singleton dimension 1                                                           
+    [2024-06-16 01:57:02,533][DEBUG][root] - Network 207-000005 layer diffusion_model_input_blocks_
+    7_1_transformer_blocks_0_attn2_to_k: The size of tensor a (1024) must match the size of tensor 
+    b (768) at non-singleton dimension 1                                                           
+    [2024-06-16 01:57:02,542][DEBUG][root] - Network 207-000005 layer diffusion_model_input_blocks_
+    7_1_transformer_blocks_0_attn2_to_v: The size of tensor a (1024) must match the size of tensor 
+    b (768) at non-singleton dimension 1                                                           
+    [2024-06-16 01:57:02,618][DEBUG][root] - Network 207-000005 layer diffusion_model_input_blocks_
+    8_1_transformer_blocks_0_attn2_to_k: The size of tensor a (1024) must match the size of tensor 
+    b (768) at non-singleton dimension 1                                                           
+    [2024-06-16 01:57:02,630][DEBUG][root] - Network 207-000005 layer diffusion_model_input_blocks_8_1_transformer_blocks_0_attn2_to_v: The size of tensor a (1024) must match the size of tensor b (768) at non-singleton dimension 1
+    [2024-06-16 01:57:02,825][DEBUG][root] - Network 207-000005 layer diffusion_model_middle_block_1_transformer_blocks_0_attn2_to_k: The size of tensor a (1024) must match the size of tensor b (768) at non-singleton dimension 1
+    [2024-06-16 01:57:02,834][DEBUG][root] - Network 207-000005 layer diffusion_model_middle_block_1_transformer_blocks_0_attn2_to_v: The size of tensor a (1024) must match the size of tensor b (768) at non-singleton dimension 1
+    [2024-06-16 01:57:03,187][DEBUG][root] - Network 207-000005 layer diffusion_model_output_blocks_3_1_transformer_blocks_0_attn2_to_k: The size of tensor a (1024) must match the size of tensor b (768) at non-singleton dimension 1
+    [2024-06-16 01:57:03,195][DEBUG][root] - Network 207-000005 layer diffusion_model_output_blocks_3_1_transformer_blocks_0_attn2_to_v: The size of tensor a (1024) must match the size of tensor b (768) at non-singleton dimension 1
+    [2024-06-16 01:57:03,294][DEBUG][root] - Network 207-000005 layer diffusion_model_output_blocks_4_1_transformer_blocks_0_attn2_to_k: The size of tensor a (1024) must match the size of tensor b (768) at non-singleton dimension 1
+    [2024-06-16 01:57:03,302][DEBUG][root] - Network 207-000005 layer diffusion_model_output_blocks_4_1_transformer_blocks_0_attn2_to_v: The size of tensor a (1024) must match the size of tensor b (768) at non-singleton dimension 1
+
+    [2024-06-16 01:57:02,834][DEBUG][root] - Network 207-000005 layer diffusion_model_middle_block_1_transformer_blocks_0_attn2_to_v: The size of tensor a (1024) must match the size of tensor b (768) at non-singleton dimension 1
+    [2024-06-16 01:57:03,187][DEBUG][root] - Network 207-000005 layer diffusion_model_output_blocks_3_1_transformer_blocks_0_attn2_to_k: The size of tensor a (1024) must match the size of tensor b (768) at non-singleton dimension 1
+    [2024-06-16 01:57:03,195][DEBUG][root] - Network 207-000005 layer diffusion_model_output_blocks_3_1_transformer_blocks_0_attn2_to_v: The size of tensor a (1024) must match the size of tensor b (768) at non-singleton dimension 1
+    [2024-06-16 01:57:03,294][DEBUG][root] - Network 207-000005 layer diffusion_model_output_blocks_4_1_transformer_blocks_0_attn2_to_k: The size of tensor a (1024) must match the size of tensor b (768) at non-singleton dimension 1
+    [2024-06-16 01:57:03,302][DEBUG][root] - Network 207-000005 layer diffusion_model_output_blocks_4_1_transformer_blocks_0_attn2_to_v: The size of tensor a (1024) must match the size of tensor b (768) at non-singleton dimension 1
+    [2024-06-16 01:57:03,419][DEBUG][root] - Network 207-000005 layer diffusion_model_output_blocks_5_1_transformer_blocks_0_attn2_to_k: The size of tensor a (1024) must match the size of tensor b (768) at non-singleton dimension 1
+    [2024-06-16 01:57:03,428][DEBUG][root] - Network 207-000005 layer diffusion_model_output_blocks
+    _5_1_transformer_blocks_0_attn2_to_v: The size of tensor a (1024) must match the size of tensor
+    b (768) at non-singleton dimension 1
+    [2024-06-16 01:57:03,531][DEBUG][root] - Network 207-000005 layer diffusion_model_output_blocks
+    _6_1_transformer_blocks_0_attn2_to_k: The size of tensor a (1024) must match the size of tensor
+    b (768) at non-singleton dimension 1
+    [2024-06-16 01:57:03,538][DEBUG][root] - Network 207-000005 layer diffusion_model_output_blocks
+    _6_1_transformer_blocks_0_attn2_to_v: The size of tensor a (1024) must match the size of tensor
+    b (768) at non-singleton dimension 1
+    [2024-06-16 01:57:03,593][DEBUG][root] - Network 207-000005 layer diffusion_model_output_blocks
+    _7_1_transformer_blocks_0_attn2_to_k: The size of tensor a (1024) must match the size of tensor
+    b (768) at non-singleton dimension 1
+    [2024-06-16 01:57:03,601][DEBUG][root] - Network 207-000005 layer diffusion_model_output_blocks
+    _7_1_transformer_blocks_0_attn2_to_v: The size of tensor a (1024) must match the size of tensor
+    b (768) at non-singleton dimension 1
+    [2024-06-16 01:57:03,653][DEBUG][root] - Network 207-000005 layer diffusion_model_output_blocks
+    _8_1_transformer_blocks_0_attn2_to_k: The size of tensor a (1024) must match the size of tensor
+    b (768) at non-singleton dimension 1
+    [2024-06-16 01:57:03,664][DEBUG][root] - Network 207-000005 layer diffusion_model_output_blocks
+    _8_1_transformer_blocks_0_attn2_to_v: The size of tensor a (1024) must match the size of tensor
+    b (768) at non-singleton dimension 1
+    [2024-06-16 01:57:03,717][DEBUG][root] - Network 207-000005 layer diffusion_model_output_blocks
+    _9_1_transformer_blocks_0_attn2_to_k: The size of tensor a (1024) must match the size of tensor
+    b (768) at non-singleton dimension 1
+    [2024-06-16 01:57:03,724][DEBUG][root] - Network 207-000005 layer diffusion_model_output_blocks
+    _9_1_transformer_blocks_0_attn2_to_v: The size of tensor a (1024) must match the size of tensor
+    b (768) at non-singleton dimension 1
+    [2024-06-16 01:57:03,759][DEBUG][root] - Network 207-000005 layer diffusion_model_output_blocks
+    _10_1_transformer_blocks_0_attn2_to_k: The size of tensor a (1024) must match the size of tenso
+    r b (768) at non-singleton dimension 1
+    [2024-06-16 01:57:03,766][DEBUG][root] - Network 207-000005 layer diffusion_model_output_blocks
+    _10_1_transformer_blocks_0_attn2_to_v: The size of tensor a (1024) must match the size of tenso
+    r b (768) at non-singleton dimension 1
+    [2024-06-16 01:57:03,793][DEBUG][root] - Network 207-000005 layer diffusion_model_output_blocks
+    _11_1_transformer_blocks_0_attn2_to_k: The size of tensor a (1024) must match the size of tenso
+    r b (768) at non-singleton dimension 1
+    [2024-06-16 01:57:03,800][DEBUG][root] - Network 207-000005 layer diffusion_model_output_blocks
+    _11_1_transformer_blocks_0_attn2_to_v: The size of tensor a (1024) must match the size of tenso
+    r b (768) at non-singleton dimension 1
+
+
+
+
+![alt text](assets/outpaint/image-60.png)
+
+结果导致lora不起作用
+
+非單一維度
+
+
+### anything inpaint
+
+cpc explosion
+
+![alt text](assets/outpaint/image-61.png)
+
+
+cpc explosion, <lora:207-000005:1>
+
+
+![alt text](assets/outpaint/image-62.png)
+
+没有报错     
 
 
 
@@ -2350,7 +2505,166 @@ Networks with errors: 207-000005 (68)
 
 
 
+### 分析
 
+Anything-v3-inpainting.ckpt [92cb44cc9a]
+
+#### 512-inpainting-ema.safetensors [b29e2ed9a8]
+
+好像来自这里     
+https://huggingface.co/webui/stable-diffusion-2-inpainting/tree/main
+
+我是基于sd1.4训练    
+所以在transformer部分的qkv对应的是sd1.4
+
+
+这个也许需要加载专门的yaml    
+
+    unet_config:
+      target: ldm.modules.diffusionmodules.openaimodel.UNetModel
+      params:
+        use_checkpoint: True
+        image_size: 32 # unused
+        in_channels: 9
+        out_channels: 4
+        model_channels: 320
+        attention_resolutions: [ 4, 2, 1 ]
+        num_res_blocks: 2
+        channel_mult: [ 1, 2, 4, 4 ]
+        num_head_channels: 64 # need to fix for flash-attn  不一样
+        use_spatial_transformer: True
+        use_linear_in_transformer: True
+        transformer_depth: 1
+        context_dim: 1024  不一样
+        legacy: False
+
+    cond_stage_config:
+      target: ldm.modules.encoders.modules.FrozenOpenCLIPEmbedder  不一样
+      params:
+        freeze: True
+        layer: "penultimate"
+
+
+    data:
+
+    target: ldm.data.laion.WebDataModuleFromConfig
+    params:
+        tar_base: null  # for concat as in LAION-A
+        p_unsafe_threshold: 0.1
+        filter_word_list: "data/filters.yaml"
+        max_pwatermark: 0.45
+        batch_size: 8
+        num_workers: 6
+        multinode: True
+        min_size: 512
+        train:
+        shards:
+            - "pipe:aws s3 cp s3://stability-aws/laion-a-native/part-0/{00000..18699}.tar -"
+            - "pipe:aws s3 cp s3://stability-aws/laion-a-native/part-1/{00000..18699}.tar -"
+            - "pipe:aws s3 cp s3://stability-aws/laion-a-native/part-2/{00000..18699}.tar -"
+            - "pipe:aws s3 cp s3://stability-aws/laion-a-native/part-3/{00000..18699}.tar -"
+            - "pipe:aws s3 cp s3://stability-aws/laion-a-native/part-4/{00000..18699}.tar -"  #{00000-94333}.tar"
+        shuffle: 10000
+        image_key: jpg
+        image_transforms:
+        - target: torchvision.transforms.Resize
+            params:
+            size: 512
+            interpolation: 3
+        - target: torchvision.transforms.RandomCrop
+            params:
+            size: 512
+        postprocess:
+            target: ldm.data.laion.AddMask
+            params:
+            mode: "512train-large"
+            p_drop: 0.25
+        # NOTE use enough shards to avoid empty validation loops in workers
+        validation:
+        shards:
+            - "pipe:aws s3 cp s3://deep-floyd-s3/datasets/laion_cleaned-part5/{93001..94333}.tar - "
+        shuffle: 0
+        image_key: jpg
+        image_transforms:
+        - target: torchvision.transforms.Resize
+            params:
+            size: 512
+            interpolation: 3
+        - target: torchvision.transforms.CenterCrop
+            params:
+            size: 512
+        postprocess:
+            target: ldm.data.laion.AddMask
+            params:
+            mode: "512train-large"
+            p_drop: 0.25
+
+
+
+
+#### sd-v1-5-inpainting.safetensors
+
+这个可能才可行
+
+https://huggingface.co/webui/stable-diffusion-inpainting/tree/main
+
+
+
+
+    config_default = shared.sd_default_config
+    config_sd2 = os.path.join(sd_repo_configs_path, "v2-inference.yaml")
+    config_sd2v = os.path.join(sd_repo_configs_path, "v2-inference-v.yaml")
+    config_sd2_inpainting = os.path.join(sd_repo_configs_path, "v2-inpainting-inference.yaml")
+    config_sdxl = os.path.join(sd_xl_repo_configs_path, "sd_xl_base.yaml")
+    config_sdxl_refiner = os.path.join(sd_xl_repo_configs_path, "sd_xl_refiner.yaml")
+    config_sdxl_inpainting = os.path.join(sd_configs_path, "sd_xl_inpaint.yaml")
+    config_depth_model = os.path.join(sd_repo_configs_path, "v2-midas-inference.yaml")
+    config_unclip = os.path.join(sd_repo_configs_path, "v2-1-stable-unclip-l-inference.yaml")
+    config_unopenclip = os.path.join(sd_repo_configs_path, "v2-1-stable-unclip-h-inference.yaml")
+    config_inpainting = os.path.join(sd_configs_path, "v1-inpainting-inference.yaml")
+    config_instruct_pix2pix = os.path.join(sd_configs_path, "instruct-pix2pix.yaml")
+    config_alt_diffusion = os.path.join(sd_configs_path, "alt-diffusion-inference.yaml")
+    config_alt_diffusion_m18 = os.path.join(sd_configs_path, "alt-diffusion-m18-inference.yaml")
+
+
+a1111webui193/stable-diffusion-webui/configs/v1-inpainting-inference.yaml
+
+    unet_config:
+      target: ldm.modules.diffusionmodules.openaimodel.UNetModel
+      params:
+        image_size: 32 # unused
+        in_channels: 9  # 4 data + 4 downscaled image + 1 mask
+        out_channels: 4
+        model_channels: 320
+        attention_resolutions: [ 4, 2, 1 ]
+        num_res_blocks: 2
+        channel_mult: [ 1, 2, 4, 4 ]
+        num_heads: 8
+        use_spatial_transformer: True
+        transformer_depth: 1
+        context_dim: 768
+        use_checkpoint: True
+        legacy: False
+
+
+    cond_stage_config:
+      target: ldm.modules.encoders.modules.FrozenCLIPEmbedder
+
+
+    cond_stage_trainable: false   # Note: different from the one we trained before
+    conditioning_key: hybrid   # important
+    monitor: val/loss_simple_ema
+    scale_factor: 0.18215
+    finetune_keys: null
+
+    scheduler_config: # 10000 warmup steps
+      target: ldm.lr_scheduler.LambdaLinearScheduler
+      params:
+        warm_up_steps: [ 2500 ] # NOTE for resuming. use 10000 if starting from scratch
+        cycle_lengths: [ 10000000000000 ] # incredibly large number to prevent corner cases
+        f_start: [ 1.e-6 ]
+        f_max: [ 1. ]
+        f_min: [ 1. ]
 
 
 
