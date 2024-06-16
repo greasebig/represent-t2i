@@ -170,13 +170,16 @@ git config --global  --unset http.https://github.com.proxy
 
 
 # hires 精绘 高修 超分？？？
+wiki好像没说时如何实现的        
+源代码中是一个img2img过程       
+但是是对latent做二倍插值吗，我没有看过      
+
+
+
 
 在comfyui的实现也是对latant做最近邻差值再采样一次    
 相当于refiner模型变异    
 而且时插值方式对   
-
-
-
 
 
 
@@ -232,6 +235,7 @@ For developers, a callback also exists (on_extra_noise).
 
 
 # Upscalers
+
 下拉菜单允许您选择用于调整图像大小的放大器类型。除了“附加”选项卡上提供的所有升级器之外，还有一个选项可以升级潜在空间图像，这就是稳定扩散在内部工作的方式 - 对于 3x512x512 RGB 图像，其潜在空间表示将为 4x64x64。要查看每个潜在空间放大器的作用，您可以将去噪强度设置为 0，并将 Hires 步长设置为 1 - 您将获得稳定扩散在放大图像上的作用的非常好的近似值。    
 
 A dropdown allows you to to select the kind of upscaler to use for resizing the image. In addition to all upscalers you have available on extras tab, there is an option to `upscale a latent space image`, which is what stable diffusion works with internally - for a 3x512x512 RGB image, its latent space representation would be 4x64x64. To see what each latent space upscaler does, you can set Denoising strength to 0 and Hires steps to 1 - you'll get a very good approximation of what stable diffusion would be working with on upscaled image.
@@ -239,6 +243,40 @@ A dropdown allows you to to select the kind of upscaler to use for resizing the 
 ![alt text](assets/webui/image-18.png)     
 
 神秘的latent空间放大    
+
+
+Extras tab with:
+
+    GFPGAN, neural network that fixes faces
+    CodeFormer, face restoration tool as an alternative to GFPGAN
+    RealESRGAN, neural network upscaler
+    ESRGAN, neural network upscaler with a lot of third party models
+    SwinIR and Swin2SR (see here), neural network upscalers
+    LDSR, Latent diffusion super resolution upscaling
+
+
+
+
+
+## Stable Diffusion upscale
+ℹ️ Note: This is not the preferred method of upscaling, as this causes SD to lose attention to the rest of the image due to tiling. It should only be used if VRAM bound, or in tandem with something like ControlNet + the tile model. For the preferred method, see Hires. fix.
+
+
+
+Recommended parameters for upscaling:
+
+    Sampling method: Euler a
+    Denoising strength: 0.2, can go up to 0.4 if you feel adventurous
+    A larger denoising strength is problematic due to the fact SD upscale works in tiles, as the diffusion process is then unable to give attention to the image as a whole.
+
+
+构图改变严重       
+相当于重绘，denoise再低也会重绘        
+运行逻辑上就有问题     
+
+tile原理，适用于高马赛克模糊图片       
+不适用于小图单纯放大      
+
 
 
 
@@ -325,11 +363,182 @@ docker stop [CONTAINER_ID]
 某些情况下，系统防火墙或网络安全软件可能会占用或阻止端口。检查并调整防火墙设置，确保端口未被占用。
 
 
+
+
+# 最佳 SDXL 使用
+ClashSAN 编辑了此页面 on Dec 15, 2023 · 6 修订
+以下是要针对您的设置进行调整的事项的快速列表：
+
+命令行参数：
+
+    英伟达 （12gb+）--xformers
+    英伟达 （8gb）--medvram-sdxl --xformers
+    英伟达 （4gb）--lowvram --xformers
+    AMD （4gb） + TAESD 设置--lowvram --opt-sub-quad-attention
+详细信息
+rocm 和 directml 都会以 fp16 生成至少 1024x1024 的图片。如果您的 AMD 显卡需要 --no-half，请尝试启用 --upcast-sampling，因为全精度 sdxl 太大，无法容纳 4gb。
+
+
+
+使用 sdxl-vae-fp16-fix;不需要在 fp32 中运行的 VAE。这将提高速度并减少VRAM的使用，同时几乎没有质量损失。    
+使用TAESD;一个以牺牲质量为代价使用更少 vram 的 VAE。
+
+
+Use an SSD for faster load time, especially if a pagefile is required.     
+Have at least 24gb ram on Windows 11, and at least 16gb on Windows 10      
+这是为什么        
+
+(Linux) install , greatly reducing RAM usage: (#10117).tcmallocsudo apt install --no-install-recommends google-perftools       
+Add a pagefile/swapfile to prevent failure loading weights due to low RAM.
+
+
+
+## sdxl-vae-fp16-fix是如何修复的？？
+主要有很多问题我都要一一考证吗        
+就像历史学习，有很多名词典故梗       
+我好像没办法考证，只能说做过哪些讲哪些       
+这是不可能的事情     
+
+更实际的是直接看接口文档的使用说明       
+一般能讲明白       
+具体实现可能才得深入进去看       
+
+# 一些功能
+
+
+
+
+Sampling method selection  
+
+    Adjust sampler eta values (noise multiplier)
+    More advanced noise setting options
+Interrupt processing at any time
+
+Live prompt token length validation
+
+
+Tiling support, a checkbox to create images that can be tiled like textures    
+Progress bar and live image generation preview
+
+    Can use a separate neural network to produce previews with almost none VRAM or compute requirement
+
+Styles, a way to save part of prompt and easily apply them via dropdown later       
+Variations, a way to generate same image but with tiny differences
+
+Seed resizing, a way to generate same image but at slightly different resolution        
+CLIP interrogator, a button that tries to guess prompt from an image
+
+
+Prompt Editing, a way to change prompt mid-generation, say to start making a watermelon and switch to anime girl midway
+
+
+Highres Fix, a convenience option to produce high resolution pictures in one click without usual distortions
+
+
+DeepDanbooru integration, creates danbooru style tags for anime prompts       
+xformers, major speed increase for select cards: (add --xformers to commandline args)
+
+
+
+Composable-Diffusion, a way to use multiple prompts at once
+
+    separate prompts using uppercase AND
+    also supports weights for prompts: a cat :1.2 AND a dog AND a penguin :2.2
+
+和pos neg有什么区别吗      
+是前身么        
+neg如何实现？          
+直接embed相减吗？        
+还是生成的latent相减，是每一步减还是最后一步减？    
+
+Training tab     
+hypernetworks and embeddings options        
+Preprocessing images: cropping, mirroring, autotagging using BLIP or deepdanbooru (for anime)
+
+
+
+
+Hypernetworks      
+Loras (same as Hypernetworks but more pretty)
+
+
+
+via extension: Aesthetic Gradients, a way to generate images with a specific aesthetic by using clip images embeds (implementation of https://github.com/vicgalle/stable-diffusion-aesthetic-gradients)    
+Stable Diffusion 2.0 support - see wiki for instructions     
+Alt-Diffusion support - see wiki for instructions
+
+
+具有美学梯度🎨的稳定扩散   
+这是文章 Personalizing Text-to-Image Generation via Aesthetic Gradients 的代码库：
+
+这项工作提出了美学梯度，这是一种通过引导生成过程走向用户从一组图像中定义的自定义美学来个性化 CLIP 条件扩散模型的方法。该方法通过定性和定量实验进行了验证，使用最近的稳定扩散模型和几个经过美学过滤的数据集。
+
+特别是，这种再现允许用户使用前一篇论文中描述的美学渐变技术来个性化稳定扩散。
+
+tl;博士
+有了这个，您不必学习很多法术/修饰符来提高生成图像的质量。
+
+--aesthetic_steps：进行个性化设置时的优化步骤数。对于给定的提示，建议从几个步骤（2 或 3）开始，然后逐渐增加它（尝试 5、10、15、20 等）。该值越大，生成的图像就越偏向于美学嵌入。    
+--aesthetic_lr：美学梯度优化的学习率。默认值为 0.0001。这个值通常工作得很好，所以你只能调整前面的参数。   
+--aesthetic_embedding：包含美学嵌入的存储 pytorch 张量（.pt 格式）的路径。它的形状必须为 1x768（CLIP-L/14 尺寸）。请参阅下文，以计算您自己的美学嵌入。
+
+ your own aesthetic embeddings.
+
+
+此外，还融入了新的美学嵌入：
+
+fantasy.pt：通过仅过滤标题中带有“幻想”字样的图像，从 https://huggingface.co/datasets/ChristophSchuhmann/improved_aesthetics_6.5plus 创建。按分数排名前 2000 的图像被选中进行嵌入。      
+flower_plant.pt：通过仅过滤标题中带有“植物”、“花卉”、“花卉”、“植被”或“花园”字样的图像，从 https://huggingface.co/datasets/ChristophSchuhmann/improved_aesthetics_6.5plus 创建。按分数排名前 2000 的图像被选中进行嵌入。
+
+
+
+
+
+
+
+
+Eased resolution restriction: generated image's dimensions must be a multiple of 8 rather than 64
+
+Segmind Stable Diffusion support     
+segmind/SSD-1B
+
+Segmind Stable Diffusion Model （SSD-1B） 是 Stable Diffusion XL （SDXL） 的精炼 50% 缩小版本，提供 60% 的加速，同时保持高质量的文本到图像生成功能。它已经在各种数据集上进行了训练，包括 Grit 和 Midjourney 抓取数据，以增强其基于文本提示创建各种视觉内容的能力。
+
+该模型采用知识蒸馏策略，先后利用多个专家模型（包括 SDXL、ZavyChromaXL 和 JuggernautXL）的教学，结合它们的优势并产生令人印象深刻的视觉输出。
+
+特别感谢 HF 团队🤗，尤其是 Sayak、Patrick 和 Poli 对这项工作的合作和指导。
+
+
+![alt text](assets_picture/webui/image-1.png) 
+
+
+
+培训信息
+以下是训练期间使用的关键超参数：
+
+    步数：251000
+    学习率：1e-5
+    批次大小：32
+    梯度累积步骤：4
+    图像分辨率：1024
+    混合精度：fp16
+
+
+
+
+
+
+
+
+
+
+
+## Loopback
+![alt text](assets_picture/webui/image.png)
+
+
+
+
 # 结尾
-
-
-
-
-
 
 
