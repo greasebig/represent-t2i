@@ -2498,7 +2498,16 @@ cpc explosion, <lora:207-000005:1>
 没有报错     
 
 
+cpc explosion, <lora:207-000010:1>
 
+![alt text](assets/outpaint/image-63.png)
+
+cpc explosion, <lora:207:1>   
+
+
+![alt text](assets/outpaint/image-64.png)
+
+可以考虑换上sd1.5的inpaint试试
 
 
 
