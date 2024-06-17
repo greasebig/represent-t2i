@@ -8217,6 +8217,7 @@ p.scripts.before_process_batch(p, batch_number=n, prompts=p.prompts, seeds=p.see
 是否意味着patcher append 四次？     
 会不会有问题 ？    
 
+开启hires      
 第二次文生图直接出现问题    
 
 return F.conv2d(input, weight, bias, self.stride,
@@ -8224,6 +8225,14 @@ return F.conv2d(input, weight, bias, self.stride,
 RuntimeError: Given groups=1, weight of size [320, 8, 3, 3], expected input[2, 12, 64, 64] to have 8 channels, but got 12 channels instead
 
 应该就是因为两次
+
+
+
+
+
+
+
+
 
 ## 改回process 在其他地方关闭hr
 
@@ -8393,6 +8402,167 @@ patcher 对hr处理有问题
 
 完成后退出重来，逻辑上应该都是干净的            
 
+## 验证
+普通生图
+
+第一次          
+![alt text](assets/IC-Light/image-110.png)
+
+难道是因为 普通和hr一起patch了？
+
+    def unpatch_model(self, unpatch_weights=True):
+        assert self.is_patched, "Model is not patched."
+        if unpatch_weights:
+            self._unpatch_weights()
+        self.is_patched = False
+        self._unpatch_modules()
+
+
+第二次    
+![alt text](assets/IC-Light/image-111.png)
+
+
+![alt text](assets/IC-Light/image-112.png)     
+
+当前的这个是count之前就做好process       
+之后不再进入
+
+但是before_hr是每次都调用
+
+原因和before_process_batch是一致的，重要是要对其清空        
+而不只是unpack        
+
+之前我修改sample的做法其实和before_hr致错原因一致        
+
+    # Patches applied to module weights.
+    weight_patches: Dict[str, List[WeightPatch]] = Field(
+        default_factory=lambda: defaultdict(list)
+    )
+    # Store weights before patching.
+    weight_backup: Dict[str, torch.Tensor] = Field(default_factory=dict)
+
+    # Patches applied to model's torch modules.
+    module_patches: Dict[str, List[ModulePatch]] = Field(
+        default_factory=lambda: defaultdict(list)
+    )
+    # Store modules before patching.
+    module_backup: Dict[str, Callable] = Field(default_factory=dict)
+    # Whether the model is patched.
+    is_patched: bool = False
+
+class MutableMapping(Mapping[_KT, _VT]):
+
+    @abstractmethod
+    def __setitem__(self, key: _KT, value: _VT, /) -> None: ...
+    @abstractmethod
+    def __delitem__(self, key: _KT, /) -> None: ...
+    def clear(self) -> None: ...
+
+
+
+感觉close不干净，虽然每次推理后都会调用          
+
+哦
+
+其实并没有每次都close          
+是每次都unpack         
+
+我什么我看close之前就已经清空了？？
+
+
+
+
+    def hook_close(patcher_field_name: str):
+        def decorator(func: Callable) -> Callable:
+            @functools.wraps(func)
+            def wrapped_close_func(self: StableDiffusionProcessing, *args, **kwargs):
+                patcher: ModelPatcher = getattr(self, patcher_field_name)
+                assert isinstance(patcher, ModelPatcher)
+                patcher.close()
+                logger.info(f"Close p.{patcher_field_name}.")
+                return func(self, *args, **kwargs)
+
+            return wrapped_close_func
+
+        return decorator
+
+    StableDiffusionProcessingTxt2Img.close = hook_close("model_patcher")(
+        StableDiffusionProcessingTxt2Img.close
+    )
+    StableDiffusionProcessingTxt2Img.close = hook_close("hr_model_patcher")(
+        StableDiffusionProcessingTxt2Img.close
+    )
+    StableDiffusionProcessingImg2Img.close = hook_close("model_patcher")(
+        StableDiffusionProcessingImg2Img.close
+    )
+    logger.info("close hooks applied")
+
+确实神奇   
+能够hook上
+
+普通生图 也就第一次process时候调用 add patch        
+
+之后每次都是进入
+
+    def hook_sample():
+        def decorator(func: Callable) -> Callable:
+            @functools.wraps(func)
+            def wrapped_sample_func(self: Sampler, *args, **kwargs):
+                patcher: ModelPatcher = self.p.get_model_patcher()
+                assert isinstance(patcher, ModelPatcher)
+                patcher.patch_model()
+
+修改后   
+第一次hr   
+
+![alt text](assets/IC-Light/image-113.png)
+
+第二次    
+清理成功    
+![alt text](assets/IC-Light/image-114.png)
+
+
+这样的缺点就是用时有点久
+
+forge就是这个原理 ，理论上用时更久，操作更多        
+
+因为相加的操作重复 多
+
+所以这个问题的原因是什么         
+为什么forge没出现      
+我觉得是因为forge每一次推理自己内部自己close而不仅仅是unpack    
+所以总的来说就是model patcher实现的问题，无法评价好坏 先进或落后   
+
+可以的   
+仅仅是关闭不完全         
+
+这将导致即使他合到最新1.9.4也会报错，我可不想提request了         
+已经和他大不一样          
+
+除非说他的model patcher 改一下        
+unpatch叠加close      
+但这会导致现有process报错       
+哈哈算了
+
+
+
+
+
+## 学习点
+疑惑点还是他这个hr和普通的module是如何区分变量的         
+hook还可以深入了解
+
+patcher = p.get_model_patcher()      
+还有这个 是怎么插入一个新函数        
+
+    def get_model_patcher(self: StableDiffusionProcessing) -> ModelPatcher:
+        if isinstance(self, StableDiffusionProcessingTxt2Img) and self.is_hr_pass:
+            return self.hr_model_patcher
+        return self.model_patcher
+
+    StableDiffusionProcessing.get_model_patcher = get_model_patcher
+
+有些生硬
 
 
 
