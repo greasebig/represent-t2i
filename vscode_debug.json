@@ -111,10 +111,15 @@ pip install debugpy
 python3 -m debugpy --listen 50678  --wait-for-client train.py
 
 python3 -m debugpy --listen 50688  --wait-for-client webui.py
- 
+
 python3 -m debugpy --listen 50688  --wait-for-client webui.py --xformers
 
 F5
+
+listen用法和公网转发使用的命令不太一样
+
+python3 -m debugpy --listen 50688  --wait-for-client webui.py --port 8895 --listen
+
 
 这个方法好像能让我的win7进行debug     
 不需要勾选服务器环境，再按debug     

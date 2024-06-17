@@ -211,6 +211,14 @@ git push origin new-feature
 
 
 ### 拉取原地更新
+最快的   
+git switch sd3
+
+
+查看   
+git branch
+
+
 git clone https://github.com/username/repository.git    
 cd repository    
 获取所有远程分支  
@@ -235,6 +243,11 @@ git branch 查看本地已有分支
   
 获取详细信息    
 要查看远程分支的详细信息，可以使用 git ls-remote 命令：
+
+
+
+
+
 
 
 

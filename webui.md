@@ -142,6 +142,17 @@ huchenlei
 forge也是      
 
 
+## 初始加载xl模型下载
+
+    [2024-06-17 08:26:34,016][DEBUG][filelock] - Attempting to acquire lock 140043855481008 on /root/.cache/huggingface/hub/.locks/models--laion--CLIP-ViT-bigG-14-laion2B-39B-b160k/0d5318839ad03607c48055c45897c655a14c0276a79f6b867934ddd073760e39.lock
+    [2024-06-17 08:26:34,017][DEBUG][filelock] - Lock 140043855481008 acquired on /root/.cache/huggingface/hub/.locks/models--laion--CLIP-ViT-bigG-14-laion2B-39B-b160k/0d5318839ad03607c48055c45897c655a14c0276a79f6b867934ddd073760e39.lock
+    open_clip_pytorch_model.bin: 100%|█| 10.2G/1
+    [2024-06-17 08:31:49,989][DEBUG][filelock] - Attempting to release lock 140043855481008 on /root/.cache/huggingface/hub/.locks/models--laion--CLIP-ViT-bigG-14-laion2B-39B-b160k/0d5318839ad03607c48055c45897c655a14c0276a79f6b867934ddd073760e39.lock
+    [2024-06-17 08:31:49,990][DEBUG][filelock] - Lock 140043855481008 released on /root/.cache/huggingface/hub/.locks/models--laion--CLIP-ViT-bigG-14-laion2B-39B-b160k/0d5318839ad03607c48055c45897c655a14c0276a79f6b867934ddd073760e39.lock
+    [2024-06-17 08:31:49,990][INFO][root] - Loading pretrained ViT-bigG-14 weights (laion2b_s39b_b160k).
+
+7478mb
+
 
 # url安装插件报错 gnutls_handshake() failed: The TLS connection was non-properly terminated. '
     GitCommandError: Cmd('git') failed due to: exit code(128) cmdline: git clone -v --filter=blob:none -- https://github.com/huchenlei/sd-forge-ic-light /teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/stable-diffusion-webui-forge/tmp/sd-forge-ic-light stderr: 'Cloning into '/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/stable-diffusion-webui-forge/tmp/sd-forge-ic-light'... fatal: unable to access 'https://github.com/huchenlei/sd-forge-ic-light/': gnutls_handshake() failed: The TLS connection was non-properly terminated. '

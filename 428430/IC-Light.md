@@ -8052,12 +8052,364 @@ document.addEventListener('keydown', function(e) {
 多试几个       
 
 
+batch 4 记录      
+
+    Loading weights from local directory
+    rmbg模型加载 运行时间为： 9.680121898651123 秒
+    rmbg模型处理，不包括普通后处理 运行时间为： 0.5205421447753906 秒
+    背景去除整个过程 运行时间为： 10.260671377182007 秒
+
+普通正常
+
+hires
+
+samples_ddim = p.sample(conditioning=p.c, unconditional_conditioning=p.uc, seeds=p.seeds, subseeds=p.subseeds, subseed_strength=p.subseed_strength, prompts=p.prompts)
+
+      stable-diffusion-webui/modules/processing.py", line 1344, in sample
+        return self.sample_hr_pass(samples, decoded_samples, seeds, subseeds, subseed_strength, prompts)
+
+TypeError: StableDiffusionProcessingTxt2Img.sample_hr_pass() missing 1 required positional argument: 'prompts'
+
+好像是没有改变      
+根据前面普通文生图的过程，只加载一次ic，然后后面batch4都继续使用     
+那么我这个hr就会发生第一次结束后就还原了？？？    
+
+完蛋，连中间暂停没测就失败了    
+
+bs 1 可以
+
+bs 2 第二次推理时候，文生图还行，再开始hr图生图就报错
+
+
+webui1.9.4已经集成   
+
+    if self.scripts is not None:
+        self.scripts.process_before_every_sampling(
+            p=self,
+            x=self.init_latent,
+            noise=x,
+            c=conditioning,
+            uc=unconditional_conditioning
+        )
+
+可以直接没问题地使用Huchenlei插件
+
+如果继续使用webui1.9.3    
+顺序和可能的插入位置
+
+    if p.scripts is not None:
+        p.scripts.process(p)
+
+    infotexts = []
+    output_images = []
+    with torch.no_grad(), p.sd_model.ema_scope():
+        with devices.autocast():
+            p.init(p.all_prompts, p.all_seeds, p.all_subseeds)
+
+            # for OSX, loading the model during sampling changes the generated picture, so it is loaded here
+            if shared.opts.live_previews_enable and opts.show_progress_type == "Approx NN":
+                sd_vae_approx.model()
+
+            sd_unet.apply_unet()
+
+        if state.job_count == -1:
+            state.job_count = p.n_iter
+
+        for n in range(p.n_iter):
+            if p.scripts is not None:
+                p.scripts.before_process_batch(p, batch_number=n, prompts=p.prompts, seeds=p.seeds, subseeds=p.subseeds)
+            这个位置可以
+            效率会低一些，但是至少hr能在batch count没问题，剩下的可能是Interrupt
+        
+            with devices.without_autocast() if devices.unet_needs_upcast else devices.autocast():
+                samples_ddim = p.sample(conditioning=p.c, unconditional_conditioning=p.uc, seeds=p.seeds, subseeds=p.subseeds, subseed_strength=p.subseed_strength, prompts=p.prompts)
+
+            if p.scripts is not None:
+                ps = scripts.PostSampleArgs(samples_ddim)
+                p.scripts.post_sample(p, ps)
+                samples_ddim = ps.samples
+            
+            if p.scripts is not None:
+                p.scripts.postprocess_batch(p, x_samples_ddim, batch_number=n)
+
+                这个位置也可以
+
+                这里好像也不行，count没有跳出来 
+
+                p.prompts = p.all_prompts[n * p.batch_size:(n + 1) * p.batch_size]
+                p.negative_prompts = p.all_negative_prompts[n * p.batch_size:(n + 1) * p.batch_size]
+
+                batch_params = scripts.PostprocessBatchListArgs(list(x_samples_ddim))
+                p.scripts.postprocess_batch_list(p, batch_params, batch_number=n)
+                x_samples_ddim = batch_params.images
+
+            后处理
+            for i, x_sample in enumerate(x_samples_ddim):
+                p.batch_index = i
+
+                x_sample = 255. * np.moveaxis(x_sample.cpu().numpy(), 0, 2)
+                x_sample = x_sample.astype(np.uint8)
+
+                if p.restore_faces:
+                    if save_samples and opts.save_images_before_face_restoration:
+                        images.save_image(Image.fromarray(x_sample), p.outpath_samples, "", p.seeds[i], p.prompts[i], opts.samples_format, info=infotext(i), p=p, suffix="-before-face-restoration")
+
+                    devices.torch_gc()
+
+                    x_sample = modules.face_restoration.restore_faces(x_sample)
+                    devices.torch_gc()
+
+                image = Image.fromarray(x_sample)
+
+                if p.scripts is not None:
+                    pp = scripts.PostprocessImageArgs(image)
+                    p.scripts.postprocess_image(p, pp)
+                    image = pp.image
+
+            del x_samples_ddim
+
+            devices.torch_gc()
+
+    if not p.disable_extra_networks and p.extra_network_data:
+        extra_networks.deactivate(p, p.extra_network_data)
+
+    devices.torch_gc()
+
+    res = Processed(
+        p,
+        images_list=output_images,
+        seed=p.all_seeds[0],
+        info=infotexts[0],
+        subseed=p.all_subseeds[0],
+        index_of_first_image=index_of_first_image,
+        infotexts=infotexts,
+    )
+
+    if p.scripts is not None:
+        p.scripts.postprocess(p, res)
+    只能在这里
+
+    return res
+
+
+
+## 修改成 before_process_batch
+
+batch count 1
+
+for n in range(p.n_iter):
+
+p.n_iter = 1 
+
+唯一问题是效率慢
+
+但胜在简单修改代码
+
+相当于需要进去四次script
+
+
+batch count 4
+
+p.n_iter = 4
+
+p.scripts.before_process_batch(p, batch_number=n, prompts=p.prompts, seeds=p.seeds, subseeds=p.subseeds)
+
+是否意味着patcher append 四次？     
+会不会有问题 ？    
+
+第二次文生图直接出现问题    
+
+return F.conv2d(input, weight, bias, self.stride,
+
+RuntimeError: Given groups=1, weight of size [320, 8, 3, 3], expected input[2, 12, 64, 64] to have 8 channels, but got 12 channels instead
+
+应该就是因为两次
+
+## 改回process 在其他地方关闭hr
+
+postprocess
+
+找了这个位置退回原来hr
+
+
+
+TypeError: StableDiffusionProcessingTxt2Img.sample_hr_pass() missing 1 required positional argument: 'prompts'
+
+    stable-diffusion-webui/modules/processing.py", line 1344, in sample
+        return self.sample_hr_pass(samples, decoded_samples, seeds, subseeds, subseed_strength, prompts)
+    TypeError: StableDiffusionProcessingTxt2Img.sample_hr_pass() missing 1 required positional argument: 'prompts'
+
+第二次hr时候莫名其妙进入
+
+    except:
+        self.sample_hr_pass = StableDiffusionProcessingTxt2Img.sample_hr_pass
+
+try:
+
+        if self.scripts is not None:
+            self.scripts.process(self)    #这里
+        #if self.scripts is not None:
+            #self.scripts.process_batch(self, batch_number=1, prompts=self.prompts, seeds=self.seeds, subseeds=self.subseeds)
+            # 写错了
+            # batch_number=1 原本是 n ,但我就觉得没影响，因为是循环调用
+        samples = self.sampler.sample_img2img(self, samples, noise, self.hr_c, self.hr_uc, steps=self.hr_second_pass_steps or self.steps, image_conditioning=image_conditioning)
+
+这是没结果还是在干什么      
+
+已经有一个原生的
+
+    if self.scripts is not None:
+        self.scripts.before_hr(self)
+
+如果不需要还原没必要重写啊      
+
+
+
+RuntimeError: Given groups=1, weight of size [320, 8, 3, 3], expected input[2, 12, 128, 128] to have 8 channels, but got 12 channels instead
+
+
+好像是第二次还是第三次出了问题
+
+好像是model patcher多次add的内在问题
+
+会进入几次     
+
+return self.add_weight_patches(
+            {
+                key: WeightPatch(
+                    **parse_value(value),
+                    alpha=strength_patch,
+                    strength_model=strength_model,
+                )
+                for key, value in patches.items()
+            }
+        )
+
+第二次就失败     
+RuntimeError: Given groups=1, weight of size [320, 8, 3, 3], expected input[2, 12, 128, 128] to have 8 channels, but got 12 channels instead
+
+
+直接不管怎么append
+
+直接就是
+
+
+    try:
+        patcher = p.get_model_patcher()
+        patcher.unpatch_model()
+    except:
+        pass
+
+
+直接就是运行   
+
+RuntimeError: Given groups=1, weight of size [320, 8, 3, 3], expected input[2, 12, 128, 128] to have 8 channels, but got 12 channels instead
+
+
+还是
+
+
+patcher 对hr处理有问题
+
+正常文生图 count 4是没问题的
+
+写的代码都不检查一下
+
+虽然工程量智慧量都达到了          
+
+    当前时间: 2024年06月17日 21时11分47秒
+    iclight模型加载 运行时间为： 1.3828277587890625e-05 秒
+    rmbg模型加载 运行时间为： 4.291534423828125e-06 秒
+    rmbg模型处理，不包括普通后处理 运行时间为： 0.46465373039245605 秒
+    背景去除整个过程 运行时间为： 0.5351762771606445 秒
+    2024-06-17 13:11:49,120 - model_patcher_hook.py - INFO - Patch model_patcher of StableDiffusionProcessingTxt2Img.
+    [2024-06-17 13:11:49,120][INFO][model_patcher_hook.py] - Patch model_patcher of StableDiffusionProcessingTxt2Img.
+    100%|█████████████████████████████████████████████████████████████████| 20/20 [00:01<00:00, 12.39it/s]
+    2024-06-17 13:11:50,751 - model_patcher_hook.py - INFO - Unpatch model_patcher of StableDiffusionProcessingTxt2Img.
+    [2024-06-17 13:11:50,751][INFO][model_patcher_hook.py] - Unpatch model_patcher of StableDiffusionProcessingTxt2Img.
+    2024-06-17 13:11:51,432 - model_patcher_hook.py - INFO - Patch model_patcher of StableDiffusionProcessingTxt2Img.
+    [2024-06-17 13:11:51,432][INFO][model_patcher_hook.py] - Patch model_patcher of StableDiffusionProcessingTxt2Img.
+    100%|█████████████████████████████████████████████████████████████████| 20/20 [00:01<00:00, 13.62it/s]
+    2024-06-17 13:11:52,916 - model_patcher_hook.py - INFO - Unpatch model_patcher of StableDiffusionProcessingTxt2Img.
+    [2024-06-17 13:11:52,916][INFO][model_patcher_hook.py] - Unpatch model_patcher of StableDiffusionProcessingTxt2Img.
+    2024-06-17 13:11:53,592 - model_patcher_hook.py - INFO - Patch model_patcher of StableDiffusionProcessingTxt2Img.
+    [2024-06-17 13:11:53,592][INFO][model_patcher_hook.py] - Patch model_patcher of StableDiffusionProcessingTxt2Img.
+    100%|█████████████████████████████████████████████████████████████████| 20/20 [00:01<00:00, 13.28it/s]
+    2024-06-17 13:11:55,114 - model_patcher_hook.py - INFO - Unpatch model_patcher of StableDiffusionProcessingTxt2Img.
+    [2024-06-17 13:11:55,114][INFO][model_patcher_hook.py] - Unpatch model_patcher of StableDiffusionProcessingTxt2Img.
+    2024-06-17 13:11:55,781 - model_patcher_hook.py - INFO - Patch model_patcher of StableDiffusionProcessingTxt2Img.
+    [2024-06-17 13:11:55,781][INFO][model_patcher_hook.py] - Patch model_patcher of StableDiffusionProcessingTxt2Img.
+    100%|█████████████████████████████████████████████████████████████████| 20/20 [00:01<00:00, 13.58it/s]
+    2024-06-17 13:11:57,270 - model_patcher_hook.py - INFO - Unpatch model_patcher of StableDiffusionProcessingTxt2Img.
+    [2024-06-17 13:11:57,270][INFO][model_patcher_hook.py] - Unpatch model_patcher of StableDiffusionProcessingTxt2Img.
+    2024-06-17 13:11:58,478 - model_patcher_hook.py - INFO - Close p.hr_model_patcher.
+    [2024-06-17 13:11:58,478][INFO][model_patcher_hook.py] - Close p.hr_model_patcher.
+    2024-06-17 13:11:58,487 - model_patcher_hook.py - INFO - Close p.model_patcher.
+    [2024-06-17 13:11:58,487][INFO][model_patcher_hook.py] - Close p.model_patcher.
+    Total progress:  88%|▉| 140/160 [3:09:19<2
+
+
+
+应该就是hr没有unpack
+
+根据我的逻辑 即使interrupt也不怕        
+因为没改那个hr sample       
+
+
+    75230026245117 秒
+    2024-06-17 10:02:39,606 - model_patcher_hook.py - INFO - Patch model_patcher of StableDiffusionProcessingTxt2Img.
+    [2024-06-17 10:02:39,606][INFO][model_patcher_hook.py] - Patch model_patcher of StableDiffusionProcessingTxt2Img.
+    100%|█████| 20/20 [00:01<00:00, 11.21it/s]
+    2024-06-17 10:02:41,408 - model_patcher_hook.py - INFO - Unpatch model_patcher of StableDiffusionProcessingTxt2Img.
+    [2024-06-17 10:02:41,408][INFO][model_patcher_hook.py] - Unpatch model_patcher of StableDiffusionProcessingTxt2Img.
+    当前时间: 2024年06月17日 18时02分41秒
+    iclight模型加载 运行时间为： 6.198883056640625e-06 秒
+    rmbg模型加载 运行时间为： 2.1457672119140625e-06 秒
+    rmbg模型处理，不包括普通后处理 运行时间为： 0.5175995826721191 秒
+    背景去除整个过程 运行时间为： 0.5855832099914551 秒
+    2024-06-17 10:02:43,184 - model_patcher_hook.py - INFO - Patch hr_model_patcher of StableDiffusionProcessingTxt2Img.
+    [2024-06-17 10:02:43,184][INFO][model_patcher_hook.py] - Patch hr_model_patcher of StableDiffusionProcessingTxt2Img.
+    100%|█████| 20/20 [00:10<00:00,  1.93it/s]
+    2024-06-17 10:02:53,592 - model_patcher_hook.py - INFO - Unpatch hr_model_patcher of StableDiffusionProcessingTxt2Img.
+    [2024-06-17 10:02:53,592][INFO][model_patcher_hook.py] - Unpatch hr_model_patcher of StableDiffusionProcessingTxt2Img.
+    2024-06-17 10:02:54,950 - model_patcher_hook.py - INFO - Patch model_patcher of StableDiffusionProcessingTxt2Img.
+    [2024-06-17 10:02:54,950][INFO][model_patcher_hook.py] - Patch model_patcher of StableDiffusionProcessingTxt2Img.
+    100%|█████| 20/20 [00:01<00:00, 12.82it/s]
+    2024-06-17 10:02:56,528 - model_patcher_hook.py - INFO - Unpatch model_patcher of StableDiffusionProcessingTxt2Img.
+    [2024-06-17 10:02:56,528][INFO][model_patcher_hook.py] - Unpatch model_patcher of StableDiffusionProcessingTxt2Img.
+    当前时间: 2024年06月17日 18时02分56秒
+    iclight模型加载 运行时间为： 9.059906005859375e-06 秒
+
+看起来是正常的          
+
+
+会不会是因为        
+不可能，得看是哪里返回      
+
+这个就是在调用launch时候进行pack，推理完后，返回又进行unpack再出去
+
+所以进入hr前应该已经unpack干净        
+然后hr是独立的         
+
+完成后退出重来，逻辑上应该都是干净的            
 
 
 
 
 
 
+
+
+
+
+
+## 重大bug
+interrupt和skip绝对有问题
+
+如果直接使用1.9.4不会有interrupt问题   
+因为我的问题根源是改变hr     
+
+使用原生插入实现就不会有问题    
 
 
 
