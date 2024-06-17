@@ -2068,8 +2068,16 @@ pip install accelerate==0.25.0
 
 两分钟
 
+## 运行位置
+4090   
+/data/master/lujunda 
+
+跳转上网到4090还算方便       
+
+
 
 ## 第二次训练
+
 
 
 python train_network.py \
