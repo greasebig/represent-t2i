@@ -419,6 +419,42 @@ Portrait Light on Google Pixel phones
 
 
 
+## 一年前的打光应用
+零几年就有 九几年也有      
+
+
+23年可以使用illimination cn        
+https://huggingface.co/latentcat/control_v1u_sd15_illumination_webui      
+
+
+![alt text](assets_picture/IC-Light/image.png)
+
+这个需要提供模糊光源图片 再生成        
+
+![alt text](assets_picture/IC-Light/image-1.png)
+
+23年再早一点 也可以使用cn depth实现       
+https://www.youtube.com/watch?v=_xHC3bT5GBU    
+
+光源图片     
+https://drive.google.com/file/d/1am7z4CquPJrvz97DGAqMcP35WxEI-Pio/view
+
+先是 png info 获取固定的图片构图任务（文生图创造的）    
+seed等一切参数要求一样     
+然后启用 sd1.5 cn depth      
+处理器 depth leres       
+img2img图片是 光源方向黑白图        
+
+
+iclight的优势在于 前景图保留能力好 可以通过prompt同时控制背景内容生成        
+还有自己宣传的什么柔和光 霓虹光 但我没发现有什么特别之处     
+他这个训练数据还有一些电影风格的光     
+
+
+
+
+
+
 # a1111插件编写
 https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/Developing-extensions     
 
