@@ -8581,8 +8581,405 @@ interrupt和skip绝对有问题
 
 使用原生插入实现就不会有问题    
 
+不想测 如果这个有问题 forge使用应该也有问题
 
 
+## todo
+细节恢复是稍急     
+rembg原生实现还不想管     
+而且好像pip装完后容易报错     
+
+https://github.com/AUTOMATIC1111/stable-diffusion-webui-rembg
+
+https://github.com/danielgatis/rembg
+
+
+所有模型均下载并保存在目录中的用户主文件夹中.u2net。
+
+可用的模型有：
+
+    u2net（下载、来源）：用于一般用例的预训练模型。
+    u2netp（下载，来源）：u2net 模型的轻量级版本。
+    u2net_human_seg（下载，来源）：用于人体分割的预训练模型。
+    u2net_cloth_seg（下载，来源）：用于从人体肖像中解析衣服的预训练模型。这里将衣服解析为 3 类：上身、下身和全身。
+    silueta（下载，来源）：与 u2net 相同，但大小减小至 43Mb。
+    isnet-general-use（下载，来源）：一种用于一般用例的新型预训练模型。
+    isnet-anime（下载，来源）：动漫人物的高精度分割。
+    sam（下载编码器，下载解码器，源）：针对任何用例的预训练模型。
+如何训练自己的模型
+如果你需要更精细的模型，请尝试这个： #193（评论）
+
+总结
+
+    创建自己的数据集，例如DUTS-TR 数据集
+    检出并安装U²Net 存储库
+    （可选）让它与 DUTS-TR 数据集一起工作，这样你就可以亲眼看到它是如何工作的
+    更改硬编码引用和用于 DUTS-TR 数据集的内容以u2net_train.py使用您自己的数据集（文件系统引用等）
+    如果你知道自己在做什么，那就改变训练参数和损失函数——我不知道，所以我把它保留原样
+    也许可以通过镜像和旋转图像和蒙版来扩展训练数据
+    运行python u2net_train.py并保持运行直到自动保存的结果令saved_models您满意
+    按照我之前描述的那样将其转换为 onnx
+    与 rembg 一起使用:)
+长答案（没有深入的指南！）
+U²Net -Repository最初是在DUTS-TR 数据集上进行训练的，该数据集是一组图像及其对应的蒙版。因此，您有如下图像
+
+DUTS-TR/DUTS-TR-Image/ILSVRC2012_test_00000022.jpg
+
+
+
+之后，您将其转换为.onnx之前描述的形式，并且它可以与 rembg 完美配合。
+
+https://github.com/Jonathunky/rembg-trainer
+
+https://github.com/xuebinqin/U-2-Net
+
+The code for our newly accepted paper in Pattern Recognition 2020: "U^2-Net: Going Deeper with Nested U-Structure for Salient Object Detection."
+
+现在国内显卡自研基本是采用 AMD GPUs, please refer to installation guide of AMD ROCm platform
+
+
+
+
+## 细节恢复
+
+install.py
+
+    import launch
+    if not launch.is_installed("rembg"):
+        launch.run_pip("install rembg==2.0.50 --no-deps", "rembg")
+    for dep in ("onnxruntime", "pymatting", "pooch"):
+        if not launch.is_installed(dep):
+            launch.run_pip(f"install {dep}", f"{dep} for rembg")
+
+    if not launch.is_installed("pydantic"):
+        launch.run_pip("install pydantic~=1.10.11", "pydantic for ic-light")
+
+    if not launch.is_installed("cv2"):
+        launch.run_pip("install opencv-python~=4.9.0.80", "cv2 for ic-light")
+
+
+
+两个新增功能     
+
+DoG的细节恢复
+
+img2img的fg颜色恢复
+
+    def get_lightmap(self, p: StableDiffusionProcessingImg2Img) -> np.ndarray:
+        assert self.model_type == ModelType.FC
+        assert isinstance(p, StableDiffusionProcessingImg2Img)
+        lightmap = np.asarray(p.init_images[0]).astype(np.uint8)
+        if self.reinforce_fg:
+            rgb_fg = self.input_fg_rgb
+            mask = np.all(rgb_fg == np.array([127, 127, 127]), axis=-1)
+            mask = mask[..., None]  # [H, W, 1]
+            lightmap = resize_and_center_crop(
+                lightmap, target_width=rgb_fg.shape[1], target_height=rgb_fg.shape[0]
+            )
+            lightmap_rgb = lightmap[..., :3]
+            lightmap_alpha = lightmap[..., 3:4]
+            lightmap_rgb = rgb_fg * (1 - mask) + lightmap_rgb * mask
+            lightmap = np.concatenate([lightmap_rgb, lightmap_alpha], axis=-1).astype(
+                np.uint8
+            )
+
+        return lightmap
+
+
+如果self.reinforce_fg为True,代码会执行以下操作:
+
+从self.input_fg_rgb获取前景RGB值。
+创建一个掩码,其中像素值等于[127, 127, 127]的像素被标记为True,其余像素为False。
+将lightmap调整大小并裁剪为与rgb_fg相同的尺寸。
+将lightmap分解为RGB和Alpha通道。
+使用掩码将前景rgb_fg和lightmap_rgb合并。
+将合并后的RGB和Alpha通道重新组合为lightmap。
+
+
+最后,该方法返回更新后的lightmapNumPy数组。
+
+总的来说,这个方法似乎是在处理一些与图像相关的操作,可能与稳定扩散模型的图像到图像任务有关。它从输入图像中获取光照信息(lightmap),并可选地使用提供的前景RGB值强化前景区域。
+
+,代码会执行一些额外的操作来加强前景区域的效果
+
+创建一个掩码 mask,其中像素值等于 [127, 127, 127] 的像素被标记为 True,其余像素为 False。这个掩码可能用于标识原始 lightmap 中的前景区域。
+
+
+具体来说,在掩码为 False 的区域,使用用户提供的 rgb_fg 值;在掩码为 True 的区域,使用原始 lightmap 的 RGB 值。
+
+
+因此,当 self.reinforce_fg 为 True 时,代码会尝试使用用户提供的前景 RGB 值来加强或替换原始 lightmap 中的前景区域。这可能是为了在生成新图像时,使前景区域的颜色或亮度更加突出或符合用户的期望。
+
+
+大概都加了一遍 不知道能不能用        
+
+
+## pydantic 报错
+
+    Error loading script: ic_light_script.py
+    Traceback (most recent call last):
+      stable-diffusion-webui/modules/scripts.py", line 508, in load_scripts
+        script_module = script_loading.load_module(scriptfile.path)
+      stable-diffusion-webui/modules/script_loading.py", line 13, in load_module
+        module_spec.loader.exec_module(module)
+      File "<frozen importlib._bootstrap_external>", line 883, in exec_module
+      File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+      stable-diffusion-webui/extensions/sd-webui-ic-light/scripts/ic_light_script.py", line 69, in <module>
+        class ICLightScript(scripts.Script):
+      stable-diffusion-webui/extensions/sd-webui-ic-light/scripts/ic_light_script.py", line 70, in ICLightScript
+        DEFAULT_ARGS = ICLightArgs(
+      File "pydantic/main.py", line 341, in pydantic.main.BaseModel.__init__
+    pydantic.error_wrappers.ValidationError: 1 validation error for ICLightArgs
+    __root__
+       (type=assertion_error)
+
+
+@validator
+
+
+用于对单个字段进行验证和转换
+可以指定应用于哪个具体字段,如@validator("input_fg")
+可以指定在实例化前(pre=True)还是实例化后(pre=False)执行
+同一字段可以应用多个@validator
+通过allow_reuse=True选项允许复用之前定义的验证器
+
+
+@root_validator
+
+
+用于对整个模型数据执行全局验证和转换
+不针对特定字段,而是作用于所有字段的集合
+始终在模型实例化之前执行
+一个模型只能有一个@root_validator
+
+
+你提供的示例@validator("input_fg", pre=True, allow_reuse=True)说明:
+
+这是一个字段验证器,专门应用于input_fg字段
+pre=True表示它会在实例化之前执行验证/转换
+allow_reuse=True允许复用之前定义的同名验证器
+
+
+
+好像会在 inputs 直接处理
+
+        (
+            ICLightScript.a1111_context.img2img_submit_button
+            if is_img2img
+            else ICLightScript.a1111_context.txt2img_submit_button
+        ).click(
+            fn=lambda *args: dict(
+                zip(
+                    vars(self.DEFAULT_ARGS).keys(),
+                    args,
+                )
+            ),
+            inputs=[
+                enabled,
+                model_type,
+                input_fg,
+                uploaded_bg,
+                bg_source_fc,
+                bg_source_fbc,
+                remove_bg,
+                reinforce_fg,
+                detail_transfer,
+                detail_transfer_use_raw_input,
+                detail_transfer_blur_radius,
+            ],
+            outputs=state,
+            queue=False,
+        )
+
+
+
+Pydantic是一个用于数据解析和验证的Python库,它有很多有用的用途:
+
+数据模型定义
+
+可以使用Pydantic定义Python数据模型,类似于在静态类型语言中定义数据类
+支持多种数据类型,包括内置类型和自定义数据类型
+
+
+数据验证
+
+Pydantic可自动验证输入数据,确保它们符合预期的类型和约束条件
+支持各种验证器,如值范围、字符串模式、自定义验证规则等
+提供有用的验证错误消息,方便调试
+
+
+数据转换
+
+Pydantic能够在反序列化时自动将输入数据转换为正确的Python数据类型
+支持从多种数据格式(JSON、Form数据等)反序列化为模型实例
+
+
+API输入数据解析
+
+可集成到Web框架(如FastAPI)中,自动解析请求数据为模型实例
+极大简化了Web API的输入数据验证和解析逻辑
+
+
+配置管理
+
+可用于解析和验证配置文件或环境变量中的配置数据
+
+
+面向对象设计
+
+Pydantic模型支持继承、实例方法等面向对象特性
+有助于更好的代码组织和可维护性
+
+
+
+总的来说,Pydantic通过提供数据模型定义、验证和转换的功能,极大简化了处理复杂数据结构的复杂性,提高了数据安全性,使代码更加简洁、易维护。它在Web开发、数据处理等多个领域都有广泛应用。
+
+
+
+加了 reuse 还是报这个错     
+
+class ICLightScript(scripts.Script):
+
+    try:
+        DEFAULT_ARGS = ICLightArgs()
+        #input_fg=np.zeros(shape=[1, 1, 1], dtype=np.uint8),
+    except ValidationError as e:
+        print(e.errors())  # 打印出详细的错误信息
+    a1111_context = A1111Context()
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.args: ICLightArgs = None
+
+
+pydantic.error_wrappers.ValidationError 表示你正在使用的 pydantic 库在对数据进行模型验证时发现了错误。ValidationError 是在数据不符合预期的模型定义时抛出的。这里的 1 validation error for ICLightArgs 表明在名为 ICLightArgs 的模型中有一个验证失败。
+
+
+终于能打开了    
+就是初始参数输入问题    
+
+应该是和新的这个args冲突
+
+
+    @root_validator
+    def process_input_fg(cls, values: dict) -> dict:
+        """Process input fg image into format [H, W, C=3]"""
+        input_fg = values.get("input_fg")
+        remove_bg: bool = values.get("remove_bg")
+        # Default args.
+        if input_fg is None:
+            return values
+
+        if remove_bg:
+            alpha: np.ndarray = BriarmbgService().run_rmbg(input_fg)
+            input_fg_rgb: np.ndarray = make_masked_area_grey(input_fg, alpha)
+        else:
+            if len(input_fg.shape) < 3:
+                raise NotImplementedError("Does not support L Images...")
+            if input_fg.shape[-1] == 4:
+                input_fg_rgb = make_masked_area_grey(
+                    input_fg[..., :3],
+                    input_fg[..., 3:].astype(np.float32) / 255.0,
+                )
+            else:
+                input_fg_rgb = input_fg
+
+        assert input_fg_rgb.shape[2] == 3, "Input Image should be in RGB channels."
+        values["input_fg_rgb"] = input_fg_rgb
+        return values
+
+
+
+
+## 运行时候报错 pydantic
+
+    *** Error running process: extensions/sd-webui-ic-light/scripts/ic_light_script.py
+    Traceback (most recent call last):
+      File "/a1111webui193/stable-diffusion-webui/modules/scripts.py", line 825, in process
+        script.process(p, *script_args)
+      File "a1111webui193/stable-diffusion-webui/extensions/sd-webui-ic-light/scripts/ic_light_script.py", line 294, in process
+        args = ICLightArgs.fetch_from(p)
+      File "/a1111webui193/stable-diffusion-webui/extensions/sd-webui-ic-light/libiclight/args.py", line 189, in fetch_from
+        return ICLightArgs(**args[0])
+      File "pydantic/main.py", line 341, in pydantic.main.BaseModel.__init__
+    pydantic.error_wrappers.ValidationError: 1 validation error for ICLightArgs
+    __root__
+       (type=assertion_error)
+
+
+
+
+    rror running before_process: extensions/sd-webui-ic-light/scripts/ic_light_script.py
+    Traceback (most recent call last):
+      File "stable-diffusion-webui/modules/scripts.py", line 817, in before_process
+        script.before_process(p, *script_args)
+      File "stable-diffusion-webui/extensions/sd-webui-ic-light/scripts/ic_light_script.py", line 268, in before_process
+        args = ICLightArgs.fetch_from(p)
+      File "stable-diffusion-webui/extensions/sd-webui-ic-light/libiclight/args.py", line 189, in fetch_from
+        return ICLightArgs(**args[0])
+      File "pydantic/main.py", line 341, in pydantic.main.BaseModel.__init__
+    pydantic.error_wrappers.ValidationError: 1 validation error for ICLightArgs
+    __root__
+       (type=assertion_error)
+
+
+没找到原因      
+
+
+
+首先,您可以尝试以下步骤:
+
+检查 ICLightArgs 模型的字段要求,确保您输入的参数符合要求。
+
+更新扩展到最新版本,有可能是bug已被修复。
+
+
+找不到原因
+
+版本想近
+
+换sd1.5模型 
+
+try打印
+
+
+还是上面的错误
+
+except ValidationError as e:
+    NameError: name 'ValidationError' is not defined
+
+try:
+            return ICLightArgs(**args[0])
+            #input_fg=np.zeros(shape=[1, 1, 1], dtype=np.uint8),
+        except Exception as e:
+            print(e.errors())  # 打印出详细的错误信息
+
+
+好像也不对
+
+
+[{'loc': ('__root__',), 'msg': '', 'type': 'assertion_error'}]
+*** Error running before_process:newlytest/a1111webui193/stable-diffusion-webui/extensions/sd-webui-ic-light/scripts/ic_light_script.py
+    Traceback (most recent call last):
+      File "newlytest/a1111webui193/stable-diffusion-webui/modules/scripts.py", line 817, in before_process
+        script.before_process(p, *script_args)
+      File "newlytest/a1111webui193/stable-diffusion-webui/extensions/sd-webui-ic-light/scripts/ic_light_script.py", line 269, in before_process
+        if not args.enabled:
+    AttributeError: 'NoneType' object has no attribute 'enabled'
+
+
+
+
+
+
+
+
+
+## 开源项目
+该开源项目已经不可靠      
+
+作者已经去忙别的项目    
+以及comfyui的typescript实现   
 
 
 ## 思考

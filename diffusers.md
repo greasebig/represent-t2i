@@ -219,6 +219,22 @@ config.json: 100%|████████████████████�
 
 
 
+# 批量 xyz推理
+    images = []
+    for steps in (1, 4, 8, 15, 20, 25, 30, 50):
+        generator = torch.Generator(device=pipe.device).manual_seed(1337)
+        image = pipe(
+            prompt=prompt,
+            num_inference_steps=steps,
+            generator=generator,
+        ).images[0]
+        images.append(image)
+
+
+
+# 使用kdiffusion推理
+
+
 
 
 

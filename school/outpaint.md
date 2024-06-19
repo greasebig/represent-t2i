@@ -2684,6 +2684,18 @@ a1111webui193/stable-diffusion-webui/configs/v1-inpainting-inference.yaml
         f_min: [ 1. ]
 
 
+## 他人测试报告
+sd-v1.5-inpaint
+
+采用dpm++ 2m sde 30步 出现类似正常推理的两三步推理花图结果   
+乱码   
+
+![alt text](assets/outpaint/image-65.png)
+
+待定位问题     
+
+
+
 
 
 # openoutpaint启用

@@ -16,6 +16,11 @@ git clone git@gitee.com:btc8/sd-webui-ic-light.git
 # 推拉
 
 
+
+
+
+
+
 ## 一般推拉法1
 git clone git@gitee.com:btc8/sd-webui-ic-light.git
 
@@ -108,6 +113,84 @@ git log --oneline
 
 
 ## 分支
+
+### 检查差异
+
+git log sd3..origin/sd3
+
+这个命令会列出所有在 origin/master 分支上有但在 master 分支上没有的提交。
+
+如果你想查看相反的差异，即本地有而远程没有的提交，可以使用：
+
+
+git log origin/master..master
+
+
+3. 使用图形化工具
+如果你更喜欢图形化界面，可以使用以下几种方法：
+
+使用 gitk
+
+gitk master origin/master    
+gitk 是 Git 自带的一个图形化工具，它可以直观地展示提交历史和差异。
+
+使用 git diff --stat    
+如果只想要一个概要统计，可以使用：
+
+
+git diff --stat master origin/master
+
+查看具体差异：
+
+
+git diff master origin/master
+
+
+git log master..origin/master.
+
+    commit feee37d75f1b168768014e4634dcb156ee649c05 (tag: v1.9.4, origin/master, origin/HEAD)
+    Merge: 1c0a0c4c 801b72b9
+    Author: AUTOMATIC1111 <16777216c@gmail.com>
+    Date:   Tue May 28 21:20:40 2024 +0300
+
+        Merge branch 'dev'
+
+    commit 801b72b92b4f07e5d2fa9737b160762ea8f67088
+    Author: AUTOMATIC1111 <16777216c@gmail.com>
+    Date:   Tue May 28 21:20:23 2024 +0300
+
+        update changelog
+
+    commit 759f396a2eb524bd9ab569a5f26f24cda038c0ac
+    Merge: ddb28b33 a6394623
+    Author: AUTOMATIC1111 <16777216c@gmail.com>
+    Date:   Tue May 28 21:16:28 2024 +0300
+
+        Merge pull request #15882 from AUTOMATIC1111/setuptools==69.5.1
+        
+        Fix method 1 : pin Setuptools==69.5.1
+
+    commit a63946233b71083f6726006b96fc16e3033ab844 (origin/setuptools==69.5.1)
+    Author: w-e-w <40751091+w-e-w@users.noreply.github.com>
+    Date:   Sat May 25 14:18:05 2024 +0900
+
+        setuptools==69.5.1
+
+    commit ddb28b33a3561a360b429c76f28f7ff1ffe282a0
+    Merge: 7dfe959f 1c0a0c4c
+    Author: AUTOMATIC1111 <16777216c@gmail.com>
+    Date:   Mon Apr 22 18:01:16 2024 +0300
+
+        Merge branch 'master' into dev
+
+
+
+
+
+
+
+
+### 旧版
 git remote -v     
 git push --set-upstream origin master      
 如果是新建的分支,需要先将本地分支与远程分支关联   
@@ -528,6 +611,29 @@ git push
     #  and can be added to the global gitignore or merged into this file.  For a more nuclear
     #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
     #.idea/
+
+
+
+
+# 报错
+
+
+## 修改单个文件add失败
+为什么我使用 git add . 不起作用
+On branch base_on_patcher
+Changes not staged for commit:
+(use "git add <file>..." to update what will be committed)
+(use "git restore <file>..." to discard changes in working directory)
+modified: ../README.md
+
+no changes added to commit (use "git add" and/or "git commit -a")
+
+modified: ../README.md
+
+因为不再根目录运行命令，导致无法
+
+
+
 
 
 

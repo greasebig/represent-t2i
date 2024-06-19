@@ -181,6 +181,27 @@ git config --global  --unset http.https://github.com.proxy
 
 
 # hires 精绘 高修 超分？？？
+默认选择是latent     
+好奇这个latent如何起作用？？    
+可以选择其他如gan    
+
+![alt text](assets/webui/image-20.png)
+
+![alt text](assets/webui/image-21.png)
+
+也是使用Upscaler     
+
+和插件 tiled diffusion的区别是什么 ？    
+
+img2img没有hires    
+但是script有独有的sd upscale, ultra sd upscale
+
+![alt text](assets/webui/image-22.png)   
+![alt text](assets/webui/image-23.png)    
+看起来差不多
+
+
+
 wiki好像没说时如何实现的        
 源代码中是一个img2img过程       
 但是是对latent做二倍插值吗，我没有看过      
@@ -270,6 +291,10 @@ Extras tab with:
 
 
 ## Stable Diffusion upscale
+sd upscale    
+现在 upscale领域 sd还是打不过gan   
+从速度和质量    
+
 ℹ️ Note: This is not the preferred method of upscaling, as this causes SD to lose attention to the rest of the image due to tiling. It should only be used if VRAM bound, or in tandem with something like ControlNet + the tile model. For the preferred method, see Hires. fix.
 
 
