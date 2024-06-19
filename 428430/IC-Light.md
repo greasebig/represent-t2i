@@ -8967,8 +8967,23 @@ try:
         if not args.enabled:
     AttributeError: 'NoneType' object has no attribute 'enabled'
 
+return ICLightArgs(**args[0])
+
+这行代码是在Python中创建一个类的实例对象。具体来说:
+
+ICLightArgs是一个类的名称。
+**args[0]是一个解包操作。args是一个列表或元组,args[0]获取这个序列的第一个元素。
+由于在args[0]前面使用了**操作符,它将args[0]元素(通常是一个字典)解包为关键字参数。
+所以**args[0]的作用是将一个字典解包为关键字参数,然后传递给ICLightArgs类的构造函数,创建该类的一个实例对象。
+
+这种编码方式常见于需要用字典来指定类实例化参数的情况。它使代码更加简洁和灵活。 CopyRetry
+
+![alt text](assets/IC-Light/image-115.png)
+
+![alt text](assets/IC-Light/image-116.png)
 
 
+好像少了最后一个         
 
 
 
