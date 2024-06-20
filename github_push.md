@@ -110,6 +110,35 @@ git log --oneline
 这个命令会以精简的一行格式展示提交日志,每一行最前面的字符串就是提交 ID。
 
 
+## 下载某个commit
+
+要在GitHub上下载特定的提交(commit),您可以按照以下步骤操作:
+
+    打开项目的GitHub页面,找到该commit的SHA哈希值。您可以在"Commits"页面中找到这个值。
+    将提交哈希值附加到以下URL中:
+    https://github.com/用户名/项目名/archive/提交哈希值.zip
+    例如,如果要下载提交哈希值为ab3d92的压缩包,URL将是:
+    https://github.com/用户名/项目名/archive/ab3d92.zip
+    在浏览器中打开这个URL,它将开始下载该提交对应的源码压缩包。
+    下载完成后,解压该zip文件,您将获得一个以提交哈希值命名的目录,其中包含该提交时项目代码的状态。
+
+另一种方式是使用Git命令行,先克隆整个repo,然后用git checkout切换到指定的提交:    
+
+    git clone https://github.com/用户名/项目名.git
+    cd 项目名
+    git checkout 提交哈希值
+这样您就可以在本地获取该特定提交时的代码状态。    
+需要注意的是,使用Git命令行获取单个提交时,您将下载整个repo的历史,而直接下载zip压缩包将更小更快。
+
+
+
+
+
+
+
+
+
+
 
 
 ## 分支

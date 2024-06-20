@@ -450,6 +450,310 @@ iclight的优势在于 前景图保留能力好 可以通过prompt同时控制�
 还有自己宣传的什么柔和光 霓虹光 但我没发现有什么特别之处     
 他这个训练数据还有一些电影风格的光     
 
+## Brightness ControlNet 训练流程
+
+数据集准备
+
+数据源：
+
+    LAION-Aesthetics V1（LAION 美学评分大于 7 的子集）
+    COYO-700M（包含 aesthetic_score_laion_v2 评分）
+
+
+    from img2dataset import download
+    import shutil
+    import multiprocessing
+
+    def main():
+        download(
+            processes_count=16,
+            thread_count=64,
+            url_list="laion2B-en-aesthetic",
+            resize_mode="center_crop",
+            image_size=512,
+            output_folder="../laion-en-aesthetic",
+            output_format="files",
+            input_format="parquet",
+            skip_reencode=True,
+            save_additional_columns=["similarity","hash","punsafe","pwatermark","aesthetic"],
+            url_col="URL",
+            caption_col="TEXT",
+            distributor="multiprocessing",
+        )
+
+    if __name__ == "__main__":
+        multiprocessing.freeze_support()
+        main()
+
+
+构建 HuggingFace Datasets，保存本地并推至 Hub：
+
+    import os
+    from datasets import Dataset
+    from pathlib import Path
+    from PIL import Image
+
+    data_dir = Path(r"H:\DataScience\laion-en-aesthetic")
+
+    def entry_for_id(image_folder, filename):
+        img = Image.open(image_folder / filename)
+        gray_img = img.convert('L')
+        caption_filename = filename.replace('.jpg', '.txt')
+
+        with open(image_folder / caption_filename) as f:
+            caption = f.read()
+        return {
+            "image": img,
+            "grayscale_image": gray_img,
+            "caption": caption,
+        }
+
+    max_images = 1000000
+
+    def generate_entries():
+        index = 0
+
+        # cc3m 的所有子文件夹
+        image_folders = [f.path for f in os.scandir(data_dir) if f.is_dir()]
+        for image_folder in image_folders:
+
+            image_folder = Path(image_folder)
+            print(image_folder)
+
+            # cc3m 子文件夹的所有文件
+            for filename in os.listdir(image_folder):
+                if not filename.endswith('.jpg'):
+                    continue
+                yield entry_for_id(image_folder, filename)
+                index += 1
+                if index >= max_images:
+                    break
+
+            if index >= max_images:
+                break
+
+    ds = Dataset.from_generator(generate_entries, cache_dir="./.cache")
+    ds.save_to_disk("./grayscale_image_aesthetic_1M")
+    ds.push_to_hub('ioclab/grayscale_image_aesthetic_1M', private=True)
+
+
+
+
+
+训练过程
+使用 ControlNet training example 脚本训练，具体参数如下：
+
+    accelerate launch train_controlnet_local.py \
+    --pretrained_model_name_or_path="runwayml/stable-diffusion-v1-5" \
+    --output_dir="./output_v1a2u" \
+    --dataset_name="./grayscale_image_aesthetic_100k" \
+    --resolution=512 \
+    --learning_rate=1e-5 \
+    --image_column=image \
+    --caption_column=caption \
+    --conditioning_image_column=grayscale_image \
+    --train_batch_size=16 \
+    --gradient_accumulation_steps=4 \
+    --num_train_epochs=2 \
+    --tracker_project_name="control_v1a2u_sd15_brightness" \
+    --enable_xformers_memory_efficient_attention \
+    --checkpointing_steps=5000 \
+    --hub_model_id="ioclab/grayscale_controlnet" \
+    --report_to wandb \
+    --push_to_hub
+
+
+
+![alt text](assets/IC-Light/image-117.png)
+
+A6000 GPU 训练时长：13h，sample_count：100k，epoch：1，batch_size：16，gradient_accumulation_steps：1。
+
+
+TPU v4-8 GPU 训练时长：25h，sample_count：3m，epoch：1，batch_size：2，gradient_accumulation_steps：25。
+
+![alt text](assets/IC-Light/image-118.png)
+
+
+![alt text](assets/IC-Light/image-119.png)
+
+
+用来上色 grayscale
+
+## 使用 LangChain 实现语义搜索
+语义搜索是 LLM 工程中的重要一环，它可以通过特征向量对海量的文本数据进行匹配，从而使 LLM “突破” token 数量限制，获取更海量的信息。本文将使用 LangChain + Gradio + FAISS 对这项技术做一个基本的实现。
+
+
+Embedding 向量搜索是一种基于向量空间模型的搜索技术，它通过将文本转化为向量形式，实现文本相似度比较来进行搜索。具体来说，Embedding 向量搜索会首先对文本进行预处理和特征提取，将文本输出为固定长度的向量，然后在向量空间中对这些向量进行相似度度量，找到与查询向量最相似的文本向量，从而完成搜索任务。这种技术应用广泛，如在自然语言处理、社交网络分析、图像搜索等领域都有广泛的应用。其优点是可以快速地搜索出与查询向量最相似的结果，同时可以实现对多参数查询的高效处理，缺点是对于文本含义非常复杂的情况，挖掘出的语义信息可能比较有限，容易出现精度问题
+
+
+![alt text](assets/IC-Light/image-120.png)
+
+
+
+
+数据准备
+
+    以 ConvoKit 中的老友记全集数据为例，将数据下载并处理成 TXT、Excel，便于查看和后续使用。
+
+    安装 ConvoKit：
+
+    pip install convokit
+
+    Copy
+    Copied!
+    导入包：
+
+    from convokit import Corpus, download
+
+    Copy
+    Copied!
+    下载数据：
+
+    corpus = Corpus(download('friends-corpus'))
+    corpus.print_summary_stats()
+
+    Copy
+    Copied!
+    将数据写入文件：
+
+    for convo_index, convo in enumerate(corpus.iter_conversations()):
+
+        season = convo.meta['season']
+        episode = convo.meta['episode']
+        scene = convo.meta['scene']
+
+        self.write_txt_line(f"- SEASON: {season}; \n- EPISODE: {episode}; \n- SCENE: {scene}")
+
+        for utt_index, utt in enumerate(convo.iter_utterances()):
+
+            role = ""
+            content = ""
+
+            if utt.speaker.id == "TRANSCRIPT_NOTE":
+
+                role = "TRANSCRIPT_NOTE"
+                content = utt.meta['transcript_with_note']
+
+            else:
+
+                role = utt.speaker.id
+                content = utt.text
+
+            self.write_xlsx_line([season, episode, scene], role, content)
+
+            self.write_txt_line(f"{role}: {content}")
+
+
+
+
+Embedding 数据库建立    
+此部分将数据文本分割，使用 OpenAI Ada embedding 模型转为向量存入数据库。
+
+    导入依赖：
+
+    from langchain import FAISS
+    from langchain.embeddings.openai import OpenAIEmbeddings
+    from langchain.text_splitter import CharacterTextSplitter
+    import pickle
+
+    Copy
+    Copied!
+    设置 API Key：
+
+    import os
+    os.environ['OPENAI_API_KEY'] = ''
+
+
+    用分割符 "\n\n" 按单句分割文本：
+
+    IN_DIR = './text_source'
+    filename = 'friends-corpus'
+
+    with open(f'./{IN_DIR}/{filename}.txt') as f:
+        file = f.read()
+    text_splitter = CharacterTextSplitter(separator='\n\n', chunk_size=0, chunk_overlap=0)
+    texts = text_splitter.split_text(file)
+
+    Copy
+    Copied!
+    或用分割符 "---" 按剧本场景分割文本：
+
+    text_splitter = CharacterTextSplitter(separator='---', chunk_size=0, chunk_overlap=0)
+    texts = text_splitter.split_text(file)
+
+    Copy
+    Copied!
+    使用 OpenAI 的 Ada 模型和 FAISS 建立向量数据库：
+
+    OUT_DIR = './vector_db_out'
+    embeddings = OpenAIEmbeddings()
+    vector_store = FAISS.from_texts(texts, embeddings)
+
+
+
+    使用 pickle 将数据库对象序列化成二进制：
+
+    with open(f"{OUT_DIR}/{filename}.pkl", "wb") as f:
+        pickle.dump(vector_store, f)
+
+
+
+
+    def question_answer(self, question, num_result):
+
+        docs = vector_store.similarity_search_with_score(question, k=num_result)
+        result = [[str(round(score, 3)), doc.page_content] for doc, score in docs]
+
+        return result
+
+    Copy
+    Copied!
+    定义并启动 Gradio：
+
+    with gr.Blocks() as demo:
+        with gr.Row():
+            with gr.Column():
+                prompt = gr.Textbox(
+                    label="Prompt",
+                )
+                num_result = gr.Slider(
+                    1, 200, 50,
+                    step=1,
+                    label="结果数",
+                )
+                submit_btn = gr.Button(
+                    label="搜索"
+                )
+            with gr.Column():
+                output = gr.Dataframe(
+                    headers=["Score", "Content"],
+                    datatype=["str", "markdown"]
+                )
+
+        submit_btn.click(
+            fn=question_answer,
+            inputs=[
+                prompt, num_result
+            ],
+            outputs=output
+        )
+
+    demo.launch(
+        server_name="0.0.0.0",
+        server_port=7010
+    )
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -9020,6 +9324,187 @@ ICLightArgs是一个类的名称。
 
 
 好像少了最后一个         
+
+
+
+
+    @classmethod
+    def fetch_from(cls, p: StableDiffusionProcessing):
+        script_runner: scripts.ScriptRunner = p.scripts
+        ic_light_script: scripts.Script = [
+            script
+            for script in script_runner.alwayson_scripts
+            if script.title() == "IC Light"
+        ][0]
+        args = p.script_args[ic_light_script.args_from : ic_light_script.args_to]
+        assert len(args) == 1
+        try:
+            return ICLightArgs(**args[0]) 
+            # 从这里开始调用 validation注册的函数
+
+            #input_fg=np.zeros(shape=[1, 1, 1], dtype=np.uint8),
+        except Exception as e:
+            print(e.errors())  # 打印出详细的错误信息
+        
+下面这个被进入两次，后一次是none
+
+    @validator("input_fg", "uploaded_bg", pre=True, allow_reuse=True)
+    def parse_image(cls, value) -> np.ndarray:
+        if isinstance(value, str):
+            return cls.cls_decode_base64(value)
+        assert isinstance(value, np.ndarray) or value is None
+        # 但是能通过  
+
+        return value
+
+后面才进入         
+进入时候已经有 values["input_fg_rgb"] = none
+
+    @root_validator
+    def process_input_fg(cls, values: dict) -> dict:
+        """Process input fg image into format [H, W, C=3]"""
+        input_fg = values.get("input_fg")
+        remove_bg: bool = values.get("remove_bg")
+        # Default args.
+        if input_fg is None:
+            return values
+
+        if remove_bg:
+            alpha: np.ndarray = BriarmbgService().run_rmbg(input_fg)
+            # 输入到网络竟然是 (1676, 1232, 4)
+
+        
+
+            input_fg_rgb: np.ndarray = make_masked_area_grey(input_fg, alpha)
+        else:
+            if len(input_fg.shape) < 3:
+                raise NotImplementedError("Does not support L Images...")
+            if input_fg.shape[-1] == 4:
+                input_fg_rgb = make_masked_area_grey(
+                    input_fg[..., :3],
+                    input_fg[..., 3:].astype(np.float32) / 255.0,
+                )
+            else:
+                input_fg_rgb = input_fg
+
+        assert input_fg_rgb.shape[2] == 3, "Input Image should be in RGB channels."
+        values["input_fg_rgb"] = input_fg_rgb
+        return values
+
+
+
+
+
+直接报错 但是竟然不打印      
+下一步考虑直接使用rembg吧   
+主要胜在模型多 速度快      
+就是当前测不太稳定
+
+
+
+
+    @torch.inference_mode()
+    def run_rmbg(self, img, device=None) -> np.ndarray:
+        start_time = time.time()
+        if device is None:
+            device = torch.device("cuda")
+        H, W, C = img.shape
+        assert C == 3
+
+
+
+直接调用rembg 已经pip安装
+
+好像还需要装 https://github.com/AUTOMATIC1111/stable-diffusion-webui-rembg ？
+
+
+
+Error completing request
+*** Arguments: ('', 'https://github.com/AUTOMATIC1111/stable-diffusion-webui-rembg', '') {}
+    Traceback (most recent call last):
+      File "/bui/modules/call_queue.py", line 57, in f
+        res = list(func(*args, **kwargs))
+      File "ytest/a1111webui193/stable-diffusion-webui/modules/ui_extensions.py", line 644, in <lambda>
+        fn=modules.ui.wrap_gradio_call(lambda *args: [gr.update(), *install_extension_from_url(*args)], extra_outputs=[gr.update(), gr.update()]),
+      File "ebui/modules/ui_extensions.py", line 345, in install_extension_from_url
+        check_access()
+      File "/ytest/a1111webui193/stable-diffusion-webui/modules/ui_extensions.py", line 23, in check_access
+        assert not shared.cmd_opts.disable_extension_access, "extension access disabled because of command line flags"
+    AssertionError: extension access disabled because of command line flags
+
+
+
+debug状态无法安装
+
+
+AssertionError: extension access disabled because of command line flags
+
+非debug也不行
+
+
+问题在于加了 listen就不行
+
+onnx没见下载就开始运行了？    
+
+    2024-06-20 02:52:19.398829519 [E:onnxruntime:Default, env.cc:251 ThreadMain] pthread_setaffinity_np failed for thread: 52602, index: 6, mask: {6, }, error code: 22 error msg: Invalid argument. Specify the number of threads explicitly so the affinity is not set.
+    2024-06-20 02:52:19.399211944 [E:onnxruntime:Default, env.cc:251 ThreadMain] pthread_setaffinity_np failed for thread: 52604, index: 8, mask: {8, }, error code: 22 error msg: Invalid argument. Specify the number of threads explicitly so the affinity is not set.
+    2024-06-20 02:52:19.399228664 [E:onnxruntime:Default, env.cc:251 ThreadMain] pthread_setaffinity_np failed for thread: 52603, index: 7, mask: {7, }, error code: 22 error msg: Invalid argument. Specify the number of threads explicitly so the affinity is not set.
+
+
+
+## 细节恢复
+    self.detailed_images.append(
+        restore_detail(
+            np.asarray(pp.image).astype(np.uint8),
+            (512, 768) rgb
+            (
+                self.args.input_fg
+                (1800, 1350, 4)
+                if self.args.detail_transfer_use_raw_input
+                else self.args.input_fg_rgb
+            ),
+            int(self.args.detail_transfer_blur_radius),
+        )
+    )
+
+
+self.args.input_fg_rgb    
+(1800, 1350, 3)
+
+
+def restore_detail(
+    ic_light_image: np.array,
+    original_image: np.array,
+    blur_radius: int = 5,
+) -> Image:
+
+    h, w, c = ic_light_image.shape
+    original_image = cv2.resize(original_image, (w, h))
+    (768, 512, 4)
+
+    if len(ic_light_image.shape) == 2:
+        ic_light_image = cv2.cvtColor(ic_light_image, cv2.COLOR_GRAY2RGB)
+    elif ic_light_image.shape[2] == 4:
+        ic_light_image = cv2.cvtColor(ic_light_image, cv2.COLOR_RGBA2RGB)
+
+    if len(original_image.shape) == 2:
+        original_image = cv2.cvtColor(original_image, cv2.COLOR_GRAY2RGB)
+    elif original_image.shape[2] == 4:
+        original_image = cv2.cvtColor(original_image, cv2.COLOR_RGBA2RGB)   进入
+
+原图被resize成iclight后图片大小    
+但是构图比例不太一样
+
+Restore Details does not work properly when the input and output aspect ratios are different
+
+只能对着comfyui去改    
+一个月前上面就有    
+
+
+
+
+
+
 
 
 
