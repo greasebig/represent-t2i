@@ -2698,6 +2698,8 @@ sd-v1.5-inpaint
 
 
 
+
+
 # openoutpaint启用
 python webui.py --xformers --port=8895 --listen --api
 

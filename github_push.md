@@ -276,6 +276,34 @@ git push origin new-feature
 8. 创建 Pull Request（可选）   
 推送后，你可以到 GitHub 上打开你的仓库，并创建一个 Pull Request，从新分支 new-feature 合并到主分支（通常是 main 或 master）。
 
+git push不写origin，那么会push到远端的master还是当前本地分支同名的远端
+
+如果你只执行 git push 而不指定远程仓库和分支,Git 的行为会取决于你的 Git 配置和当前分支的设置。通常情况下:
+
+如果当前分支设置了上游分支（upstream branch），Git 会推送到该上游分支。
+如果没有设置上游分支，Git 会遵循 push.default 配置的行为。这个配置有几个常见的值：
+
+simple（Git 2.0 之后的默认值）: 推送当前分支到与之同名的远程分支。
+current: 推送当前分支到远程同名分支，如果远程不存在该分支则创建。
+matching: 推送所有有相同名字的本地和远程分支。
+upstream: 推送当前分支到它的上游分支。
+
+
+如果没有设置 push.default，Git 可能会报错或提示你设置远程分支。
+
+为了避免混淆，建议:
+
+使用 git push origin <branch-name> 明确指定要推送的远程和分支。
+或者，为你的分支设置上游分支：git push -u origin <branch-name>。
+
+这样设置后，以后只使用 git push 就会推送到正确的远程分支。
+需要注意的是，直接使用 git push 可能会导致意外的结果，特别是在多人协作的项目中。始终确保你了解你的 Git 配置和当前分支的设置。 
+
+
+
+
+
+
 
 ### 互换分支名字
     # 获取最新的远程分支

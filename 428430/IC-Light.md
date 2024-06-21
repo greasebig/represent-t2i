@@ -9501,8 +9501,139 @@ Restore Details does not work properly when the input and output aspect ratios a
 一个月前上面就有    
 
 
+目前webui写法和原gradio一致，resize_and_center_crop    
+在run_rmbg brimgai14单独使用resize_without_crop    
+插值方法都是LANCZOS   
+resized_image = pil_image.resize((target_width, target_height), Image.LANCZOS)
+
+而comfy的细节恢复代码差值方法是    
+source_tensor = comfy.utils.common_upscale(source_tensor, W, H, "bilinear", "disabled")
+自己封装了一个 不知道是什么方法 名字是否对应？    
 
 
+
+他竟然使用cv2 resize 转颜色 做高斯    
+估计comfy所封装的就是cv2    
+这和Paddle做法一致    
+
+
+ic_light_image = Image.fromarray(ic_light_image).convert('RGB')
+
+    blurred_ic_light = cv2.GaussianBlur(ic_light_image, (blur_radius, blur_radius), 0)
+
+    blur_radius = blur_radius // 2  # PIL的半径是cv2的一半
+    blurred_ic_light = ic_light_image.filter(ImageFilter.GaussianBlur(radius=blur_radius))
+
+
+改了 但没测过所有板块 还有hires 还有batch count
+
+
+blurred_ic_light = ic_light_image.filter(ImageFilter.GaussianBlur(radius=blur_radius))
+    AttributeError: 'numpy.ndarray' object has no attribute 'filter'
+
+
+为了进行数学运算，我们将PIL图像转回NumPy数组。这是因为PIL不直接支持图像间的数学运算。
+进行DoG（Difference of Gaussians）计算。
+最后，将结果转换回PIL图像并返回。
+
+这个实现保持了原始代码的功能，同时使用了PIL进行图像处理操作。请注意，由于PIL和cv2在某些操作上可能有细微的差异（如高斯模糊的精确实现），结果可能会有轻微的不同。
+
+
+
+该函数直接从np返回pil对象
+
+cv2确实牛     
+直接操作numpy对象    
+
+
+scripts兼容性确实不错，中间某部分运行失败也会返回已经处理好的已有script结果    
+当然对scripts的整体也是一样
+
+
+rembg加载太慢
+
+Time taken: 16.4 sec.
+
+A: 7.78 GB, R: 7.92 GB
+
+
+他竟然需要到rembg 再到onnx才加载模型
+
+
+前景颜色增强只在img2img有    
+是直接对init_laten作用     
+
+
+    def get_lightmap(self, p: StableDiffusionProcessingImg2Img) -> np.ndarray:
+        assert self.model_type == ModelType.FC
+        assert isinstance(p, StableDiffusionProcessingImg2Img)
+        lightmap = np.asarray(p.init_images[0]).astype(np.uint8)
+        if self.reinforce_fg:
+            rgb_fg = self.input_fg_rgb
+            mask = np.all(rgb_fg == np.array([127, 127, 127]), axis=-1)
+            创建一个布尔掩码，其中RGB值为[127, 127, 127]的像素为True，其他为False。这可能用于识别需要特殊处理的区域。
+            mask = mask[..., None]  # [H, W, 1]
+            mask = mask[..., None]  # [H, W, 1]
+            将掩码从2D扩展为3D，添加一个新的轴。这使得掩码的形状变为[高度, 宽度, 1]。
+            lightmap = resize_and_center_crop(
+                lightmap, target_width=rgb_fg.shape[1], target_height=rgb_fg.shape[0]
+            )
+            lightmap_rgb = lightmap[..., :3]
+            lightmap_alpha = lightmap[..., 3:4]
+            lightmap_rgb = rgb_fg * (1 - mask) + lightmap_rgb * mask
+            lightmap_rgb = rgb_fg * (1 - mask) + lightmap_rgb * mask
+            这行代码执行了图像混合：
+
+            对于掩码为False的区域（即非[127, 127, 127]的像素），使用rgb_fg的值。
+            对于掩码为True的区域，使用lightmap_rgb的值。
+            这实现了有选择性地保留前景图像的某些部分，同时用lightmap替换其他部分。
+            lightmap = np.concatenate([lightmap_rgb, lightmap_alpha], axis=-1).astype(
+                np.uint8
+            )
+
+            将处理后的RGB通道与原始的alpha通道重新组合，创建一个新的4通道图像（RGBA）。结果被转换为8位无符号整数类型。
+
+        return lightmap
+
+
+如果self.reinforce_fg为True，执行以下操作：
+
+创建一个掩码，其中RGB值为[127, 127, 127]的像素被标记。     
+灰度背景部分   
+
+调整lightmap的大小以匹配前景图像的尺寸。
+将lightmap分为RGB和alpha通道。
+使用掩码混合前景RGB和lightmap RGB。
+重新组合RGB和alpha通道。
+
+
+pil好像就是直接运行在Int8
+
+
+
+
+
+## 隐患
+2024-06-21 03:26:53.158631205 [E:onnxruntime:Default, env.cc:251 ThreadMain] pthread_setaffinity_np failed for thread: 28431, index: 11, mask: {11, }, error code: 22 error msg: Invalid argument. Specify the number of threads explicitly so the affinity is not set.
+
+
+默認，env.cc：251 ThreadMain] pthread_setaffinity_np 執行緒失敗：28431，索引：11，掩碼：{11，}，訊息代碼：222 錯誤訊息：222爭論。明確指定線程數，以便不設定關聯性。
+
+
+老是有这个报错
+
+不知道有无影响
+
+
+
+
+## 优化项
+提取前景可选，参数可选      
+探索更合适的前景提取      
+细节恢复多种方法可选     
+crop和resize方法可选，当前仅crop
+
+默认开启细节修复     
 
 
 
