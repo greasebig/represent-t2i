@@ -106,6 +106,10 @@ tokenizers 0.14.1 requires huggingface_hub<0.18,>=0.16.4, but you have huggingfa
 
 transformers 4.34.1 requires tokenizers<0.15,>=0.14, but you have tokenizers 0.19.1 which is incompatible.
 
+
+
+
+
 全部升级
 
 
@@ -390,7 +394,6 @@ IMPORTANT: You are using gradio version 3.50.2, however version 4.29.0 is availa
 
 
 
-把queue去掉？？？
 
 
 
@@ -623,6 +626,189 @@ Edit
 或者就是终端输入命令时候做下改变
 
 
+如果你还想捕获错误输出,可以使用:
+
+python main.py 2>&1 | tee -a log.txt
+
+,你想要追加内容而不是覆盖文件。我们可以使用 tee 命令的 -a 选项来实现这一点。这里是修改后的命令:
+
+为什么我运行这个命令后程序启动很慢，python gradio_demo.py 2>&1 | tee -a log.txt。当我只运行python gradio_demo.py 时，启动很快
+
+
+
+启动变慢的可能原因:
+
+I/O操作: tee命令正在将所有输出写入文件,这涉及磁盘I/O,可能会减慢程序的启动速度。
+缓冲问题: 管道和重定向可能会改变输出的缓冲行为,导致看起来启动较慢。
+额外进程: 使用管道创建了额外的进程(tee),这需要一些额外的系统资源和时间来设置。
+日志记录开销: 如果程序在启动时产生大量输出,记录所有这些信息可能会导致明显的延迟。
+
+建议:
+如果您需要记录输出但又想保持快速启动,可以考虑:
+
+在程序内部实现日志记录
+使用后台任务来记录输出
+仅在需要调试时使用完整的命令
+
+
+
+测试tee命令:
+尝试一个简单的命令来测试tee是否正常工作:
+Copyecho "test" | tee -a log.txt
+
+检查Python脚本:
+脚本可能使用了不标准的输出方法。确保它使用print()或logging模块输出信息。
+尝试不使用2>&1:
+Copypython gradio_demo.py | tee -a log.txt
+
+
+
+
+### log最终解决
+
+好像是tmux问题
+
+
+缓冲问题:
+Python的输出可能被缓冲了。尝试添加 -u 参数来禁用缓冲:
+python -u gradio_demo.py | tee -a log.txt
+
+
+
+以下没试过    
+
+stdbuf 命令:
+使用 stdbuf 来强制立即刷新输出:
+Copystdbuf -oL python gradio_demo.py | tee -a log.txt
+
+重定向标准错误:
+可能输出被发送到标准错误。尝试:
+Copypython gradio_demo.py 2>&1 | tee -a log.txt
+
+gradio 特定设置:
+如果这是一个 gradio 应用,确保没有设置 quiet=True 或类似的参数来抑制输出。
+检查 tmux 配置:
+查看您的 tmux 配置文件 (~/.tmux.conf),确保没有影响输出的设置。
+
+
+
+
+
+
+## 5机装环境
+from cutdiffusion2 import process_cutdiffusion                                                n
+ImportError: cannot import name 'process_cutdiffussion' from partially initialized module 'cutdiffuision2' (most likely due to a circular import) (/cutdiffusion/cutdisffusion2.py)
+
+
+这个错误的主要原因可能是:
+
+循环导入: 如果 cutdiffusion2.py 文件和另一个文件相互导入,可能会导致这个问题。
+拼写错误: 注意到错误信息中的文件名是 'cutdisffusion2.py',而不是 'cutdiffusion2.py'。这可能是个拼写错误。
+部分初始化: 错误提示模块是"部分初始化的",这通常与循环导入有关。
+
+
+
+
+
+
+CutDiffusion/lib/pyth
+on3.9/site-packages/gradio/queueing.py", line 161, 
+in attach_data                                     
+    raise ValueError("Event not found", event_id)  
+ValueError: ('Event not found', 'a2e6eff3739549ad8d
+16baa9818b5870')                                   
+ERROR:    Exception in ASGI application            
+Traceback (most recent call last):
+
+
+
+不打印日志为什么这么卡？？？      
+
+
+ blocks._queue.attach_data(body)
+  File "/root/miniconda3/envs/CutDiffusion/lib/python3.9/site-packages/gradio/queueing.py", line 161, in attach_data
+    raise ValueError("Event not found", event_id)
+ValueError: ('Event not found', '39f80d6391944b8ab5f595932f10c8e6')
+
+
+
+@AntroSafin I downgraded to "gradio<4.0" (which the last version is 3.50.2) and I am not longer seeing this issue, even without passing enable_queue=False
+
+
+gradio                    4.8.0
+
+
+pip install gradio==3.50.2
+
+
+竟然是之前的错
+
+
+site-packages/diffusers/loaders.py", line 2268, in from_single_file
+    raise ValueError(f"Unhandled pipeline class: {pipeline_name}")
+ValueError: Unhandled pipeline class: CutDiffusionSDXLPipeline
+
+diffusers                 0.21.4
+
+
+pip install -U diffusers tokenizers transformers -i https://pypi.mirrors.ustc.edu.cn/simple/
+
+
+Successfully installed diffusers-0.29.1 huggingface-hub-0.23.4 tokenizers-0.19.1 transformers-4.41.2
+
+又可以了
+
+
+首次用还需要代理才行
+
+pip install httpx[socks]
+
+
+新机子真麻烦
+
+
+tokenizer/special_tokens_map.json: 100%|█| 472
+tokenizer/tokenizer_config.json: 100%|█| 737/7
+scheduler/scheduler_config.json: 100%|█| 479/4
+text_encoder_2/config.json: 100%|█| 575/575 [0
+model_index.json: 100%|█| 609/609 [00:00<00:00
+text_encoder/config.json: 100%|█| 565/565 [00:
+tokenizer/merges.txt: 100%|█| 525k/525k [00:00
+tokenizer_2/tokenizer_config.json: 100%|█| 725
+tokenizer_2/special_tokens_map.json: 100%|█| 4
+vae/config.json: 100%|█| 642/642 [00:00<00:00,
+vae_1_0/config.json: 100%|█| 607/607 [00:00<00
+unet/config.json: 100%|█| 1.68k/1.68k [00:00<0
+tokenizer/vocab.json: 100%|█| 1.06M/1.06M [00:
+Fetching 17 files: 100%|█| 17/17 [00:02<00:00,
+Loading pipeline components...: 100%|█| 7/7 [0
+
+
+
+大概就几m 东西
+
+
+五区机器3090加载模型竟然快很多，cpu的问题吗    
+1分钟 vs 10分钟
+
+
+
+好像不是采样器 底模的问题      
+提示词不一样就很花    
+
+还有房子背景的关系    
+这时候就很花    
+
+
+
+
+
+
+
+
+
+
+
 
 ## 关于deepcopy和全局变量的正确赋值和正确释放
 
@@ -650,6 +836,492 @@ Edit
 
 ## 采样器不太支持
 dpm类好像就是用不了       
+
+
+
+# pipeline原理
+
+    # Copied from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion.StableDiffusionPipeline.enable_vae_slicing
+    def enable_vae_slicing(self):
+    r"""
+        Enable sliced VAE decoding. When this option is enabled, the VAE will split the input tensor in slices to
+        compute decoding in several steps. This is useful to save some memory and allow larger batch sizes.
+        """
+    self.vae.enable_slicing(）
+
+
+区别？
+
+    # Copied from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion.StableDiffusionPipeline.enable_vae_tiling
+    def enable_vae_tiling(self):
+        r"""
+        Enable tiled VAE decoding. When this option is enabled, the VAE will split the input tensor into tiles to
+        compute decoding and encoding in several steps. This is useful for saving a large amount of memory and to allow
+        processing larger images.
+        """
+        self.vae.enable_tiling()
+
+
+Sliced VAE   
+Sliced VAE enables decoding large batches of images with limited VRAM or batches with 32 images or more by decoding the batches of latents one image at a time. You’ll likely want to couple this with enable_xformers_memory_efficient_attention() to reduce memory use further if you have xFormers installed.
+
+vae分解batch处理进diffusion再合？
+
+You may see a small performance boost in VAE decoding on multi-image batches, and there should be no performance impact on single-image batches.
+
+Tiled VAE   
+Tiled VAE processing also enables working with large images on limited VRAM (for example, generating 4k images on 8GB of VRAM) by splitting the image into overlapping tiles, decoding the tiles, and then blending the outputs together to compose the final image. You should also used tiled VAE with enable_xformers_memory_efficient_attention() to reduce memory use further if you have xFormers installed.
+
+理论上没有区别?        
+可能有 因为残缺            
+
+The output image has some tile-to-tile tone variation because the tiles are decoded separately, but you shouldn’t see any sharp and obvious seams between the tiles. Tiling is turned off for images that are 512x512 or smaller.
+
+
+理论上和upscale一样 继承自 diffusionpipeline
+
+upscale
+
+    def check_inputs(
+        self,
+        prompt,
+        image,
+        noise_level,
+        callback_steps,
+        negative_prompt=None,
+        prompt_embeds=None,
+        negative_prompt_embeds=None,
+    ):
+
+cutdiffusion
+
+
+    def check_inputs(
+        self,
+        prompt,
+        prompt_2, 这个特殊
+        height,
+        width,
+        callback_steps,
+        negative_prompt=None,
+        negative_prompt_2=None,
+        prompt_embeds=None,
+        negative_prompt_embeds=None,
+        pooled_prompt_embeds=None,
+        negative_pooled_prompt_embeds=None,
+        num_images_per_prompt=None,
+    ):
+
+输入倒是没有多的
+
+sdxl
+
+    def check_inputs(
+        self,
+        prompt,
+        prompt_2,
+        height,
+        width,
+        callback_steps,
+        negative_prompt=None,
+        negative_prompt_2=None,
+        prompt_embeds=None,
+        negative_prompt_embeds=None,
+        pooled_prompt_embeds=None,
+        negative_pooled_prompt_embeds=None,
+        ip_adapter_image=None,
+        ip_adapter_image_embeds=None,
+        callback_on_step_end_tensor_inputs=None,
+    ):
+
+prompt_2 (`str` or `List[str]`, *optional*):
+    The prompt or prompts to be sent to the `tokenizer_2` and `text_encoder_2`. If not defined, `prompt` is
+    used in both text-encoders
+
+
+## 差异
+
+    def get_views(self, height, width, window_size=128, stride=64, random_jitter=False):
+        # Here, we define the mappings F_i (see Eq. 7 in the MultiDiffusion paper https://arxiv.org/abs/2302.08113)
+        # if panorama's height/width < window_size, num_blocks of height/width should return 1
+
+        height //= self.vae_scale_factor
+        width //= self.vae_scale_factor
+        num_blocks_height = int((height - window_size) / stride - 1e-6) + 2 if height > window_size else 1
+        num_blocks_width = int((width - window_size) / stride - 1e-6) + 2 if width > window_size else 1
+        total_num_blocks = int(num_blocks_height * num_blocks_width)
+
+
+
+@torch.no_grad()
+    @replace_example_docstring(EXAMPLE_DOC_STRING)
+    def __call__(
+
+    self,
+    prompt: Union[str, List[str]] = None,
+    prompt_2: Optional[Union[str, List[str]]] = None,
+    height: Optional[int] = None,
+    width: Optional[int] = None,
+    num_inference_steps: int = 50,
+    denoising_end: Optional[float] = None,
+    guidance_scale: float = 5.0,
+    negative_prompt: Optional[Union[str, List[str]]] = None,
+    negative_prompt_2: Optional[Union[str, List[str]]] = None,
+    num_images_per_prompt: Optional[int] = 1,
+    eta: float = 0.0,
+    generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
+    latents: Optional[torch.FloatTensor] = None,
+    prompt_embeds: Optional[torch.FloatTensor] = None,
+    negative_prompt_embeds: Optional[torch.FloatTensor] = None,
+    pooled_prompt_embeds: Optional[torch.FloatTensor] = None,
+    negative_pooled_prompt_embeds: Optional[torch.FloatTensor] = None,
+    output_type: Optional[str] = "pil",
+    return_dict: bool = False,
+    callback: Optional[Callable[[int, int, torch.FloatTensor], None]] = None,
+    callback_steps: int = 1,
+    cross_attention_kwargs: Optional[Dict[str, Any]] = None,
+    guidance_rescale: float = 0.0,
+    original_size: Optional[Tuple[int, int]] = None,
+    crops_coords_top_left: Tuple[int, int] = (0, 0),
+    target_size: Optional[Tuple[int, int]] = None,
+    negative_original_size: Optional[Tuple[int, int]] = None,
+    negative_crops_coords_top_left: Tuple[int, int] = (0, 0),
+    negative_target_size: Optional[Tuple[int, int]] = None,
+    ################### CutDiffusion specific parameters ####################
+    view_batch_size: int = 16,
+    stride: Optional[int] = 64,
+    multi_guidance_scale: Optional[float] = 7.5,
+    shuffle: bool = False,
+    result_path: str = './output/ours',
+    debug: bool = False,
+    proportion: Optional[float] = 0.5,
+    ):
+
+
+说明
+
+    prompt_embeds (`torch.FloatTensor`, *optional*):
+        Pre-generated text embeddings. Can be used to easily tweak text inputs, *e.g.* prompt weighting. If not
+        provided, text embeddings will be generated from `prompt` input argument.
+    negative_prompt_embeds (`torch.FloatTensor`, *optional*):
+        Pre-generated negative text embeddings. Can be used to easily tweak text inputs, *e.g.* prompt
+        weighting. If not provided, negative_prompt_embeds will be generated from `negative_prompt` input
+        argument.
+    pooled_prompt_embeds (`torch.FloatTensor`, *optional*):
+        Pre-generated pooled text embeddings. Can be used to easily tweak text inputs, *e.g.* prompt weighting.
+        If not provided, pooled text embeddings will be generated from `prompt` input argument.
+    negative_pooled_prompt_embeds (`torch.FloatTensor`, *optional*):
+
+
+
+    callback (`Callable`, *optional*):
+        A function that will be called every `callback_steps` steps during inference. The function will be
+        called with the following arguments: `callback(step: int, timestep: int, latents: torch.FloatTensor)`.
+    callback_steps (`int`, *optional*, defaults to 1):
+        The frequency at which the `callback` function will be called. If not specified, the callback will be
+                called at every step.
+
+
+    guidance_rescale (`float`, *optional*, defaults to 0.7):
+        Guidance rescale factor proposed by [Common Diffusion Noise Schedules and Sample Steps are
+        Flawed](https://arxiv.org/pdf/2305.08891.pdf) `guidance_scale` is defined as `φ` in equation 16. of
+        [Common Diffusion Noise Schedules and Sample Steps are Flawed](https://arxiv.org/pdf/2305.08891.pdf).
+        Guidance rescale factor should fix overexposure when using zero terminal SNR.
+    original_size (`Tuple[int]`, *optional*, defaults to (1024, 1024)):
+        If `original_size` is not the same as `target_size` the image will appear to be down- or upsampled.
+        `original_size` defaults to `(width, height)` if not specified. Part of SDXL's micro-conditioning as
+        explained in section 2.2 of
+        [https://huggingface.co/papers/2307.01952](https://huggingface.co/papers/2307.01952).
+    crops_coords_top_left (`Tuple[int]`, *optional*, defaults to (0, 0)):
+        `crops_coords_top_left` can be used to generate an image that appears to be "cropped" from the position
+        `crops_coords_top_left` downwards. Favorable, well-centered images are usually achieved by setting
+        `crops_coords_top_left` to (0, 0). Part of SDXL's micro-conditioning as explained in section 2.2 of
+        [https://huggingface.co/papers/2307.01952](https://huggingface.co/papers/2307.01952).
+
+
+
+    target_size (`Tuple[int]`, *optional*, defaults to (1024, 1024)):
+        For most cases, `target_size` should be set to the desired height and width of the generated image. If
+        not specified it will default to `(width, height)`. Part of SDXL's micro-conditioning as explained in
+        section 2.2 of [https://huggingface.co/papers/2307.01952](https://huggingface.co/papers/2307.01952).
+    negative_original_size (`Tuple[int]`, *optional*, defaults to (1024, 1024)):
+        To negatively condition the generation process based on a specific image resolution. Part of SDXL's
+        micro-conditioning as explained in section 2.2 of
+        [https://huggingface.co/papers/2307.01952](https://huggingface.co/papers/2307.01952). For more
+        information, refer to this issue thread: https://github.com/huggingface/diffusers/issues/4208.
+    negative_crops_coords_top_left (`Tuple[int]`, *optional*, defaults to (0, 0)):
+        To negatively condition the generation process based on a specific crop coordinates. Part of SDXL's
+        micro-conditioning as explained in section 2.2 of
+        [https://huggingface.co/papers/2307.01952](https://huggingface.co/papers/2307.01952). For more
+        information, refer to this issue thread: https://github.com/huggingface/diffusers/issues/4208.
+    negative_target_size (`Tuple[int]`, *optional*, defaults to (1024, 1024)):
+        To negatively condition the generation process based on a target image resolution. It should be as same
+        as the `target_size` for most cases. Part of SDXL's micro-conditioning as explained in section 2.2 of
+        [https://huggingface.co/papers/2307.01952](https://huggingface.co/papers/2307.01952). For more
+        information, refer to this issue thread: https://github.com/huggingface/diffusers/issues/4208.
+
+
+## 核心差异 denoise
+
+
+确实有一些细节处理      
+denoise 过程分别调用不同的细节增强方法
+
+最后vae tile
+
+应该是在每几步开启一回细节增强，所以每步速度不同，显存占用差距500m
+
+4096大约五分钟
+
+
+
+    output_images = []
+    ############################################# denoise #############################################
+    with self.progress_bar(total=num_inference_steps) as progress_bar:
+
+        for i, t in enumerate(timesteps):
+            torch.cuda.empty_cache()
+            if i < len(timesteps) * proportion:
+                Structure_Denoising = True
+                Detail_Refinement =  False
+            elif i == len(timesteps) * proportion:
+                height_scale_num = int(height / (self.unet.config.sample_size * self.vae_scale_factor)) 
+                width_scale_num = int(width / (self.unet.config.sample_size * self.vae_scale_factor)) 
+                latents_temp = torch.zeros_like(latents)
+                latents_temp = latents_temp.reshape(1, 4, height // self.vae_scale_factor, width // self.vae_scale_factor)
+                views2 = [[h, w] for h in range(height_scale_num) for w in range(width_scale_num)]
+                for latents_view, (h, w) in zip(
+                    latents.chunk(height_scale_num * width_scale_num), views2
+                ):  
+                    latents_temp[:, :, h::height_scale_num, w::width_scale_num] += latents_view
+                latents = latents_temp
+                Detail_Refinement =  True
+                Structure_Denoising = False
+            else:
+                Structure_Denoising = False
+                Detail_Refinement =  True
+
+            count = torch.zeros_like(latents)
+            value = torch.zeros_like(latents)
+
+            
+            ############################################# Comprehensive Structure Denoising #############################################
+            if Structure_Denoising:
+                latents_for_view = latents
+                if shuffle:
+                    ######## Pixel interaction ########
+                    shape = latents_for_view.shape
+                    shuffle_index = torch.stack([torch.randperm(shape[0]) for _ in range(latents_for_view.reshape(-1).shape[0]//shape[0])])
+
+                    shuffle_index = shuffle_index.view(shape[1],shape[2],shape[3],shape[0])
+                    original_index = torch.zeros_like(shuffle_index).scatter_(3, shuffle_index, torch.arange(shape[0]).repeat(shape[1], shape[2], shape[3], 1))
+
+                    shuffle_index = shuffle_index.permute(3,0,1,2).to(device)
+                    original_index = original_index.permute(3,0,1,2).to(device)
+                    latents_for_view_ = latents_for_view.gather(0, shuffle_index)
+
+                                    # expand the latents if we are doing classifier free guidance
+                if shuffle:
+                    latent_model_input = latents_for_view_
+                else:
+                    latent_model_input = latents_for_view
+
+                views_batch = [latent_model_input[i : i + view_batch_size] for i in range(0, len(latent_model_input), view_batch_size)]
+                latent_temp = []
+                for j, batch_view in enumerate(views_batch):
+                    vb_size = len(batch_view)
+                    # get the latents corresponding to the current view coordinates
+                    latent_model_input = torch.cat(
+                        [batch_view]
+                    )
+
+                    latent_model_input = (
+                        latent_model_input.repeat_interleave(2, dim=0)
+                        if do_classifier_free_guidance
+                        else latent_model_input
+                    )
+
+                    latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
+
+                    prompt_embeds_input = torch.cat([prompt_embeds] * vb_size)
+                    add_text_embeds_input = torch.cat([add_text_embeds] * vb_size)
+                    add_time_ids_input = torch.cat([add_time_ids] * vb_size)
+
+                    # predict the noise residual
+                    added_cond_kwargs = {"text_embeds": add_text_embeds_input, "time_ids": add_time_ids_input}
+                    noise_pred = self.unet(
+                        latent_model_input,
+                        t,
+                        encoder_hidden_states=prompt_embeds_input,
+                        cross_attention_kwargs=cross_attention_kwargs,
+                        added_cond_kwargs=added_cond_kwargs,
+                        return_dict=False,
+                    )[0]
+
+                    if do_classifier_free_guidance:
+                        noise_pred_uncond, noise_pred_text = noise_pred[::2], noise_pred[1::2]
+                        noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
+
+                    if do_classifier_free_guidance and guidance_rescale > 0.0:
+                        # Based on 3.4. in https://arxiv.org/pdf/2305.08891.pdf
+                        noise_pred = rescale_noise_cfg(noise_pred, noise_pred_text, guidance_rescale=guidance_rescale)
+                    latent_temp.append(noise_pred)
+
+                noise_pred = torch.cat(latent_temp)
+                if shuffle:
+                    noise_pred = noise_pred.gather(0, original_index)
+                
+                # compute the previous noisy sample x_t -> x_t-1
+                self.scheduler._init_step_index(t)
+                latents_denoised_batch = self.scheduler.step(noise_pred, t, latents_for_view, **extra_step_kwargs, return_dict=False)[0]
+                    
+                latents = latents_denoised_batch
+            
+
+            ############################################# Specific Detail Refinement #############################################
+            if Detail_Refinement:
+                random_jitter = True
+                window_size = self.unet.config.sample_size
+                views = self.get_views(height, width, stride=stride, window_size=window_size, random_jitter=random_jitter)
+                views_batch = [views[i : i + view_batch_size] for i in range(0, len(views), view_batch_size)]
+                
+                if random_jitter:
+                    jitter_range = int((window_size - stride) // 4)
+                    latents_ = F.pad(latents, (jitter_range, jitter_range, jitter_range, jitter_range), 'constant', 0)
+                else:
+                    latents_ = latents
+
+                count_local = torch.zeros_like(latents_)
+                value_local = torch.zeros_like(latents_)
+
+                for j, batch_view in enumerate(views_batch):
+                    vb_size = len(batch_view)
+                    # get the latents corresponding to the current view coordinates
+                    latents_for_view = torch.cat(
+                        [
+                            latents_[:, :, h_start:h_end, w_start:w_end]
+                            for h_start, h_end, w_start, w_end in batch_view
+                        ]
+                    )
+
+                    # expand the latents if we are doing classifier free guidance
+                    latent_model_input = latents_for_view
+                    latent_model_input = (
+                        latent_model_input.repeat_interleave(2, dim=0)
+                        if do_classifier_free_guidance
+                        else latent_model_input
+                    )
+                    latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
+
+                    add_time_ids_input = []
+                    for h_start, h_end, w_start, w_end in batch_view:
+                        add_time_ids_ = add_time_ids.clone()
+                        add_time_ids_[:, 2] = h_start * self.vae_scale_factor
+                        add_time_ids_[:, 3] = w_start * self.vae_scale_factor
+                        add_time_ids_input.append(add_time_ids_)
+                    add_time_ids_input = torch.cat(add_time_ids_input)
+
+                    prompt_embeds_input = torch.cat([prompt_embeds] * vb_size)
+                    add_text_embeds_input = torch.cat([add_text_embeds] * vb_size)
+                    # predict the noise residual
+                    added_cond_kwargs = {"text_embeds": add_text_embeds_input, "time_ids": add_time_ids_input}
+                    noise_pred = self.unet(
+                        latent_model_input,
+                        t,
+                        encoder_hidden_states=prompt_embeds_input,
+                        cross_attention_kwargs=cross_attention_kwargs,
+                        added_cond_kwargs=added_cond_kwargs,
+                        return_dict=False,
+                    )[0]
+
+                    if do_classifier_free_guidance:
+                        noise_pred_uncond, noise_pred_text = noise_pred[::2], noise_pred[1::2]
+                        noise_pred = noise_pred_uncond + multi_guidance_scale * (noise_pred_text - noise_pred_uncond)
+
+                    if do_classifier_free_guidance and guidance_rescale > 0.0:
+                        # Based on 3.4. in https://arxiv.org/pdf/2305.08891.pdf
+                        noise_pred = rescale_noise_cfg(noise_pred, noise_pred_text, guidance_rescale=guidance_rescale)
+
+                    # compute the previous noisy sample x_t -> x_t-1
+                    self.scheduler._init_step_index(t)
+                    latents_denoised_batch = self.scheduler.step(
+                        noise_pred, t, latents_for_view, **extra_step_kwargs, return_dict=False)[0]
+                    
+                    # extract value from batch
+                    for latents_view_denoised, (h_start, h_end, w_start, w_end) in zip(
+                        latents_denoised_batch.chunk(vb_size), batch_view
+                    ):
+                        value_local[:, :, h_start:h_end, w_start:w_end] += latents_view_denoised
+                        count_local[:, :, h_start:h_end, w_start:w_end] += 1
+
+                if random_jitter:
+                    value_local = value_local[: ,:, jitter_range: jitter_range + height // self.vae_scale_factor, jitter_range: jitter_range + width // self.vae_scale_factor]
+                    count_local = count_local[: ,:, jitter_range: jitter_range + height // self.vae_scale_factor, jitter_range: jitter_range + width // self.vae_scale_factor]
+
+                value += value_local / count_local
+                count += torch.ones_like(value_local) 
+                latents = torch.where(count > 0, value / count, value)
+            ###################################################################################   
+            
+            # call the callback, if provided
+            if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0):
+                progress_bar.update()
+                if callback is not None and i % callback_steps == 0:
+                    step_idx = i // getattr(self.scheduler, "order", 1)
+                    callback(step_idx, t, latents)
+
+        ###########################################################################################################################
+        if not output_type == "latent":
+            # make sure the VAE is in float32 mode, as it overflows in float16
+            needs_upcasting = self.vae.dtype == torch.float16 and self.vae.config.force_upcast
+            
+            if needs_upcasting:
+                self.upcast_vae()
+                latents = latents.to(next(iter(self.vae.post_quant_conv.parameters())).dtype)
+
+            print("###Decoding###")
+            if height > 2048 or width > 2048:
+                self.enable_vae_tiling()
+                image = self.vae.decode(latents / self.vae.config.scaling_factor, return_dict=False)[0]
+            else:
+                image = self.vae.decode(latents / self.vae.config.scaling_factor, return_dict=False)[0]
+
+            image = self.image_processor.postprocess(image, output_type=output_type)
+
+            """
+            if os.path.exists(result_path) == False:
+                os.makedirs(result_path)
+            Image.fromarray(image[0]).save(f'{result_path}/{prompt}_{0}.png')
+            """
+
+            output_images.append(image[0])
+
+            # cast back to fp16 if needed
+            if needs_upcasting:
+                self.vae.to(dtype=torch.float16)
+        else:
+            image = latents
+
+    # Offload all models
+    self.maybe_free_model_hooks()
+
+    #return output_images
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

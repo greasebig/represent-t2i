@@ -2695,9 +2695,19 @@ sd-v1.5-inpaint
 待定位问题     
 
 
+## 重新设计训练
+重新设计专属outpaint的mask方法        
+数据集应该适中即可        
+直接接续sd1.5 inpaint model训练        
+但是最好就是涵盖的方面要广         
+纯背景也需要         
+高画质 高美学 我觉得没必要           
 
+直接取laion小数据去训练
 
+麻烦点在于下载完后还需要转base64的数据
 
+开源的我看都不太适合outpaint
 
 
 # openoutpaint启用
@@ -2851,6 +2861,72 @@ v1.5
 ![alt text](assets/README/631712642102_.pic.jpg)    
 ![alt text](assets/README/image.png)    
 ![alt text](assets/README/image-1.png)   
+
+是有些糊的情况    
+
+测其他两种残缺的物体 花 鸡蛋巢    
+花还可以   
+鸡蛋巢大小有问题    
+
+用了realvisxl inpaint     
+
+![alt text](assets/outpaint/f38ee329ab4a035a8fd2595b5b766612.jpg)
+
+![alt text](assets/outpaint/image-68.png)
+
+
+### anything v3 inpaint
+
+![alt text](assets/outpaint/image-66.png)
+
+16步确实会花   
+xl也会
+
+"expand256
+blur 16
+fill出的图才符合逻辑"
+
+
+30步
+
+![alt text](assets/outpaint/image-67.png)
+
+a yellow flower
+
+![alt text](assets/outpaint/image-69.png)
+
+
+
+
+### realvisxl inpaint    
+
+提示词
+
+![alt text](assets/outpaint/image-71.png)
+
+
+确实好一些
+
+无
+
+![alt text](assets/outpaint/image-72.png)
+
+需要提示词
+
+
+
+鸡蛋
+
+
+![alt text](assets/outpaint/gf_Mt805NoRtNtK9_Pi-M.jpg)
+
+![alt text](assets/outpaint/image-70.png)
+
+
+
+
+
+
 
 ## 3. outpainting mk2   
 ![alt text](assets/README/image-2.png)    

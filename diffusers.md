@@ -196,6 +196,49 @@ pipe = StableDiffusionXLPipeline.from_single_file(
 
 python scripts/convert_diffusers_to_original_stable_diffusion.py --model_path model_dir --checkpoint_path path_to_ckpt.ckpt
 
+
+
+python diffusers/scripts/convert_diffusers_to_original_sdxl.py --model_path /newlytest/outpaint/sdxl/RealVisXL_V4.0_inpainting --checkpoint_path newlytest/outpaint/sdxl/RealVisXL_V4.0_inpainting.safetensors --use_safetensors
+
+
+No such file or directory: 'newlytest/outpaint/sdxl/RealVisXL_V4.0_inpainting/unet/diffusion_pytorch_model.bin'
+
+不能从safetensor ckpt 转?
+
+
+有点扯
+
+那测不了webui
+
+原来中间没有fp16. 添加后
+
+    # Path for safetensors
+    unet_path = osp.join(args.model_path, "unet", "diffusion_pytorch_model.fp16.safetensors")
+    vae_path = osp.join(args.model_path, "vae", "diffusion_pytorch_model.fp16.safetensors")
+    text_enc_path = osp.join(args.model_path, "text_encoder", "model.fp16.safetensors")
+    text_enc_2_path = osp.join(args.model_path, "text_encoder_2", "model.fp16.safetensors")
+
+
+
+Reshaping decoder.mid.attn_1.k.weight for SD format
+Reshaping decoder.mid.attn_1.proj_out.weight for SD format
+Reshaping decoder.mid.attn_1.q.weight for SD format
+Reshaping decoder.mid.attn_1.v.weight for SD format
+Reshaping encoder.mid.attn_1.k.weight for SD format
+Reshaping encoder.mid.attn_1.proj_out.weight for SD format
+Reshaping encoder.mid.attn_1.q.weight for SD format
+Reshaping encoder.mid.attn_1.v.weight for SD format
+
+
+
+
+
+
+
+
+
+
+
 ## ckpt safetensors 转 diffusers
 
 
@@ -216,6 +259,16 @@ python scripts/convert_original_stable_diffusion_to_diffusers.py --checkpoint_pa
 
 tokenizer.json: 100%|███████████████████████████████| 2.22M/2.22M [00:01<00:00, 1.80MB/s]
 config.json: 100%|██████████████████████████████████| 4.88k/4.88k [00:00<00:00, 13.5MB/s]
+
+
+# 显存优化
+
+
+Despite not being a dependency, we highly recommend you to install xformers for memory efficient attention (better performance)    
+If you have low GPU RAM available, make sure to add a pipe.enable_attention_slicing() after sending it to cuda for less VRAM usage (to the cost of speed)
+
+
+
 
 
 

@@ -596,6 +596,16 @@ else语句块是可选的,如果try语句块中的代码没有引发任何异常
 因此,尽管您可以使用其他变量名,但还是建议您坚持使用self和cls,这是Python社区中的标准做法。
 
 
+# python - 参数
+
+-u: 强制 Python 使用无缓冲的标准输出和标准错误流。这在某些情况下很有用,例如在管道中运行 Python 脚本时。when running Python scripts in a pipeline
+-m: 运行一个模块作为脚本。这允许您直接从命令行执行 Python 模块。This allows you to execute Python modules directly from the command line.  Runs a module as a script.
+-c: 运行一个命令。这允许您直接在命令行中执行 Python 代码,而不需要单独的脚本文件。
+
+python3 -c "from rembg import remove, new_session; from PIL import Image; output = remove(Image.open('i.png'), session=new_session('u2net', ['CUDAExecutionProvider'])); output.save('o.png')"
+
+更像是c代码
+
 
 
 

@@ -9636,6 +9636,103 @@ crop和resize方法可选，当前仅crop
 默认开启细节修复     
 
 
+## rembg速度慢问题
+uninstall   
+重装  pip install rembg[gpu]     
+
+Successfully uninstalled rembg-2.0.57
+
+
+Successfully installed rembg-2.0.57
+
+onnx                      1.16.1
+onnxruntime               1.18.0
+onnxruntime-gpu           1.17.1
+
+不知道是不是这个影响
+
+
+5.16 issue     
+
+我实际上已经尝试了所有可能的方法。
+
+1. Pip 安装 rembg 会自动禁用对 GPU 的支持
+安装 rembg[gpu] 会自动安装 onnxruntime-gpu 和 onnxruntime。我读到过一些文章说，这可能会导致软件包冲突问题，进而禁用 GPU 支持。
+
+例如，如果我pip install rembg[gpu]按照建议运行此代码：
+
+import torch
+import onnxruntime as ort
+print(ort.get_available_providers()) # Available providers are ['AzureExecutionProvider', 'CPUExecutionProvider']
+因此我使用 pip 安装了基础 rembg[gpu]，没有安装任何其他依赖项，然后手动安装了所有不带 onnxruntime 的依赖项：
+
+pip install onnxruntime-gpu
+pip install rembg[gpu] --no-deps
+pip install jsonschema numpy opencv-python-headless pillow pooch pymatting scikit-image scipy tqdm
+这样做表明
+
+import torch
+import onnxruntime as ort
+print(ort.get_available_providers()) # Available providers are ['TensorrtExecutionProvider', 'CUDAExecutionProvider', 'AzureExecutionProvider', 'CPUExecutionProvider']
+显然，正常的 pip 安装 rembg[gpu] 自然会首先删除“CUDAExecutionProvider”，然后恢复为仅支持 CPU……如果我pip install --force-reinstall onnxruntime-gpu @jalsop24 :(
+
+2. 尝试使用 torch 2.1 和 CUDA 11
+了解了这一点，我还了解到 PyTorch 版本 2.2.x 中的 CUDA12 支持可能存在问题，因此我强制程序在 PyTorch 2.1.2 和 CUDA 版本 11.8 上运行：
+
+pip install torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 --index-url https://download.pytorch.org/whl/cu118
+pip install nvidia-cudnn-cu11
+pip install tensorrt-cu11
+import torch
+print(torch.__version__) # Prints out 2.1.2+cu118
+但是，仍然没有使用 GPU。
+
+3.将“CUDAExecutionProvider”硬编码到rembg_session.inner_session._providers中
+也尝试过这个：
+
+rembg_session = rembg.new_session()
+rembg_session.inner_session._providers = ['CUDAExecutionProvider']
+print(rembg_session.inner_session.get_providers())
+输出：
+
+*************** EP Error ***************
+EP Error /onnxruntime_src/onnxruntime/python/onnxruntime_pybind_state.cc:456 void onnxruntime::python::RegisterTensorRTPluginsAsCustomOps(onnxruntime::python::PySessionOptions&, const ProviderOptions&) Please install TensorRT libraries as mentioned in the GPU requirements page, make sure they're in the PATH or LD_LIBRARY_PATH, and that your GPU is supported.
+ when using ['TensorrtExecutionProvider', 'CUDAExecutionProvider', 'AzureExecutionProvider', 'CPUExecutionProvider']
+Falling back to ['CUDAExecutionProvider', 'CPUExecutionProvider'] and retrying.
+****************************************
+['CUDAExecutionProvider']
+EP 错误也没有任何意义，因为我已经安装了“GPU 要求页面中提到的 TensorRT 库”，但无论如何它都会返回到 ['CUDAExecutionProvider', 'CPUExecutionProvider']。但不知何故，在运行时，提供程序再次返回到“CPUExecutionProvider”，并且没有 GPU 使用。我尝试检查有关如何选择提供程序的所有代码文件，但我仍然无法弄清楚这个问题……
+
+
+同样的问题。
+检查安装矩阵并从 Jetson Zoo 安装了 Jetson 提供的轮子。
+然后我 pip 安装了 rembg[gpu]，它作为依赖项具有 onnxruntime，因此它也安装了 cpu 包。
+我尝试 pip 卸载 onnxruntime 包并强制重新安装 onnxruntime-gpu，但随后 rembg 因导入而陷入循环。
+
+因此只有 CPU 在为 Jetson 工作
+
+
+
+
+
+
+
+
+
+### 总结：rembg原代码BUG
+极难解决，还是使用回之前的rmbg吧     
+需要对齐一下输入    
+
+只能对rembg这个py包相当无语     
+
+
+
+
+
+
+
+
+
+
 
 
 
