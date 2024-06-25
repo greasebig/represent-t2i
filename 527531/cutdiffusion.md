@@ -693,6 +693,118 @@ gradio 特定设置:
 
 
 
+### huchenlei patcher logging写法
+    import logging
+    def model_patcher_hook(logger: logging.Logger):
+
+        logger.info("__init__ hooks applied")
+        logger.info("close hooks applied")
+        def hook_sample():
+        def decorator(func: Callable) -> Callable:
+            @functools.wraps(func)
+            def wrapped_sample_func(self: Sampler, *args, **kwargs):
+                patcher: ModelPatcher = self.p.get_model_patcher()
+                assert isinstance(patcher, ModelPatcher)
+                patcher.patch_model()
+                logger.info(f"Patch {patcher.name}.")
+
+                try:
+                    return func(self, *args, **kwargs)
+                finally:
+                    patcher.unpatch_model()
+                    logger.info(f"Unpatch {patcher.name}.")
+
+            return wrapped_sample_func
+
+        return decorator
+
+    Sampler.launch_sampling = hook_sample()(Sampler.launch_sampling)
+    logger.info("sample hooks applied")
+
+
+    在后续每次使用都会启用logging
+
+
+    def create_logger():
+        logger = logging.getLogger(__name__)
+        logger.setLevel(logging.INFO)
+        if not logger.handlers:
+            handler = logging.StreamHandler(sys.stdout)
+            handler.setFormatter(
+                logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+            )
+            logger.addHandler(handler)
+        return logger
+
+    model_patcher_hook(create_logger())
+
+把返回的logger作为参数传入使用
+
+效果   
+
+2024-06-25 03:42:08,294 - model_patcher_hook.py - INFO - Unpatch hr_model_patcher of StableDiffusionProcessingTxt2Img.
+
+message    
+就是info 
+
+
+
+打时间 简单好用
+
+好像内部每个函数调用都会启用logging     
+
+在后续每次使用都会启用logging     
+这个没看明白    
+
+因为函数内部有
+logger.info(f"Patch {patcher.name}.")
+
+还不错    
+
+
+
+#### 修改 双流输出
+
+要让你的日志输出同时写入终端和 log.txt 文件，可以修改 create_logger 函数，添加一个 FileHandler 来实现这一点。以下是修改后的代码：
+
+    import logging
+    import sys
+
+    def create_logger():
+        logger = logging.getLogger(__name__)
+        logger.setLevel(logging.INFO)
+        
+        # 清除现有的处理程序，避免重复添加
+        logger.handlers = []
+        
+        # 添加 StreamHandler 处理终端输出
+        stream_handler = logging.StreamHandler(sys.stdout)
+        stream_handler.setFormatter(
+            logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        )
+        logger.addHandler(stream_handler)
+        
+
+        #主要加了下面
+        # 添加 FileHandler 处理文件输出
+        file_handler = logging.FileHandler("log.txt")
+        file_handler.setFormatter(
+            logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        )
+        logger.addHandler(file_handler)
+        
+        return logger
+
+    # 假设 model_patcher_hook 是你需要调用的函数
+    model_patcher_hook(create_logger())
+
+
+
+
+
+
+
+
 
 
 ## 5机装环境
@@ -836,6 +948,138 @@ Loading pipeline components...: 100%|█| 7/7 [0
 
 ## 采样器不太支持
 dpm类好像就是用不了       
+
+diffusers采样器没去研究 有时间 有想法再说吧
+
+
+
+
+
+
+
+
+
+## diffuses输出np保存
+
+pil_image = Image.fromarray(images)
+  File "/root/miniconda3/envs/CutDiffusion/lib/python3.9/site-packages/PIL/Image.py", line 3134, in fromarray
+    raise TypeError(msg) from e
+TypeError: Cannot handle this data type: (1, 1, 2048, 3), <f4
+
+错误原因：
+PIL的Image.fromarray()函数无法处理形状为(1, 1, 2048, 3)的4维浮点数（<f4）数组。PIL通常期望2D或3D数组，其中：
+
+2D数组表示灰度图像
+3D数组表示彩色图像，形状为(height, width, channels)
+
+(1, 2048, 2048, 3)
+
+但是我看shape是这样的       
+
+前面的报错有点奇特 type error?
+
+
+    except Exception as e:
+        print("too large")
+        print(f"ERROR: {e}")
+
+不加f没法识别
+
+
+ERROR: Cannot handle this data type: (1, 1, 3), <f4
+
+还是存不了
+
+
+images (1, 2048, 2048, 3)
+
+images[0] (2048, 2048, 3)
+
+难道还要旋转通道？
+
+    def fromarray(obj, mode=None):
+        """
+        Creates an image memory from an object exporting the array interface
+        (using the buffer protocol)::
+
+pil_image = Image.fromarray(images[0])
+
+竟然是这里 不是save报错
+
+return none
+
+好像是因为值在0 1 无法
+
+    # 数组的值在 0 到 255 之间，类型为 uint8
+
+    images[0] = (images[0] * 255).astype(np.uint8)
+
+不知道 Gr 里面是如何操作的       
+直接就拿这种np数据     
+
+只能说pil不够智能
+
+![alt text](assets/cutdiffusion/image-7.png)
+
+
+这种竖纹原因不明
+
+
+
+
+
+后面没试
+
+大图像的限制：
+
+内存限制：PIL将整个图像加载到内存中。对于非常大的图像，可能会耗尽系统内存。
+文件大小限制：某些文件格式（如JPEG）可能有最大文件大小限制。
+
+处理大图像的策略：
+a. 使用分块处理：
+
+    pythonCopyfrom PIL import Image
+
+    def save_large_image(input_path, output_path, max_size=(65000, 65000)):
+        with Image.open(input_path) as img:
+            width, height = img.size
+            for i in range(0, width, max_size[0]):
+                for j in range(0, height, max_size[1]):
+                    box = (i, j, min(i+max_size[0], width), min(j+max_size[1], height))
+                    chunk = img.crop(box)
+                    chunk.save(f"{output_path}_{i}_{j}.jpg")
+
+    save_large_image("very_large_image.tif", "output_chunk")
+b. 使用专门的库：
+对于特别大的图像，考虑使用如GDAL（Geospatial Data Abstraction Library）这样的专门库。
+c. 降低分辨率或压缩：
+
+    pythonCopylarge_image = Image.open("large_image.jpg")
+    large_image.thumbnail((4000, 4000))  # 调整大小
+    large_image.save("compressed_large_image.jpg", quality=85)  # 压缩
+
+注意事项：
+
+确保有足够的磁盘空间。
+保存大图像可能需要较长时间，考虑添加进度指示。
+对于超大图像，可能需要考虑使用其他格式，如TIFF或专门的大图像格式。
+
+
+内存效率：
+使用Image.open()时加上with语句可以确保文件正确关闭：
+pythonCopywith Image.open("large_image.jpg") as img:
+    # 处理图像
+    img.save("processed_large_image.jpg")
+
+# 启动
+python -u gradio_demo.py | tee -a log.txt
+
+五区或一区
+
+
+
+
+
 
 
 
@@ -1063,6 +1307,19 @@ prompt_2 (`str` or `List[str]`, *optional*):
 
 ## 核心差异 denoise
 
+之前单步报错的原因也在这      
+
+stride
+
+view_batch_size
+
+这两个参数不知道是否影响大图效果    
+到是可以搞个for循环
+
+2048新机子 加载到推理一分半
+
+
+
 
 确实有一些细节处理      
 denoise 过程分别调用不同的细节增强方法
@@ -1072,6 +1329,44 @@ denoise 过程分别调用不同的细节增强方法
 应该是在每几步开启一回细节增强，所以每步速度不同，显存占用差距500m
 
 4096大约五分钟
+
+![alt text](assets/cutdiffusion/image.png)
+
+历史
+
+内置最大4096？？
+
+
+私人
+
+![alt text](assets/cutdiffusion/image-1.png)
+
+还可以
+
+8min
+
+就是多了两个人脸
+
+![alt text](assets/cutdiffusion/image-2.png)
+
+16384
+
+110min
+
+![alt text](assets/cutdiffusion/image-3.png)
+
+![alt text](assets/cutdiffusion/image-4.png)
+
+可能需要挑一些参数
+
+
+8192
+
+![alt text](assets/cutdiffusion/image-5.png)
+
+![alt text](assets/cutdiffusion/image-6.png)
+
+30min
 
 
 
@@ -1306,6 +1601,10 @@ denoise 过程分别调用不同的细节增强方法
     self.maybe_free_model_hooks()
 
     #return output_images
+
+
+## Detail_Refinement
+比较好奇如果设置好windows size 是不是可以用来生产 16384
 
 
 

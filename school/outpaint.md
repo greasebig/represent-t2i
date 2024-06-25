@@ -2710,6 +2710,21 @@ sd-v1.5-inpaint
 开源的我看都不太适合outpaint
 
 
+## script openoutpaint对比
+poor次之 还行    
+应该是outpaint逻辑的原因 基于tile做 而且还有一些别的处理    
+关键词explosive cluster 未使用触发词    
+
+
+
+
+
+
+
+
+
+
+
 # openoutpaint启用
 python webui.py --xformers --port=8895 --listen --api
 

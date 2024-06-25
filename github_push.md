@@ -77,6 +77,15 @@ git stash
 一般来说,暂存本地修改或手动合并是比较保险的做法,除非您确定不需要保留本地代码修改。在团队协作时,保持代码同步很重要,但也要小心不要覆盖别人的修改。
 
 
+## 删除远端冗余
+在本地做文件删除后     
+push即可    
+
+
+
+
+
+
 
 ## 查看版本差异
 
@@ -316,18 +325,57 @@ upstream: 推送当前分支到它的上游分支。
     # 将 main 分支重命名为 old-main
     git branch -m main old-main
 
+我直接git push origin新分支    
+Your branch is up to date with 'origin/master'.     
+
     # 将 new-feature 分支重命名为 main
     git branch -m new-feature main
 
     # 强制推送新的 main 分支到远程仓库
     git push -f origin main
 
+没有强制 报错
+
+To gitee.com:btc8/sd-webui-ic-light.git
+ ! [rejected]        master -> master (non-fast-forward)
+error: failed to push some refs to 'git@gitee.com:btc8/sd-webui-ic-light.git'
+hint: Updates were rejected because the tip of your current branch is behind
+hint: its remote counterpart. Integrate the remote changes (e.g.
+hint: 'git pull ...') before pushing again.
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.
+
+
+
     # 确保远程仓库的 HEAD 指向新的 main 分支
     git push origin --delete main
     git push origin main
 
+
+上面我没做   
+直接下面   
+
     # 删除远程的 old-main 分支
     git push origin --delete old-main
+
+
+可行
+
+测试
+
+stable-diffusion-webui/testleetcode# ls
+sd-webui-ic-light
+(webui310) (myconda) root@q1yOYo:stable-diffusion-webui/testleetcode# git branch
+  dev
+* master
+  sd3
+
+.git影响深远
+
+stable-diffusion-webui/testleetcode/sd-webui-ic-light# git branch
+* master
+
+代码正确
+
 
 你就成功地将远程的 main 分支与 new-feature 分支互换了。注意，强制推送（git push -f）可能会覆盖远程分支的历史记录，因此请谨慎使用，并确保所有团队成员知晓这一更改。
 

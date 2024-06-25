@@ -9635,6 +9635,40 @@ crop和resize方法可选，当前仅crop
 
 默认开启细节修复     
 
+当前的briarmbg其实对物体提取前景效果其实也可以，之前没有细看，或者是用错       
+人物体都可以       
+
+
+这个可选 需做对比 无硬性优化的必须    
+考虑BiRefNet   
+这个对物品真的很好    
+对人看起来也很好    
+https://github.com/ZhengPeng7/BiRefNet    
+比较新 大约一年前    
+
+我的一些留言：
+这个项目最初是为 DIS 构建的。但经过一次又一次的更新，我将其变得越来越大，并嵌入了许多功能。最后，您可以将它用于任何二值图像分割任务，例如 DIS/COD/SOD、医学图像分割、异常分割等。您可以轻松打开/关闭以下内容（通常在config.py）：
+
+多 GPU 训练：用一个变量打开/关闭。
+主干选择：Swin_v1、PVT_v2、ConvNets……
+加权损失：BCE、IoU、SSIM、MAE、Reg……
+二元分割的对抗性损失（在我之前的作品MCCL中提出）。
+训练技巧：多尺度监督、冻结主干、多尺度输入......
+数据整理器：全部加载到内存中，平滑地组合不同的数据集以进行联合训练和测试。
+...我真的希望你喜欢这个项目并在更多作品中使用它来实现新的 SOTA。
+
+
+感觉分割 前景提取 还是要带有prompt控制才比较智能    
+可控范围更大      
+
+![alt text](assets/IC-Light/image-121.png)
+
+
+
+
+
+
+
 
 ## rembg速度慢问题
 uninstall   
@@ -9726,12 +9760,30 @@ EP 错误也没有任何意义，因为我已经安装了“GPU 要求页面中�
 
 
 
+## 改回briarmbg
+奇怪的是获取输入的validator都是一样的     
+为什么以前没有报这个四通道错误    
+
+validator被调用的时间一般是类创建的时候
+
+(512, 512, 4)
+
+确实是四通道
+
+[{'loc': ('__root__',), 'msg': '', 'type': 'assertion_error'}]
 
 
+    if remove_bg:
+        input_fg = input_fg[..., :3] # 提前截断 pil也是如此实现的
+        # 这里主要是通道数量不对 rembg进去后先转成rgb的pil再送入py包处理
+        alpha: np.ndarray = BriarmbgService().run_rmbg(input_fg)
+        input_fg_rgb: np.ndarray = make_masked_area_grey(input_fg, alpha)
+        #input_fg_rgb: np.ndarray = run_rmbg(input_fg)
 
 
+主要还是rembg不能使用gpu的问题
 
-
+但当前的briarmbg其实对物体提取前景效果很差
 
 
 

@@ -1290,6 +1290,9 @@ class CutDiffusionSDXLPipeline(DiffusionPipeline, FromSingleFileMixin, LoraLoade
 @torch.inference_mode()
 def process(prompt, image_width, image_height, num_samples, seed, steps, a_prompt, n_prompt, cfg,model_name,scheduler_type):
     
+
+    start_time = time.time()
+    
     '''
     parser = argparse.ArgumentParser()
     ### SDXL PARAMETERS ###
@@ -1413,7 +1416,7 @@ def process(prompt, image_width, image_height, num_samples, seed, steps, a_promp
     # 添加8小时的秒数(8 * 60 * 60)
     new_timestamp = current_timestamp + (8 * 60 * 60)
     # 自定义格式化字符串
-    custom_format = "%Y年%m月%d日 %H时%M分%S秒"
+    custom_format = "%Y年%m月%d日%H时%M分%S秒"
     # 格式化修改后的时间戳
     current_time = time.strftime(custom_format, time.localtime(new_timestamp))
     print("当前时间:", current_time)
@@ -1441,26 +1444,40 @@ def process(prompt, image_width, image_height, num_samples, seed, steps, a_promp
                 debug=False, 
                 output_type='np',
                 )
-    
+    try:
+        pil_image = Image.fromarray((images[0] * 255).astype(np.uint8))
+        # Save the PIL Image
+        pil_image.save("/mnt/WujieAITeam/private/lujunda/cutdiffusion/output/" + f'{current_time}.png')
+    except Exception as e:
+        print("too large")
+        print(f"ERROR: {e}")
+
+    end_time = time.time()
+    run_time = end_time - start_time
+    print("运行时间为：", run_time, "秒")
     return images
 
 
+    
+
 
 class ModelType(Enum):
-    HistFilm = "30"
-    
+    HistFilmsdomain = "历史"
 
     @property
     def model_name(self) -> str:
-        if self == ModelType.HistFilmsdomain0609_000030:
-            return 
+        if self == ModelType.HistFilmsdomain:
+            return ".safetensors"
+        
 
 
 
 @torch.inference_mode()
 def process_cutdiffusion(prompt, image_width, image_height, num_samples, seed, steps, a_prompt, n_prompt, cfg, model_type,scheduler_type):
     
-    
+    if not os.path.exists("./output"):
+        os.makedirs("./output")
+
     #log_file = open("output.txt", "a+")
     # 重定向标准输出到两个地方
     #sys.stdout = StreamTee(sys.stdout, log_file)

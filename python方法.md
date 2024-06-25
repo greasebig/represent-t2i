@@ -608,6 +608,587 @@ python3 -c "from rembg import remove, new_session; from PIL import Image; output
 
 
 
+# @机制
+
+## 装饰器（decorators）
+@符号用于装饰器（decorators）。装饰器是一种函数或方法，它允许在不改变原函数或方法的情况下，添加额外的功能或修改行为。
+
+
+装饰器的基本概念
+装饰器本质上是一个函数，它接受一个函数作为参数，并返回一个新的函数。装饰器通常用于以下几种用途：
+
+**日志记录（Logging）：**记录函数调用的日志。
+**性能测量（Timing）：**测量函数执行时间。
+**访问控制与权限验证（Access Control）：**检查用户是否有权限执行某些操作。
+**缓存（Caching）：**缓存函数的返回结果以提高性能。
+
+
+    基本的装饰器示例
+    python
+    复制代码
+    def my_decorator(func):
+        def wrapper(*args, **kwargs):
+            print("Something is happening before the function is called.")
+            result = func(*args, **kwargs)
+            print("Something is happening after the function is called.")
+            return result
+        return wrapper
+
+    @my_decorator
+    def say_hello():
+        print("Hello!")
+
+    say_hello()
+
+但是我遇到的wrapper不是这样用 @也有用在别的位置 如在类创建时自动调用
+
+这应该就属于引用函数前先调用@
+
+
+
+
+在这个例子中，my_decorator是一个装饰器，say_hello函数被装饰器包装。执行say_hello()时，会先打印装饰器中的前置和后置消息。
+
+如何定义自己的装饰器
+定义装饰器的一般步骤如下：
+
+    定义一个装饰器函数，它接受一个函数作为参数。
+    在装饰器函数内部，定义一个嵌套的包装器函数（wrapper），它调用原函数并添加额外的行为。
+    包装器函数返回装饰器函数的结果。
+    在原函数上应用装饰器。
+
+
+    import time
+
+    def timer_decorator(func):
+        def wrapper(*args, **kwargs):
+            start_time = time.time()
+            result = func(*args, **kwargs)
+            end_time = time.time()
+            print(f"Function {func.__name__} took {end_time - start_time:.4f} seconds to complete")
+            return result
+        return wrapper
+
+    @timer_decorator
+    def some_function():
+        time.sleep(2)
+        print("Function is running")
+
+    some_function()
+在这个示例中，timer_decorator是一个装饰器，用于测量some_function函数的执行时间。
+
+多个装饰器
+一个函数可以同时被多个装饰器修饰。装饰器的应用顺序是自下而上，即最上面的装饰器最后被应用。下面是一个示例：
+
+    python
+    复制代码
+    def decorator1(func):
+        def wrapper(*args, **kwargs):
+            print("Decorator 1")
+            return func(*args, **kwargs)
+        return wrapper
+
+    def decorator2(func):
+        def wrapper(*args, **kwargs):
+            print("Decorator 2")
+            return func(*args, **kwargs)
+        return wrapper
+
+    @decorator1
+    @decorator2
+    def say_hello():
+        print("Hello!")
+
+    say_hello()
+    输出结果是：
+
+    复制代码
+    Decorator 1
+    Decorator 2
+    Hello!
+在这个例子中，decorator2首先修饰say_hello函数，然后decorator1再修饰decorator2的返回函数。
+
+
+## 除了装饰器
+@符号在Python中还可以用于其他位置，特别是在类的定义中，它可以用于声明类方法（class methods）、静态方法（static methods）、以及属性（properties）。
+
+
+类方法（@classmethod）
+
+类方法是绑定到类而不是实例的方法。它的第一个参数是类本身，通常命名为cls。类方法通常用于创建工厂方法（factory methods），即返回类的实例的方法。
+
+    python
+    复制代码
+    class MyClass:
+        class_variable = "class variable"
+
+        @classmethod
+        def class_method(cls):
+            print(f"This is a class method. {cls.class_variable}")
+
+    MyClass.class_method()  # 调用类方法
+
+看不出有什么特殊
+
+
+静态方法（@staticmethod）
+
+静态方法不绑定到实例或类，它们类似于普通函数，只是定义在类的命名空间中。静态方法不能访问或修改类状态。
+
+    python
+    复制代码
+    class MyClass:
+        @staticmethod
+        def static_method():
+            print("This is a static method.")
+
+    MyClass.static_method()  # 调用静态方法
+
+
+属性（Properties）
+
+@property装饰器用于将方法转换为属性，使得可以通过点操作符访问方法。
+
+    python
+    复制代码
+    class MyClass:
+        def __init__(self, value):
+            self._value = value
+
+        @property
+        def value(self):
+            return self._value
+
+        @value.setter
+        def value(self, new_value):
+            if new_value < 0:
+                raise ValueError("Value cannot be negative")
+            self._value = new_value
+
+    obj = MyClass(10)
+    print(obj.value)  # 访问属性
+    obj.value = 20  # 设置属性
+    print(obj.value)
+在这个例子中，value方法被@property装饰器转换为一个属性，可以通过obj.value进行访问和设置。
+
+装饰器： 使用@来修饰函数或方法，添加额外的功能。
+类方法： 使用@classmethod来定义，绑定到类本身而不是实例。
+静态方法： 使用@staticmethod来定义，不绑定到实例或类，类似于普通函数。
+属性： 使用@property来定义，使得方法可以像属性一样访问。
+
+
+### validator
+Pydantic是一个用于数据校验和设置的库，广泛用于FastAPI等框架中。@validator装饰器用于在字段赋值之前或之后进行额外的验证或处理。
+
+root_validator的数据校验有点特别     
+甚至用了模型    
+甚至可以数据校验中完成所有操作，然后直接返回
+
+
+
+这个应该是之前
+
+    @validator("input_fg", "uploaded_bg", pre=True, allow_reuse=True)
+    def parse_image(cls, value) -> np.ndarray:
+        if isinstance(value, str):
+            return cls.cls_decode_base64(value)
+        assert isinstance(value, np.ndarray) or value is None
+        return value
+
+这个装饰器接受多个参数：
+
+    **字段名（如"input_fg", "uploaded_bg"）：**指定要验证的字段，可以是一个或多个字段名。
+    **pre参数：**如果设置为True，则在字段赋值之前执行验证逻辑，否则在字段赋值之后执行。
+    **allow_reuse参数：**如果设置为True，则允许重复使用相同的验证函数在多个字段上。
+
+
+这个装饰器应用于parse_image方法，用于验证和处理input_fg和uploaded_bg这两个字段。
+
+示例作用    
+这个示例的主要作用是确保input_fg和uploaded_bg字段在赋值前是合适的数据类型。如果字段值是字符串，它会将其解码为np.ndarray。如果字段值已经是np.ndarray或None，则直接返回该值。
+
+应用场景    
+这种用法在处理输入数据时非常有用，特别是当需要对数据进行预处理或验证时。举例如下：
+
+    class ImageModel(BaseModel):
+        input_fg: np.ndarray
+        uploaded_bg: np.ndarray
+
+        @validator("input_fg", "uploaded_bg", pre=True, allow_reuse=True)
+        def parse_image(cls, value) -> np.ndarray:
+            if isinstance(value, str):
+                return cls.cls_decode_base64(value)
+            assert isinstance(value, np.ndarray) or value is None
+            return value
+
+        @classmethod
+        def cls_decode_base64(cls, value: str) -> np.ndarray:
+            # 这里应该有解码逻辑，将base64字符串转换为np.ndarray
+            pass
+
+    # 使用示例
+    image_model = ImageModel(input_fg="some_base64_string", uploaded_bg=None)
+在这个示例中，ImageModel类定义了两个字段input_fg和uploaded_bg。通过使用@validator装饰器，可以在字段赋值前对其进行处理和验证，确保数据类型的正确性。
+
+
+
+
+    class ICLightArgs(BaseModel):
+        enabled: bool = False
+        model_type: ModelType = ModelType.FC
+        input_fg: Optional[np.ndarray] = None
+        uploaded_bg: Optional[np.ndarray] = None
+        bg_source_fc: BGSourceFC = BGSourceFC.NONE
+        bg_source_fbc: BGSourceFBC = BGSourceFBC.UPLOAD
+        remove_bg: bool = True
+
+        # FC model only option. Overlay the FG image on top of the light map
+        # in order to better preserve FG's base color.
+        reinforce_fg: bool = True
+        # Transfer high frequency detail from input image to the output.
+        # This can better preserve the details such as text.
+        detail_transfer: bool = False
+        # Whether to use raw input for detail transfer.
+        detail_transfer_use_raw_input: bool = False
+        # Blur radius for detail transfer.
+        detail_transfer_blur_radius: int = 5
+
+        # Calculated value of the input fg with alpha channel filled with grey.
+        input_fg_rgb: Optional[np.ndarray] = None
+
+调用位置
+
+    @classmethod
+    def fetch_from(cls, p: StableDiffusionProcessing):
+        script_runner: scripts.ScriptRunner = p.scripts
+        ic_light_script: scripts.Script = [
+            script
+            for script in script_runner.alwayson_scripts
+            if script.title() == "IC Light"
+        ][0]
+        args = p.script_args[ic_light_script.args_from : ic_light_script.args_to]
+        assert len(args) == 1
+        try:
+            return ICLightArgs(**args[0])
+
+        从这输入参数    
+        并使用validator重新处理参数      
+
+
+@validator(pre=True)
+执行时机： 在字段赋值之前执行。
+作用范围： 作用于单个字段或多个指定的字段。
+典型用途： 对单个字段进行预处理和验证，例如类型转换、格式校验等。
+
+@root_validator
+执行时机： 在所有字段的验证之后执行，可以控制在字段赋值之前（pre=True）或之后（默认）。
+作用范围： 作用于整个模型，可以访问和处理所有字段。
+典型用途： 对整个模型的数据进行综合验证，例如跨字段的逻辑验证。
+
+
+    from pydantic import BaseModel, validator, root_validator
+    import numpy as np
+
+    class MyModel(BaseModel):
+        input_fg: np.ndarray
+        uploaded_bg: np.ndarray
+
+        @validator("input_fg", "uploaded_bg", pre=True, allow_reuse=True)
+        def pre_validator(cls, value):
+            print("Executing @validator(pre=True)")
+            if isinstance(value, str):
+                return cls.decode_base64(value)
+            assert isinstance(value, np.ndarray) or value is None
+            return value
+
+        @root_validator(pre=True)
+        def pre_root_validator(cls, values):
+            print("Executing @root_validator(pre=True)")
+            # 添加逻辑，例如处理互相依赖的字段
+            return values
+
+        @root_validator
+        def post_root_validator(cls, values):
+            print("Executing @root_validator")
+            # 添加逻辑，例如处理互相依赖的字段
+            return values
+
+        @validator("input_fg", "uploaded_bg", allow_reuse=True)
+        def post_validator(cls, value):
+            print("Executing @validator")
+            # 添加逻辑
+            return value
+
+        @classmethod
+        def decode_base64(cls, value: str) -> np.ndarray:
+            # 实现base64解码逻辑，这里假设解码后是一个空数组
+            return np.array([])
+
+    # 使用示例
+    data = {
+        "input_fg": "some_base64_string",
+        "uploaded_bg": None
+    }
+
+    model = MyModel(**data)
+    输出结果
+    当你运行这个代码时，输出结果是：
+
+    graphql
+    复制代码
+    Executing @validator(pre=True)
+    Executing @validator(pre=True)
+    Executing @root_validator(pre=True)
+    Executing @root_validator
+    Executing @validator
+    Executing @validator
+
+顺序
+
+    @validator(pre=True)：在字段赋值之前，按定义顺序执行所有@validator(pre=True)装饰器。
+    字段赋值：字段赋值并进行常规验证（类型检查等）。
+    @root_validator(pre=True)：在字段赋值之后，按定义顺序执行所有@root_validator(pre=True)装饰器。
+    @root_validator：在字段赋值和常规验证完成后，按定义顺序执行所有@root_validator装饰器。
+    @validator：在字段赋值和常规验证完成后，按定义顺序执行所有@validator装饰器。
+
+
+validator 感觉是 直接定义在 赋值的函数中 在赋值前完成先调用     
+
+
+
+
+
+
+# 回调 括号外括号的方法
+
+为什么在使用时hook_close跟着两个括号
+
+    def hook_close(patcher_field_name: str):
+        def decorator(func: Callable) -> Callable:
+            @functools.wraps(func)
+            def wrapped_close_func(self: StableDiffusionProcessing, *args, **kwargs):
+                patcher: ModelPatcher = getattr(self, patcher_field_name)
+                # 主要想在这里使用内部的 patcher_field_name 并防止互相冲突
+                assert isinstance(patcher, ModelPatcher)
+                patcher.close()
+                logger.info(f"Close p.{patcher_field_name}.")
+                return func(self, *args, **kwargs)
+
+            return wrapped_close_func
+
+        return decorator
+
+    StableDiffusionProcessingTxt2Img.close = hook_close("model_patcher")(
+        StableDiffusionProcessingTxt2Img.close
+    )
+
+
+在使用 hook_close 时跟着两个括号的原因如下：
+
+    第一个括号 hook_close("model_patcher") 调用高阶函数 hook_close，返回一个装饰器函数 decorator。
+    第二个括号 decorator(StableDiffusionProcessingTxt2Img.close) 调用装饰器函数，将原始的 close 方法传入，返回一个新的包装函数。
+最终，这段代码为 StableDiffusionProcessingTxt2Img.close 方法增加了额外的关闭 patcher 和记录日志的功能。
+
+hook_close 是一个接受字符串参数 patcher_field_name 的高阶函数。
+
+functools.wraps 用于保持原始函数的元数据。
+
+
+
+
+
+双包装 。 
+是否有必要？？？      
+想要多传一个参数 所以双包装？
+
+
+    def hook_sample():
+        def decorator(func: Callable) -> Callable:
+            @functools.wraps(func)
+            def wrapped_sample_func(self: Sampler, *args, **kwargs):
+                patcher: ModelPatcher = self.p.get_model_patcher()
+                assert isinstance(patcher, ModelPatcher)
+                patcher.patch_model()
+                logger.info(f"Patch {patcher.name}.")
+
+                try:
+                    return func(self, *args, **kwargs)
+                finally:
+                    patcher.unpatch_model()
+                    logger.info(f"Unpatch {patcher.name}.")
+
+            return wrapped_sample_func
+
+        return decorator
+
+    Sampler.launch_sampling = hook_sample()(Sampler.launch_sampling)
+
+这个直接就是 调用时 定义一个函数 然后返回这个新函数    
+有必要吗？   
+这个不如直接用    
+
+到是上面的可能有必要     
+规整一些    
+传入关键字     
+
+
+@functools.wraps(func) 是 Python 的 functools 模块提供的一个装饰器，它主要用于装饰器函数内部，以确保被装饰函数的元数据（例如函数名、文档字符串等）被保留。这在调试和文档生成时非常有用。
+
+
+保留原始函数的名称和文档字符串：装饰器通常会创建一个新的包装函数，这会导致原始函数的名称和文档字符串被覆盖。@functools.wraps(func) 确保这些元数据被保留，从而使包装后的函数仍然能够显示原始函数的信息。
+
+保持函数的签名：@functools.wraps(func) 可以使包装函数的签名看起来与原始函数相同。这对于自动化工具（如 IDE、调试器和文档生成器）非常重要，因为这些工具依赖于函数签名来提供有用的信息和功能。
+
+保留其他元数据：除了函数名和文档字符串，@functools.wraps(func) 还会保留原始函数的模块和注解等其他元数据。
+
+    import functools
+
+    def my_decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            """Wrapper function"""
+            print("Something is happening before the function is called.")
+            result = func(*args, **kwargs)
+            print("Something is happening after the function is called.")
+            return result
+        return wrapper
+
+    @my_decorator
+    def say_hello(name):
+        """Greet someone by their name"""
+        return f"Hello, {name}!"
+
+    print(say_hello.__name__)  # 输出: say_hello
+    print(say_hello.__doc__)   # 输出: Greet someone by their name
+
+
+
+装饰后的 say_hello 函数仍然保留了原始函数的名称和文档字符串。    
+如果没有使用 @functools.wraps(func)，输出会变成：
+
+    python
+    复制代码
+    print(say_hello.__name__)  # 输出: wrapper
+    print(say_hello.__doc__)   # 输出: Wrapper function
+
+
+这表明装饰后的函数失去了原始函数的名称和文档字符串，这在调试和文档生成时会带来不便。通过使用 @functools.wraps(func)，我们确保这些元数据得以保留。
+
+
+在编程语言中，特别是在函数式编程和面向对象编程中，函数或方法的签名指的是它的参数类型和返回类型的描述。签名通常包括以下几个方面：
+
+函数名：函数或方法的名称。
+
+参数列表：函数或方法定义的参数类型、顺序和数量。这描述了函数接受的输入。
+
+返回类型：函数或方法的返回值类型。它描述了函数执行后返回的结果的类型。
+
+签名在编程中具有重要的作用，主要体现在以下几个方面：
+
+类型检查和静态分析：编译器或解释器可以使用函数签名来进行类型检查，确保调用者和调用函数的代码能够在类型上正确匹配。这种静态类型检查可以帮助捕获潜在的类型错误，提高代码的健壮性。
+
+文档生成：函数签名是生成文档的重要组成部分，特别是自动生成文档时。文档生成工具使用签名来显示函数的参数和返回值信息，帮助开发者理解如何正确使用函数。
+
+自动化工具支持：集成开发环境（IDE）、调试器和其他开发工具通常使用函数签名来提供智能补全、代码导航和调试信息，帮助开发者更高效地编写和调试代码。
+
+
+
+    def greet(name: str) -> str:
+        return f"Hello, {name}!"
+
+    # 函数签名：
+    # 函数名: greet
+    # 参数列表: name: str
+    # 返回类型: str
+
+
+在这个例子中，greet 函数的签名包括函数名 greet、参数列表 name: str 和返回类型 str。这个签名告诉我们，greet 函数接受一个字符串类型的参数 name，并返回一个字符串类型的结果。
+
+总结     
+函数或方法的签名是其定义的重要组成部分，描述了其名称、参数类型和返回类型。签名在静态类型检查、文档生成和开发工具支持等方面都起到了关键作用，帮助开发者编写和维护高质量的代码。
+
+在 Python 编程中，函数或方法可以具有额外的元数据，其中包括模块和注解。这些元数据可以提供有关函数或方法更多的信息，使得代码更具表现力和可理解性。
+
+1. 模块（Module）    
+在函数或方法的上下文中，模块指的是包含该函数或方法的 Python 模块（即 .py 文件）。在 Python 中，每个 .py 文件都是一个模块，模块由全局变量、函数和类组成。函数或方法的模块信息表示它所属的 Python 模块，这对于跟踪函数定义的来源和组织代码非常有用
+
+示例：
+假设有一个名为 utils.py 的文件，其中定义了一个函数 process_data：
+
+    python
+    复制代码
+    # utils.py
+
+    def process_data(data):
+        # function body
+        pass
+    在其他地方调用 process_data 函数时，可以通过函数的 __module__ 属性获取它所在的模块：
+
+    python
+    复制代码
+    import utils
+
+    print(utils.process_data.__module__)  # 输出: utils
+这里 utils.process_data.__module__ 的值是 'utils'，指示该函数定义在 utils.py 模块中。
+
+
+注解（Annotations）    
+Python 3 中引入了函数注解的概念，它允许程序员在函数定义中添加对参数和返回值的注释信息。这些注释信息不会影响函数的运行方式，但可以提供关于参数类型、预期参数值或返回值类型的提示和文档。
+
+
+    def greet(name: str) -> str:
+        return f"Hello, {name}!"
+在这个示例中，name: str 和 -> str 就是函数 greet 的注解：
+
+name: str 表示函数接受一个名为 name 的参数，并且该参数的预期类型为字符串 (str)。
+-> str 表示函数返回一个字符串 (str) 类型的值。
+这些注解可以通过函数对象的 __annotations__ 属性来访问：
+
+    python
+    复制代码
+    print(greet.__annotations__)  # 输出: {'name': <class 'str'>, 'return': <class 'str'>}
+
+greet.__annotations__ 的值是一个字典，包含了参数和返回值的注解信息。
+
+
+模块：函数或方法的模块元数据表示它所属的 Python 模块。    
+注解：函数或方法的注解提供了关于参数和返回值类型的描述信息，用于文档生成和代码理解。    
+这些元数据提供了额外的信息，帮助开发者理解和使用函数或方法，以及维护高质量的代码。
+
+在这个示例中，: str 和 -> str 就是函数 greet 的注解。name: str 表示参数 name 的类型为 str，-> str 表示函数返回值的类型为 str。
+
+
+signature = inspect.signature(greet)
+print(signature)  # 输出: (name: str) -> str
+在这个示例中，inspect.signature(greet) 返回了 greet 函数的签名对象，其结果为 (name: str) -> str，包含了函数的参数和返回值类型信息。
+
+
+注解提供了一种灵活的方式来为函数参数和返回值添加元数据，这些信息可以用于文档生成、类型检查等。它们是一种描述性的元数据，而不直接影响函数的执行。
+
+签名则更加具体和实际，直接描述了函数的输入和输出方式，是函数定义的核心部分。签名通常是由函数的名称、参数列表和返回类型组成，用于指导函数的调用和使用。
+
+因此，虽然注解可以提供签名中的某些信息（如参数类型和返回类型），但注解本身更多地是一种元数据的扩展，用于提供更多的上下文和文档支持。
+
+Python 中的函数注解是一种语法特性，允许开发者在函数定义中为参数和返回值添加额外的元数据信息，这些信息可以是任何对象，通常用来指定参数的类型或者提供其他辅助信息。函数注解并不会影响函数的行为或返回值，它们只是提供了一种标记方法来帮助开发者和工具理解函数的用途和预期用法。
+
+签名（Signature）
+函数的签名指的是函数定义的一部分，主要包括函数的名称、参数列表和返回类型。签名反映了函数如何接受输入和产生输出，是函数的核心定义部分。在 Python 中，函数签名可以通过 inspect 模块中的 signature 对象来访问和操作。
+
+示例：
+
+    python
+    复制代码
+    import inspect
+
+    def greet(name: str) -> str:
+        return f"Hello, {name}!"
+
+    signature = inspect.signature(greet)
+    print(signature)  # 输出: (name: str) -> str
+
+
+
+
 
 
 
