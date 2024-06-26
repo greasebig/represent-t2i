@@ -528,6 +528,28 @@ git diff --cached
 按 q 键：这将退出 less 或其他分页器，返回到命令行提示符。
 
 
+
+## 合并
+
+发布
+
+    1.在 develop 分支，修改版本号
+
+    package.json version属性
+    2.从 develop 分支切换到 master 分支,并合并 develop 分支代码
+
+    git checkout master
+    git merge develop
+    3.添加 git tag
+
+    git tag vx.x.x
+    git push origin --tags
+
+
+
+
+
+
 # .gitignore
 
 ## .gitignore不能删去远端已有文件

@@ -961,6 +961,13 @@ validator 感觉是 直接定义在 赋值的函数中 在赋值前完成先调�
 
 # 回调 括号外括号的方法
 
+这份代码没有直接用 @   
+以及 @ 然后括号传参    
+@app.post('/vid2vid_infer')     
+甚至写成一个类 一个方法    
+或者再声明成属性
+
+
 为什么在使用时hook_close跟着两个括号
 
     def hook_close(patcher_field_name: str):
@@ -1185,6 +1192,376 @@ Python 中的函数注解是一种语法特性，允许开发者在函数定义�
 
     signature = inspect.signature(greet)
     print(signature)  # 输出: (name: str) -> str
+
+
+## @app.post('/vid2vid_infer')
+
+    from fastapi import FastAPI, Request
+    from functools import wraps
+    import random
+    import threading
+    import logging
+
+    app = FastAPI()
+    logger = logging.getLogger(__name__)
+
+    # 自定义装饰器
+    def post_with_params(path: str):
+        def decorator(func):
+            @app.post(path)
+            @wraps(func)
+            async def wrapper(*args, **kwargs):
+                return await func(*args, **kwargs)
+            return wrapper
+        return decorator
+
+    # 示例数据类
+    class InferenceRequest:
+        def __init__(self, ai_pic_id, seed=None, return_info="", batch_name="", ckpt_name=""):
+            self.ai_pic_id = ai_pic_id
+            self.seed = seed
+            self.return_info = return_info
+            self.batch_name = batch_name
+            self.ckpt_name = ckpt_name
+
+    # 示例处理函数
+    @post_with_params('/vid2vid_infer')
+    async def vid2vid_infer(request: InferenceRequest):
+        if request.seed is None or request.seed == -1:
+            request.seed = random.randint(1, 2 ** 32)
+        
+        logger.info(f'NEW REQUEST {request.ai_pic_id}\n{request}')
+        status = 0
+        msg = 'success'
+        
+        if vid2vid.busy:
+            status = 1  # 示例错误码
+            msg = f'Inference in the thread, model_id={request.return_info}, busy={vid2vid.busy}'
+            logger.info(msg)
+            return {'code': 200, 'batch_name': request.batch_name, 'status': status, 'msg': msg}
+    
+        thread_one = threading.Thread(target=video2video, args=(request,))
+        thread_one.start()
+        
+        logger.info(f'send back batch_name: {request.batch_name}')
+        return {'code': 200, "base_model": request.ckpt_name, 'batch_name': request.batch_name, 'status': status, 'msg': msg}
+
+    # 示例函数，用于模拟视频处理
+    def video2video(request):
+        pass
+
+    # 示例对象，用于模拟系统状态
+    class Vid2Vid:
+        busy = False
+
+    vid2vid = Vid2Vid()
+
+
+定义装饰器post_with_params：
+
+接受一个路径参数path。
+内部定义一个装饰器函数decorator，接受一个函数func。
+使用@app.post(path)将func绑定到指定的路径，处理POST请求。
+返回包装函数wrapper，确保原始函数的功能保持不变。
+使用装饰器：
+
+使用@post_with_params('/vid2vid_infer')装饰vid2vid_infer函数，将其绑定到/vid2vid_infer路径。
+
+
+### 自定义
+
+要实现一个自定义装饰器，能够像 @lujunda.post('/vid2vid_infer') 这样的用法，你可以创建一个类来处理装饰器，并使用内部函数来模拟请求处理的行为。下面是一个示例，展示如何实现这个功能。
+
+
+    from functools import wraps
+    import random
+    import threading
+    import logging
+
+    # 设置日志记录器
+    logger = logging.getLogger(__name__)
+    logging.basicConfig(level=logging.INFO)
+
+    # 示例系统状态对象
+    class Vid2Vid:
+        busy = False
+
+    vid2vid = Vid2Vid()
+
+    # 示例任务栈
+    work_stack = []
+
+    # 示例错误代码
+    ERR_ALG = 1
+
+    # 模拟一个请求数据类
+    class InferenceRequest:
+        def __init__(self, ai_pic_id, seed=None, return_info="", batch_name="", ckpt_name=""):
+            self.ai_pic_id = ai_pic_id
+            self.seed = seed
+            self.return_info = return_info
+            self.batch_name = batch_name
+            self.ckpt_name = ckpt_name
+
+自定义装饰器类
+
+    class Lujunda:
+        def __init__(self):
+            self.routes = {}
+
+        def post(self, path: str):
+            def decorator(func):
+                @wraps(func)
+                def wrapper(*args, **kwargs):
+                    logger.info(f'Handling POST request at {path}')
+                    return func(*args, **kwargs)
+                self.routes[path] = wrapper
+                return wrapper
+            return decorator
+
+    lujunda = Lujunda()
+
+
+    # 示例处理函数
+    @lujunda.post('/vid2vid_infer')
+    def vid2vid_infer(request: InferenceRequest):
+        # 设置随机种子
+        if request.seed is None or request.seed == -1:
+            request.seed = random.randint(1, 2 ** 32)
+        
+        # 记录请求信息
+        logger.info(f'NEW REQUEST {request.ai_pic_id}\n{request}')
+        status = 0
+        msg = 'success'
+        
+        # 检查系统状态
+        if vid2vid.busy:
+            status = ERR_ALG
+            msg = f'Inference in the thread, model_id={request.return_info}, busy={vid2vid.busy}'
+            logger.info(msg)
+            return {'code': 200, 'batch_name': request.batch_name, 'status': status, 'msg': msg}
+    
+        # 启动新线程处理任务
+        thread_one = threading.Thread(target=video2video, args=(request,))
+        thread_one.start()
+        
+        # 返回响应
+        logger.info(f'send back batch_name: {request.batch_name}')
+        return {'code': 1, "base_model": request.ckpt_name, 'batch_name': request.batch_name, 'status': status, 'msg': msg}
+
+    # 示例函数，用于模拟视频处理
+    def video2video(request):
+        logger.info(f"Processing video for request {request.ai_pic_id}")
+
+    # 模拟发送POST请求
+    def simulate_post_request():
+        path = '/vid2vid_infer'
+        request = InferenceRequest(ai_pic_id="12345", batch_name="batch1", ckpt_name="model_v1")
+        if path in lujunda.routes:
+            response = lujunda.routes[path](request)
+            print(response)
+        else:
+            print(f"No handler for path: {path}")
+
+    # 运行模拟POST请求
+    simulate_post_request()
+
+
+
+定义装饰器类 Lujunda：
+
+这个类用于存储路径和处理函数的映射关系。
+post 方法接受路径参数 path 并返回一个装饰器 decorator。
+decorator 内部定义一个包装函数 wrapper，在调用原始函数之前记录请求路径信息。
+wrapper 被存储在 self.routes 字典中，键为路径，值为包装函数。
+使用装饰器：
+
+使用 @lujunda.post('/vid2vid_infer') 装饰 vid2vid_infer 函数，将其绑定到指定的路径，并处理模拟的POST请求。
+
+模拟发送POST请求：
+
+定义 simulate_post_request 函数，创建一个 InferenceRequest 对象并调用 lujunda.routes[path] 处理请求。
+打印响应结果。
+
+
+
+
+
+## **回调（callback）**
+
+通常指的是一个函数或者代码块，它作为参数传递给另一个函数，并且在某些事件发生或者特定条件满足时被调用执行。简单来说，回调函数就是通过将一个函数作为参数传递给另一个函数，从而在某个事件发生时执行这个函数。这种机制常用于异步编程，事件驱动编程或者处理复杂的程序流程。
+
+常见的例子包括处理用户界面事件（比如点击按钮后执行的函数）、处理异步操作（比如文件读取完成后执行的函数）、或者处理网络请求（比如收到服务器响应后执行的函数）等。
+
+当你在使用 JavaScript 进行异步编程时，回调函数经常会用到。以下是几个常见的例子：
+
+事件处理：
+
+    // HTML 中的按钮
+    <button id="myButton">Click Me</button>
+
+    // JavaScript 中的事件处理函数
+    document.getElementById('myButton').addEventListener('click', function() {
+        alert('Button clicked!');
+    });
+这里的匿名函数 function() { alert('Button clicked!'); } 就是一个回调函数，它在按钮被点击时被调用执行。
+
+
+定时器：
+
+    javascript
+    复制代码
+    // 使用 setTimeout 设置定时器
+    setTimeout(function() {
+        console.log('Timeout completed!');
+    }, 2000);
+这里的 function() { console.log('Timeout completed!'); } 就是一个回调函数，它在延时结束后被调用执行。
+
+
+网络请求（使用 jQuery 的例子）：
+
+    javascript
+    复制代码
+    // 发起 AJAX 请求
+    $.ajax({
+        url: '/api/data',
+        success: function(response) {
+            console.log('Data received:', response);
+        },
+        error: function(xhr, status, error) {
+            console.error('Error occurred:', error);
+        }
+    });
+这里的 success 和 error 参数中的函数都是回调函数，在请求成功或失败时被调用执行。
+
+
+
+
+在 Python 中，回调函数的使用场景也是很常见的，尤其是在事件驱动或者异步编程中。以下是一些 Python 中回调函数的例子：
+
+事件驱动（使用 tkinter GUI 库的例子）：
+
+    python
+    复制代码
+    import tkinter as tk
+
+    def button_clicked():
+        print('Button clicked!')
+
+    root = tk.Tk()
+    button = tk.Button(root, text='Click Me', command=button_clicked)
+    button.pack()
+    root.mainloop()
+这里的 button_clicked 函数就是一个回调函数，它在按钮被点击时被调用执行。
+
+
+异步操作（使用 asyncio 库的例子）：
+
+    python
+    复制代码
+    import asyncio
+
+    async def main():
+        print('Start sleeping')
+        await asyncio.sleep(2)
+        print('Awake!')
+
+    def callback():
+        print('Callback executed')
+
+    loop = asyncio.get_event_loop()
+    loop.call_later(1, callback)  # 在1秒后调用回调函数
+    loop.run_until_complete(main())
+这里的 callback 函数就是一个回调函数，它在指定的时间后被调用执行。
+
+
+async def main():
+
+定义了一个异步函数 main，它是一个协程（coroutine）。协程是一种特殊的函数，可以在需要时被挂起和恢复，以便异步执行。
+
+
+loop = asyncio.get_event_loop()
+
+获取当前的事件循环对象。
+
+loop.run_until_complete(main())
+
+运行事件循环，直到 main() 协程完成。这会启动 main() 函数中定义的异步操作，并且会在等待 2 秒后打印 'Awake!'。
+
+运行这段代码后，输出应该是：
+
+    sql
+    复制代码
+    Start sleeping
+    Callback executed
+    Awake!
+解释每个输出的产生过程：
+
+首先，程序执行 print('Start sleeping')，打印出 'Start sleeping'。
+然后，事件循环调度 loop.call_later(1, callback)，在 1 秒后执行 callback 函数。所以，在执行 main() 中的异步操作期间，1 秒钟过去后，callback 函数被调用，打印出 'Callback executed'。
+最后，await asyncio.sleep(2) 让 main() 协程挂起，等待 2 秒钟。一旦等待完成，程序继续执行，打印出 'Awake!'。
+这种输出顺序说明了异步操作的特性：即使在等待异步操作的过程中，程序可以继续处理其他任务或调用回调函数，而不必阻塞整个进程。
+
+
+
+
+
+
+
+
+
+事件处理（使用 Flask Web 框架的例子）：
+
+    python
+    复制代码
+    from flask import Flask, request
+
+    app = Flask(__name__)
+
+    @app.route('/webhook', methods=['POST'])
+    def webhook():
+        data = request.json
+        handle_webhook(data, callback)
+        return 'OK'
+
+    def callback(response):
+        print('Received response:', response)
+
+    def handle_webhook(data, callback):
+        # 处理 webhook 数据，并调用回调函数
+        callback(data)
+
+    if __name__ == '__main__':
+        app.run(debug=True)
+这里的 callback 函数作为参数传递给 handle_webhook 函数，在处理完 webhook 数据后被调用执行。
+
+
+回调函数通过将函数作为参数传递，实现了灵活的程序控制和异步操作管理。
+
+异步操作指的是程序在执行过程中不需要等待某些耗时的任务完成，而是可以继续执行后续的代码。这种方式允许程序在等待某些任务完成的同时，可以处理其他任务，从而提高了程序的效率和响应速度。
+
+在编程中，异步操作通常用于处理需要等待的 I/O 操作（如文件读写、网络请求、数据库访问等），以及定时器等需求。Python 中有几种方式可以实现异步操作，比如使用 asyncio 库进行协程的管理，或者使用异步框架如 aiohttp 处理网络请求。
+
+    import asyncio
+
+    async def async_task(name, delay):
+        print(f'{name} started')
+        await asyncio.sleep(delay)
+        print(f'{name} finished after {delay} seconds')
+
+    async def main():
+        task1 = async_task('Task 1', 2)
+        task2 = async_task('Task 2', 1)
+        
+        # 并发执行异步任务
+        await asyncio.gather(task1, task2)
+
+    if __name__ == '__main__':
+        asyncio.run(main())
+在这个例子中，async_task 是一个异步函数，模拟了需要等待一段时间后完成的任务。在 main 函数中，通过 asyncio.gather 同时启动了多个异步任务，而不必等待每个任务完成才执行下一个任务。这样可以在一个任务等待时并发执行其他任务，提高了程序的效率和响应能力。
+
+异步操作的体现在于，程序在遇到需要等待的操作时，并不会阻塞整个进程或线程，而是利用事件循环（event loop）机制，让其他任务继续执行，直到等待的操作完成后再返回处理结果。
+
 
 
 
