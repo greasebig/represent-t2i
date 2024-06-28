@@ -9633,8 +9633,116 @@ pil好像就是直接运行在Int8
 细节恢复多种方法可选     
 crop和resize方法可选，当前仅crop
 
+单纯文生背景没有光源输入 应该仅仅是高斯噪声 但是理论上也可以添加保持前景颜色
+
 默认开启细节修复     
 
+
+ipadpter使用          
+从这个角度将comfyui确实很快，有社区支持，个人添加模块 扩展功能 极其方便，不需要去考虑latent维度的问题 这倒是其次，主要是有人添加模块 开源 而且都是好用的 测试好的才发布       
+底模甚至都挑好了      
+其实就是什么都做好了 直接用      
+只要你的底层框架适配     
+
+
+不知道是否有用 保持其他地方不变？还是提高相似度？     
+iclight对主体的保留已经很好了     
+ipadapter应该会在用户输入超大图后重新生成低分辨率图时候 人像会更相似   
+faceid等     
+
+
+前景mask 或者前景颜色保留的时候可以做一个blur     
+做全局的渐变blur    
+
+comfyui生态确实完善     
+甚至连背景生成又加上线条cn     
+甚至还有 mask editor 集成    
+
+
+然后调用分割一切来做分割
+
+多人前景  多物体 长距离 待测试    
+
+
+但是comfyui过于繁杂       
+
+产品端其实就像一键完成  同时有准确的意图识别      
+用户习惯之类的      
+让机器自己去磨合    
+
+服了 连颜色匹配都有多种方法       
+那整个流程都可以拆解 也有很多方法     
+
+但是其实这只是一个极其细小的项目 甚至都快过时的框架
+
+很多待添加功能在comfy都已经有实现     
+有一些很细的也有 使用文档已经长的我不想看     
+ratio恢复这些    
+
+
+
+
+
+
+
+
+
+
+
+
+epiCRealism
+
+Natural Sin Final and last of epiCRealism
+
+自然罪孽 史诗现实主义的最终结局
+由于 SDXL 即将推出，我们就说它是最终版本吧，因为我为此付出了很多努力，可能无法做更多了。
+
+我尝试完善对提示、手部以及真实感的理解。
+让我们看看你们能用它做些什么。
+
+收很好也很真实
+
+由于时间不多，我仍然想发布新方法的 RC1。
+
+普通面孔，自然容貌，更加多样化面孔
+
+手工修复
+
+包括 VAE
+
+建议使用简单的 Negative 来获得平均输出，避免使用“优化器”嵌入
+
+
+我一直在寻找最佳基础模型，我不得不说这是我迄今为止找到的最好的模型，因为它非常真实。这些看起来就像是真正的女人。另一件事是，衣服看起来也很逼真，因为我一直在努力不让它们看起来很假或模糊。但我没有进行补色，因为这会增加模糊。我唯一苦苦挣扎的事情实际上是得到改变衣服颜色的提示。我必须弄清楚。
+
+
+它会产生相同的脸（官方和用户示例中都是相同的脸），只有很小的变化。不管你放的是红发、金发、黑发等。即使使用 img2img 和其他类似的东西，比如 controlnet，它仍然会试图强制产生相同的脸。几乎就像一部恐怖电影。我猜有些作者喜欢某些脸，所以他们会让它更多地覆盖其他脸。
+
+嗨！我真的很喜欢这个模型，但使用 IP 适配器时，它会产生几乎两倍于照片参考中人的鼻子。有人对如何解决这个问题有什么建议吗？
+
+epiCRealism XL 24.6.19
+
+Update:
+since i'm low on time, i skipped training for SDXL and found the awesome Model LEOSAM's HelloWorld XL from @LEOSAM which is pretty perfect. So i decided to merge it with V1 + a WIP finetuned model around.
+
+数据是一样的
+
+![alt text](assets/IC-Light/image-122.png)
+
+
+但是自定义程度过高 用起来复杂     
+但胜在有人帮搞    
+
+
+
+
+
+
+
+
+
+
+### 前景提取
 当前的briarmbg其实对物体提取前景效果其实也可以，之前没有细看，或者是用错       
 人物体都可以       
 
@@ -9784,6 +9892,112 @@ validator被调用的时间一般是类创建的时候
 主要还是rembg不能使用gpu的问题
 
 但当前的briarmbg其实对物体提取前景效果很差
+
+
+
+
+## 保持前景颜色
+保持前景颜色的话 跟背景色调会有一定偏差吧
+
+不会 因为是送入模型前对init latent做操作，保持前景颜色，然后再送入iclight
+
+我看这里保持前景颜色的过渡还是可以的
+
+    def get_lightmap(self, p: StableDiffusionProcessingImg2Img) -> np.ndarray:
+        assert self.model_type == ModelType.FC
+        assert isinstance(p, StableDiffusionProcessingImg2Img)
+        lightmap = np.asarray(p.init_images[0]).astype(np.uint8)
+        if self.reinforce_fg:
+            rgb_fg = self.input_fg_rgb
+            mask = np.all(rgb_fg == np.array([127, 127, 127]), axis=-1)
+            mask = mask[..., None]  # [H, W, 1]
+            lightmap = resize_and_center_crop(
+                lightmap, target_width=rgb_fg.shape[1], target_height=rgb_fg.shape[0]
+            )
+            lightmap_rgb = lightmap[..., :3]
+            lightmap_alpha = lightmap[..., 3:4]
+            lightmap_rgb = rgb_fg * (1 - mask) + lightmap_rgb * mask
+            lightmap = np.concatenate([lightmap_rgb, lightmap_alpha], axis=-1).astype(
+                np.uint8
+            )
+
+        return lightmap
+
+
+创建一个布尔掩码，其中RGB值为[127, 127, 127]的像素为True，其他为False。这可能用于识别需要特殊处理的区域。
+
+背景为true 前景为false        
+
+np.all 是 NumPy（一个用于处理数组的 Python 库）中的一个函数。它用于检查数组中的所有元素是否都满足某个条件。如果所有元素都满足条件，则返回 True，否则返回 False。
+
+多维数组中的使用：
+
+    python
+    复制代码
+    arr = np.array([[1, 2], [3, 4]])
+    result = np.all(arr > 0)  # 返回 True
+
+    result = np.all(arr > 2, axis=0)  # 返回 [False, True]，按列检查
+    result = np.all(arr > 2, axis=1)  # 返回 [False, True]，按行检查
+总结起来，np.all 是一个非常有用的函数，用于在数组中进行条件检查和验证
+
+
+查数组元素是否满足条件：
+
+    python
+    复制代码
+    arr = np.array([1, 2, 3, 4, 5])
+    result = np.all(arr > 0)  # 返回 True，因为所有元素都大于 0
+
+    result = np.all(arr < 5)  # 返回 False，因为并不是所有元素都小于 5
+
+axis确实有些乱
+
+对于掩码为False的区域（即非[127, 127, 127]的像素），使用rgb_fg的值。
+对于掩码为True的区域，使用lightmap_rgb的值。
+这实现了有选择性地保留前景图像的某些部分，同时用lightmap替换其他部分。
+
+
+单纯文生背景没有光源输入 应该仅仅是高斯噪声 但是理论上也可以添加保持前景颜色
+
+光源就是相当于被高斯噪声 起到类似恢复细节的作用
+
+
+数组的轴（Axes）
+考虑一个 3D 数组：
+
+    python
+    复制代码
+    import numpy as np
+
+    arr = np.array([[[1, 2], [3, 4]], 
+                    [[5, 6], [7, 8]]])
+
+
+axis=0 是指第一个维度（最外层的列表），它包含了两个二维数组：[[1, 2], [3, 4]] 和 [[5, 6], [7, 8]]。   
+axis=1 是指第二个维度（每个二维数组中的列表），它包含了每个二维数组中的两个一维数组：例如，[1, 2] 和 [3, 4]。     
+axis=2 是指第三个维度（每个一维数组中的元素），它包含了每个一维数组中的两个元素：例如，1 和 2。
+
+
+lightmap原始应该是 形状（512,512,3）     
+
+但是具体到内部如 h=1 w=1 时 有一个表示rgb值的向量 [127,127,127]    
+
+
+mask = np.all(rgb_fg == np.array([127, 127, 127]), axis=-1)
+
+最后一个维度竟然就是 [127,127,127] 而不是进入到里面的 127
+
+
+mask 是一个布尔数组。在进行运算之前，布尔值会被自动转换为 0 和 1，这使得这些运算可以正常进行。以下是详细的解释：
+
+布尔值转换：
+
+True 会被转换为 1
+False 会被转换为 0
+
+
+
 
 
 

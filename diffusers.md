@@ -122,13 +122,18 @@ DPM++ 2M SDE Karras	DPMSolverMultistepScheduler	init with and use_karras_sigmas=
 
 
 
-# from_pretrained
+# from_pretrained cache
 pipe = DiffusionPipeline.from_pretrained(
       "stabilityai/sdxl-turbo", 
       torch_dtype=torch.float16, variant="fp16",
       cache_dir = 
 
-这样写好像只会下载fp16的diffuser模型，会过滤其他    
+这样写好像只会下载fp16的diffuser模型，会过滤其他
+
+
+没有,默认fp32    
+
+
 
 不会下载webui模型
 

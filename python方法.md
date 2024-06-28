@@ -1563,6 +1563,45 @@ loop.run_until_complete(main())
 异步操作的体现在于，程序在遇到需要等待的操作时，并不会阻塞整个进程或线程，而是利用事件循环（event loop）机制，让其他任务继续执行，直到等待的操作完成后再返回处理结果。
 
 
+# log常用
+
+    log_path = os.path.join(outpath, "run.log")
+    logging.basicConfig(
+        format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
+        datefmt='%m/%d/%Y %H:%M:%S',
+        level=logging.INFO,
+        handlers=[
+            logging.FileHandler(log_path, mode='w'),
+            logging.StreamHandler()
+        ]
+    )
+    logger = logging.getLogger(__name__)
+
+    logger.info(qnn)
+
+    if not config.quant.grad_checkpoint:
+        logger.info('Not use gradient checkpointing for transformer blocks')
+        qnn.set_grad_ckpt(False)
+
+    logger.info(f"Sampling data from {config.calib_data.n_steps} timesteps for calibration")
+
+
+
+
+# yaml文件加载方式
+
+
+opt = parser.parse_args()
+
+config = OmegaConf.load(f"{opt.config}")
+
+路径给到直接读取
+
+很像是p 或者pipeline的字典
+
+
+
+
 
 
 

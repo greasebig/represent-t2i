@@ -1603,8 +1603,24 @@ denoise 过程分别调用不同的细节增强方法
     #return output_images
 
 
-## Detail_Refinement
+
+
+
+
+## 原理再阅读   
+Detail_Refinement     
 比较好奇如果设置好windows size 是不是可以用来生产 16384
+
+估计还会在学习一周    
+
+cut mixdq     
+
+github上当前有的   
+
+复习
+
+
+
 
 
 
