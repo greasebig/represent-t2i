@@ -147,15 +147,28 @@ cache_dir 不会使用
 没有移到cuda自然没有显存占用
 
 
-
 神奇的是scp 后软连接直接被赋值  源目标直接为空    
 
 ![alt text](assets/diffusers/image-21.png)
 
 
+self.rmbg_model = BriaRMBG.from_pretrained("briaai/RMBG-1.4",cache_dir = "./weights") 
+
+
+
+
+
 
 
 # from_single_file
+支持单文件加载的 ： StableDiffusionXLPipeline    
+这个 DiffusionPipeline 不支持 除非重新定义类 比如 ： 
+class CutDiffusionSDXLPipeline(DiffusionPipeline, FromSingleFileMixin, LoraLoaderMixin, TextualInversionLoaderMixin):
+
+
+
+
+
 global_ckpt[model_name] = CutDiffusionSDXLPipeline.from_single_file(model_name, torch_dtype=torch.float16).to("cuda")
 
 
@@ -172,6 +185,22 @@ pipe = StableDiffusionXLPipeline.from_single_file(
       custom_pipeline="/teams/ai_model_1667305326/WujieAITeam/private/lujunda/newlytest/MixDQ/MixDQ",
       torch_dtype=torch.float16, variant="fp16",
   )
+
+
+
+如果已经缓存过权重    
+下次使用还是要开代理       
+
+除非设置endpoint可能可以 
+
+
+
+
+
+
+
+
+
 
 
 

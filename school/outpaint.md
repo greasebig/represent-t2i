@@ -3150,6 +3150,23 @@ loss怎么计算
 
 
 
+# xl模型
+其他人肯能拿来融了
+
+https://huggingface.co/diffusers/stable-diffusion-xl-1.0-inpainting-0.1
+
+
+SD-XL Inpainting 0.1 使用权stable-diffusion-xl-base-1.0重进行初始化。该模型在 1024x1024 分辨率下训练了 40k 步，并将文本条件降低 5%，以改进无分类器无分类器指导采样。对于修复，UNet 有 5 个额外的输入通道（4 个用于编码的蒙版图像，1 个用于蒙版本身），在恢复非修复检查点后，它们的权重被初始化为零。在训练期间，我们生成合成蒙版，并在 25% 的时间内蒙版所有内容。
+
+and 5% dropping of the text-conditioning to improve classifier-free classifier-free guidance sampling.
+
+ has 5 additional input channels (4 for the encoded masked-image and 1 for the mask itself) whose weights were zero-initialized after restoring the non-inpainting checkpoint. 
+
+ During training, we generate synthetic masks and, in 25% mask everything.
+
+
+
+
 
 
 

@@ -163,6 +163,53 @@ git log --oneline
 需要注意的是,使用Git命令行获取单个提交时,您将下载整个repo的历史,而直接下载zip压缩包将更小更快。
 
 
+### 切换到某个pull的commit， 但还没有合并
+
+在大多数情况下，PR 是从一个特定的分支提交的。因此，你需要先获取这个 PR 分支。
+
+    bash
+    复制代码
+    git fetch origin pull/<PR编号>/head:<本地分支名>
+
+例如，如果 PR 编号是 1234，你想将它拉到本地的 pr-1234 分支，可以运行：
+
+    bash
+    复制代码
+    git fetch origin pull/1234/head:pr-1234
+
+
+切换到该分支:
+
+获取分支后，切换到该分支：
+
+    bash
+    复制代码
+    git checkout pr-1234
+切换到指定的 commit:
+
+最后，切换到你想要查看的特定 commit：
+
+    bash
+    复制代码
+    git checkout <commit-id>
+
+
+
+https://github.com/AUTOMATIC1111/stable-diffusion-webui/pull/16035
+
+
+例如，在GitHub上，URL通常类似于https://github.com/用户名/仓库名/pull/1234，其中1234就是PR号。
+
+ebui# git fetch origin pull/16035/head:dev
+fatal: Refusing to fetch into current branch refs/heads/dev of non-bare repository
+
+先switch 到别的 更新后 再回来
+
+
+
+
+
+
 
 
 

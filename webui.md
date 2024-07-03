@@ -1,3 +1,13 @@
+
+# 链接权重
+--ckpt-dir 
+
+/panchovix_webui/stable-diffusion-webui/modules/cmd_args.py
+
+
+
+
+
 # 3090
 ## 黑图和xyz
 真实感大模型sdxl加载失败    
