@@ -222,6 +222,127 @@ fatal: Refusing to fetch into current branch refs/heads/dev of non-bare reposito
 
 ## 分支
 
+
+### 切换
+
+
+(myconda) root@ZB7j0G:/home# git switch webui-1.8.0
+error: Your local changes to the following files would be overwritten by checkout:
+        stable_diffusion_webui_master/cache.json.lock
+Please commit your changes or stash them before you switch branches.
+Aborting
+
+
+
+
+
+Option 2: Stash Your Changes
+Stash your changes:
+sh
+复制代码
+git stash push -m "Stash changes to cache.json.lock"
+Switch branches:
+sh
+复制代码
+git switch webui-1.8.0
+Optional: Apply the stashed changes if needed:
+sh
+复制代码
+git stash apply
+
+
+
+
+Option 3: Discard Your Changes
+If you do not need the changes in stable_diffusion_webui_master/cache.json.lock, you can discard them:
+
+Discard your changes:
+sh
+复制代码
+git checkout -- stable_diffusion_webui_master/cache.json.lock
+
+
+
+git switch 和 git checkout 在某些情况下功能相似，但它们有一些细微的区别。
+
+相似点
+
+    切换分支: 两者都可以用来切换分支。
+    git switch <branch>
+    git checkout <branch>
+
+不同点
+
+    创建和切换分支: git switch 只能创建并切换到新的分支，而不能像 git checkout 一样同时更新工作区文件。
+    创建新分支并切换: git switch -c <new-branch>
+    创建新分支并切换: git checkout -b <new-branch>
+    切换到特定的提交: git checkout 可以用来切换到特定的提交，而 git switch 主要用于切换分支。
+    切换到特定提交: git checkout <commit>
+    意图明确: git switch 更加专注于分支管理，而 git checkout 功能更广，包括更新工作区文件等。
+
+
+推荐使用
+git switch 是为了更清晰地分离分支切换操作而引入的，推荐在需要切换分支的情况下使用 git switch，而在需要切换到特定提交或者更新工作区文件时使用 git checkout。
+
+
+创建并切换到新分支:
+
+    bash
+    复制代码
+    git switch -c feature/new-feature
+或者:
+
+    bash
+    复制代码
+    git checkout -b feature/new-feature
+切换到特定提交:
+
+    bash
+    复制代码
+    git checkout abc1234
+
+
+在 Git 中，更新工作区文件是指通过 git checkout 或其他命令将暂存区（staging area）或某个分支、标签、提交（commit）中的内容更新到当前工作目录中。
+
+场景1：恢复文件到上一个提交的状态
+假设你对某个文件做了一些修改，但你决定放弃这些修改并恢复到上一个提交的状态。
+
+    bash
+    复制代码
+    git checkout HEAD -- path/to/file
+这个命令会将 path/to/file 恢复到当前分支最后一次提交的状态。
+
+
+场景2：切换到特定提交
+当你想要查看某个特定提交的内容时，可以使用 git checkout 切换到那个提交。这样，工作区文件会被更新为那个提交时的状态。
+
+
+场景3：丢弃未暂存的更改
+如果你对某些文件进行了修改，但还没有暂存（即使用 git add ），并且你想要放弃这些修改，可以使用 git checkout 恢复这些文件。
+
+    bash
+    复制代码
+    git checkout -- path/to/file
+这个命令会将 path/to/file 恢复为暂存区的状态（如果没有暂存的更改，则恢复为上一个提交的状态）。
+
+
+
+虽然 git switch 专注于分支管理，但在切换分支时它同样会更新工作区文件以匹配目标分支的最新提交状态。
+
+
+切换到已有分支：
+
+    bash
+    复制代码
+    git switch develop
+这会将工作区文件更新为 develop 分支上的最新提交状态。
+
+
+
+
+
+
+
 ### 检查差异
 
 git log sd3..origin/sd3
