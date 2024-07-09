@@ -1,4 +1,410 @@
+# cfg起源问题
+
+
+
+# edm和epsilon sigma区别是什么？
+
+euler edm eps 并不对立
+
+euler传统
+
+
+edm预测类型也是eps
+
+只是好像不同于EulerDiscreteScheduler
+
+euler更像是VP VE 或者ddim
+
+![alt text](assets_picture/EDM-style-training/image-2.png)
+
+playground
+
+默认情况下，管道使用计划程序，以获得更清晰、更精细的细节。它是 DPM++ 2M Karras 调度器的 EDM 公式。 是此调度程序的良好默认值。EDMDPMSolverMultistepSchedulerguidance_scale=3.0
+
+管道还支持计划程序。它是 Euler 调度器的 EDM 公式。 是此调度程序的良好默认值。EDMEulerSchedulerguidance_scale=5.0
+
+The pipeline uses the scheduler by default, for crisper fine details. It's an EDM formulation of the DPM++ 2M Karras scheduler. is a good default for this scheduler.EDMDPMSolverMultistepSchedulerguidance_scale=3.0       
+The pipeline also supports the scheduler. It's an EDM formulation of the Euler scheduler. is a good default for this scheduler.EDMEulerSchedulerguidance_scale=5.0
+
+## sceduler对比
+
+![alt text](assets_picture/EDM-style-training/image-3.png)
+
+
+![alt text](assets_picture/EDM-style-training/image-4.png)
+
+eps一般就是预测函数       
+
+alpha beta是加噪强度
+
+sigma是什么来着 好像是时间步经过转换后的值
+
+
+![alt text](assets_picture/EDM-style-training/image-5.png)
+
+
+
+第四节
+
+确定性采样提供了许多好处，例如，能够通过反转ODE将真实图像转换为相应的潜在表示。然而，它往往导致输出质量比随机采样更差[47,49]，随机采样在每一步都向图像中注入新的噪声。假设ode和sde在理论上恢复了相同的分布，那么随机性的作用究竟是什么呢?
+
+所以ode才会去使用eta额外噪声提升质量吗 好像之前有些模型sde采样器不太行？
+
+Song等人[49]的SDE可以推广[20,58]为Eq. 1的概率流ODE与时变Langevin扩散SDE[14]的和(见附录B.5):
+
+
+![alt text](assets_picture/EDM-style-training/image-6.png)
+
+他妈第一周让我看这个 四个月了我还是看得一团糟
+
+
+
+这一观点揭示了为什么随机性在实践中是有用的:隐式朗之万扩散在给定时间将样本推向期望的边际分布，主动纠正早期采样步骤中产生的任何错误。另一方面，用离散SDE解算器步长逼近朗格万项本身也会引入误差。先前的结果[3,24,47,49]表明非零β(t)是有帮助的，但据我们所知，Song等人[49]中β(t)的隐式选择没有特殊的性质。因此，最优的随机量应该由经验决定。
+
+
+
+随机采样器。我们提出了一种随机采样器，它结合了我们的二阶确定性ODE积分器和显式的添加和去除噪声的类似朗万的“搅拌”。算法2给出了一个伪代码。在每个步骤i中，给定噪声电平ti (= σ(ti))下的样本xi，我们执行两个步骤
+
+
+![alt text](assets_picture/EDM-style-training/image-7.png)
+
+
+![alt text](assets_picture/EDM-style-training/image-8.png)
+
+[Submitted on 1 Jun 2022 (v1), last revised 11 Oct 2022 (this version, v2)]
+Elucidating the Design Space of Diffusion-Based Generative Models
+Tero Karras, Miika Aittala, Timo Aila, Samuli Laine
+
+
+迟迟未见karras scheduler
+
+
+
+
+![alt text](assets_picture/EDM-style-training/image-9.png)
+
+
+感觉有点像ays分析
+
+![alt text](assets_picture/EDM-style-training/image-10.png)
+
+![alt text](assets_picture/EDM-style-training/image-11.png)
+
+
+
+![alt text](assets_picture/EDM-style-training/image-12.png)
+
+![alt text](assets_picture/EDM-style-training/image-13.png)
+
+
+很丰富的讨论
+
+
+难道scheduler是在另外的文章提出的？？
+
+
+我们将扩散模型放在一个通用框架中的方法暴露了模块化设计。这允许对单个组件进行有针对性的调查，潜在地帮助更好地覆盖可行的设计空间。在我们的测试中，这让我们可以简单地替换各种早期模型中的采样器，从而大大改善了结果。例如，在ImageNet-64中，我们的采样器将之前的SOTA模型(1.48)的平均模型(FID 2.07)转换为挑战者模型(1.55)[17]，并且通过训练改进实现了SOTA FID为1.36。在仅使用35个模型评估、确定性采样和一个小型网络的情况下，我们还在CIFAR-10上获得了新的最先进的结果。目前的高分辨率扩散模型依赖于单独的超分辨率步骤[17,36,40]、子空间投影[23]、非常大的网络[9,49]或混合方法[39,42,53]——我们认为我们的贡献与这些扩展是正交的。也就是说，我们的许多参数值可能需要为更高分辨率的数据集重新调整。此外，我们认为随机抽样和训练目标之间的精确相互作用仍然是未来工作中一个有趣的问题。
+
+ For example, in ImageNet-64 our sampler turned an average model (FID 2.07)
+to a challenger (1.55) for the previous SOTA model (1.48) [17], and with training improvements
+achieved SOTA FID of 1.36.
+
+![alt text](assets_picture/EDM-style-training/image-14.png)
+
+
+![alt text](assets_picture/EDM-style-training/image-15.png)
+
+![alt text](assets_picture/EDM-style-training/image-16.png)
+
+
+
+![alt text](assets_picture/EDM-style-training/image-17.png)
+
+好像还ddim的学习角度不太一样？？？
+
+
+![alt text](assets_picture/EDM-style-training/image-18.png)
+
+![alt text](assets_picture/EDM-style-training/image-19.png)
+
+很真实的生成
+
+
+![alt text](assets_picture/EDM-style-training/image-20.png)
+
+
+![alt text](assets_picture/EDM-style-training/image-21.png)
+
+
+![alt text](assets_picture/EDM-style-training/image-22.png)
+
+
+
+![alt text](assets_picture/EDM-style-training/image-23.png)
+
+
+
+![alt text](assets_picture/EDM-style-training/image-24.png)
+
+![alt text](assets_picture/EDM-style-training/image-25.png)
+
+
+主要在比fid
+
+但现在kolors说fid20质量也可以很好
+
+
+![alt text](assets_picture/EDM-style-training/image-26.png)
+
+![alt text](assets_picture/EDM-style-training/image-27.png)
+
+
+![alt text](assets_picture/EDM-style-training/image-28.png)
+
+
+这些好硬核
+
+感觉cutdiffusion就跟玩具一样 完全瞎蒙 经验主义
+
+
+![alt text](assets_picture/EDM-style-training/image-29.png)
+
+
+Eq. 199 is consistent with the perturbation kernel reported by Song et al. (Eq. 29 in [49]). However,
+we note that this does not fulfill their intended definition of σ(t) = σmin 
+σmax
+σmin
+t
+(Appendix C in [49]).
+
+
+
+正如第3节所讨论的，扩散模型往往需要大量采样步骤的根本原因是，任何数值ODE求解器都必然是近似值;的
+
+As discussed in Section 3, the fundamental reason why diffusion models tend to require a large
+number of sampling steps is that any numerical ODE solver is necessarily an approximation; t
+
+
+![alt text](assets_picture/EDM-style-training/image-30.png)
+
+
+步骤越大，每一步我们离真正的解就越远。具体地说，给定时间步长i−1的xi−1的值，求解器将真实的x∗i近似为xi，导致局部截断误差τ i = x∗i−xi。局部误差在N步中累积，最终导致全局截断误差eN。
+
+![alt text](assets_picture/EDM-style-training/image-31.png)
+
+
+![alt text](assets_picture/EDM-style-training/image-32.png)
+
+![alt text](assets_picture/EDM-style-training/image-33.png)
+
+这种阐明 都是分析类文章
+
+
+8张v100 2022也算一般配置
+
+
+![alt text](assets_picture/EDM-style-training/image-34.png)
+
+
+![alt text](assets_picture/EDM-style-training/image-35.png)
+
+
+感觉be your outpaint也没有这个硬  差远了
+
+可惜 时间可惜感 叹息 终究
+
+相当无语 光翻译着跳看就已经 一个半小时          
+
+以前还看过
+
+
+仍旧不理解
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## 历程
+
+
+
+Elucidating the Design Space of Diffusion-Based Generative Models (EDM)
+
+![alt text](assets_picture/EDM-style-training/image.png)
+
+
+Analyzing and Improving the Training Dynamics of Diffusion Models (EDM2)
+
+![alt text](assets_picture/EDM-style-training/image-1.png)
+
+
+Love the paper / model, just wanted to let you guys know you can (slightly) improve the fid even further by using the learned timestep uncertainty / logvar to add an appropriate amount of noise during the sampling / inference process at each timestep.
+
+
+通过使用学习的时间步长不确定性/logvar 在每个时间步的采样/推理过程中添加适量的噪声，可以（稍微）进一步提高 FID。
+
+## edm
+
+network predict epsilon
+
+
+"""Loss functions used in the paper
+"Elucidating the Design Space of Diffusion-Based Generative Models"."""
+
+
+https://github.com/NVlabs/edm/blob/main/training/loss.py
+
+
+
+    #----------------------------------------------------------------------------
+    # Loss function corresponding to the variance preserving (VP) formulation
+    # from the paper "Score-Based Generative Modeling through Stochastic
+    # Differential Equations".
+
+    @persistence.persistent_class
+    class VPLoss:
+        def __init__(self, beta_d=19.9, beta_min=0.1, epsilon_t=1e-5):
+            self.beta_d = beta_d
+            self.beta_min = beta_min
+            self.epsilon_t = epsilon_t
+
+
+
+    #----------------------------------------------------------------------------
+    # Loss function corresponding to the variance exploding (VE) formulation
+    # from the paper "Score-Based Generative Modeling through Stochastic
+    # Differential Equations".
+
+    @persistence.persistent_class
+    class VELoss:
+        def __init__(self, sigma_min=0.02, sigma_max=100):
+            self.sigma_min = sigma_min
+            self.sigma_max = sigma_max
+
+
+
+
+    #----------------------------------------------------------------------------
+    # Improved loss function proposed in the paper "Elucidating the Design Space
+    # of Diffusion-Based Generative Models" (EDM).
+
+    @persistence.persistent_class
+    class EDMLoss:
+        def __init__(self, P_mean=-1.2, P_std=1.2, sigma_data=0.5):
+            self.P_mean = P_mean
+            self.P_std = P_std
+            self.sigma_data = sigma_data
+
+
+现在diffusers训练使用的是哪个？还有script使用哪个？
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### 延申
+
+一年前 
+
+
+#### Zhendong-Wang/Patch-Diffusion
+
+
+We thank EDM authors for providing the great code base and HuggingFace for providing the easy access of Stable Diffusion Auto-Encoders.
+
+
+
+
+斑块扩散：更快、更高效的扩散模型
+训练 Zhendong Wang， Yifan 江， Huangjie Zheng， Peihao Wang， Pengcheng He， Zhangyang Wang， Weizhu Chen， Mingyuan 周
+https://arxiv.org/abs/2304.12526
+
+摘要 ： 扩散模型功能强大，但训练它们需要大量的时间和数据。我们提出了 Patch Diffusion，一个通用的 Patch-wise 训练框架，在提高数据效率的同时，显着降低训练时间成本，从而有助于将扩散模型训练大众化到更广泛的用户。我们创新的核心是在补丁级别开发一种新的条件评分函数，其中原始图像中的补丁位置作为额外的坐标通道包含在内，而补丁大小在整个训练过程中是随机和多样化的，以在多个尺度上编码跨区域依赖性。使用我们的方法进行采样与原始扩散模型一样简单。通过 Patch Diffusion，我们可以实现 2 倍的训练速度，同时保持可比或更好的生成质量。同时，Patch Diffusion 提高了在相对较小的数据集上训练的扩散模型的性能，例如，只需 5,000 张图像即可从头开始训练。我们在 CelebA-64x64 上获得了最先进的 FID 分数 1.77，在 AFHQv2-Wild-64x64 上获得了 1.93 的分数。我们在这里分享我们的代码和预训练模型。
+
+
+
+
+Prompt-Diffusion: In-Context Learning Unlocked for Diffusion Models
+
+
+摘要： 我们提出了Prompt Diffusion，这是一个在基于扩散的生成模型中实现上下文学习的框架。 给定一对特定于任务的示例图像，例如从/到图像的深度和从/到图像的涂鸦，以及文本指南， 我们的模型会自动理解基础任务，并按照文本指导对新的查询图像执行相同的任务。 为了实现这一点，我们提出了一个视觉语言提示，可以对各种视觉语言任务进行建模，以及一个将其作为输入的扩散模型。 扩散模型使用这些提示在六个不同的任务上联合训练。 由此产生的 Prompt Diffusion 模型成为第一个能够进行上下文学习的基于扩散的视觉-语言基础模型。 它展示了针对经过训练的任务的高质量上下文生成，并使用各自的提示有效地泛化到新的、看不见的视觉任务。 我们的模型还显示了引人注目的文本引导图像编辑结果。我们的框架旨在促进对计算机视觉的上下文学习的研究，代码可在此处公开获得。
+
+我们感谢 Brooks 等人分享用于微调 Stable Diffusion 的数据集。 我们还要感谢 Lvmin Zhang 和 Maneesh Agrawala 提供了出色的代码库 ControlNet。
+
+
+
+
+
+
+
+
+
+
+
+
+#### TiankaiHang/Min-SNR-Diffusion-Training
+
+
+This repository is based on openai/guided-diffusion. We adopt the implementation for sampling and FID evaluation using NVlabs/edm.
+
+
+About
+[ICCV 2023] Efficient Diffusion Training via Min-SNR Weighting Strategy
+
+通过Min-SNR加权策略进行高效扩散训练
+作者：杭天凯，顾淑阳，陈丽，包建民，陈东，韩胡，耿新，郭百宁。
+
+造纸 |arXiv公司 |法典
+
+摘要。
+
+去噪扩散模型一直是图像生成的主流方法，然而，训练这些模型往往会受到收敛缓慢的影响。在本文中，我们发现收敛缓慢部分是由于时间步长之间的优化方向冲突造成的。为了解决这个问题，我们将扩散训练视为一个多任务学习问题，并引入了一种简单而有效的方法，称为Min-SNR-$\gamma$。该方法基于箝位信噪比对时间步长的损失权重进行调整，有效地平衡了时间步长之间的冲突。我们的结果表明，收敛速度显著提高，比以前的加权策略快 3.4 倍。它也更有效，在 ImageNet 256x256 基准测试中实现了 2.06 的 FID 分数，创下了新纪录，使用的架构比以前最先进的架构更小。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Elucidating the Design Space of Diffusion-Based Generative Models
+
+
 
 ## 项目背景
 PlaygroundAI 三月初推出 Playground v2.5 ，其仿佛基于edm公式训练。质量宣称优于现有各种模型        
