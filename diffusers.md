@@ -161,6 +161,9 @@ self.rmbg_model = BriaRMBG.from_pretrained("briaai/RMBG-1.4",cache_dir = "./weig
 
 
 # from_single_file
+HF_ENDPOINT=https://hf-mirror.com
+
+
 支持单文件加载的 ： StableDiffusionXLPipeline    
 这个 DiffusionPipeline 不支持 除非重新定义类 比如 ： 
 class CutDiffusionSDXLPipeline(DiffusionPipeline, FromSingleFileMixin, LoraLoaderMixin, TextualInversionLoaderMixin):
@@ -194,7 +197,7 @@ pipe = StableDiffusionXLPipeline.from_single_file(
 除非设置endpoint可能可以 
 
 
-
+HF_ENDPOINT=https://hf-mirror.com
 
 
 

@@ -423,6 +423,11 @@ Examples
 
 # torch.cuda.ipc_collect()
 
+torch.cuda.empty_cache()    
+torch.cuda.ipc_collect()
+
+
+
 torch.cuda.ipc_collect() 是 PyTorch 中的一个函数,它用于手动触发 CUDA 内存的垃圾回收。它的作用是释放已经不再使用的 CUDA 内存空间,以便它们可以被重新分配和利用。    
 在某些情况下,PyTorch 可能无法及时释放 CUDA 内存,这可能会导致内存泄漏或内存不足的问题。调用 torch.cuda.ipc_collect() 可以强制立即回收这些未使用的内存块,从而避免这些问题。    
 然而,需要注意的是,这个函数只释放内部未使用的内存块,不会影响正在使用的 CUDA 内存。此外,频繁地调用此函数可能会导致性能下降,因为它会引入一些额外的开销。
@@ -438,6 +443,67 @@ empty_cache()通常用于主动管理内存,在需要时释放资源。而ipc_co
 
 因此,在正常情况下,如果希望立即释放尽可能多的CUDA内存,您应该优先使用torch.cuda.empty_cache()。而如果怀疑发生了内存泄漏,可以尝试调用torch.cuda.ipc_collect()来回收未使用的内存块。    
 通常情况下,您不需要频繁调用这两个函数,因为PyTorch会自动管理CUDA内存。但在某些情况下,手动调用它们可以帮助您更好地管理和监控CUDA内存的使用情况。
+
+
+
+
+# torch.Tensor.scatter_
+
+pytorch函数还是得看文档 不然就得想办法看底层c实现 目前不知道如何debug那个
+
+
+    Tensor.scatter_(dim, index, src, *, reduce=None) → Tensor
+
+Writes all values from the tensor src into self at the indices specified in the index tensor. For each value in src, its output index is specified by its index in src for dimension != dim and by the corresponding value in index for dimension = dim.
+
+
+For a 3-D tensor, self is updated as:
+
+    self[index[i][j][k]][j][k] = src[i][j][k]  # if dim == 0
+    self[i][index[i][j][k]][k] = src[i][j][k]  # if dim == 1
+    self[i][j][index[i][j][k]] = src[i][j][k]  # if dim == 2
+
+self, index and src (if it is a Tensor) should all have the same number of dimensions. It is also required that index.size(d) <= src.size(d) for all dimensions d, and that index.size(d) <= self.size(d) for all dimensions d != dim. Note that index and src do not broadcast.
+
+
+
+This is the reverse operation of the manner described in gather().
+
+torch.gather
+
+    torch.gather(input, dim, index, *, sparse_grad=False, out=None) → Tensor
+
+Gathers values along an axis specified by dim.
+
+For a 3-D tensor the output is specified by:
+
+    out[i][j][k] = input[index[i][j][k]][j][k]  # if dim == 0
+    out[i][j][k] = input[i][index[i][j][k]][k]  # if dim == 1
+    out[i][j][k] = input[i][j][index[i][j][k]]  # if dim == 2
+
+例子
+
+    import torch
+
+    # 创建一个 3x3 的张量并初始化为零，指定数据类型为 torch.float32
+    tensor = torch.zeros(3, 3, dtype=torch.float32)
+
+    # 指定乱序的索引位置
+    index = torch.tensor([[2, 1, 0]], dtype=torch.long)
+
+    # 指定要插入的值，指定数据类型为 torch.float32
+    src = torch.tensor([[10, 20, 30]], dtype=torch.float32)
+
+    # 沿着第0个维度进行操作
+    tensor.scatter_(0, index, src)
+
+    print(tensor)
+
+    tensor([[ 0.,  0., 30.],
+            [ 0., 20.,  0.],
+            [10.,  0.,  0.]])
+
+
 
 
 
@@ -1564,6 +1630,13 @@ loop.run_until_complete(main())
 
 
 # log常用
+
+## cmd
+
+python -u gradio_demo.py 2>&1 | tee -a log.txt
+
+
+## logger
 
     log_path = os.path.join(outpath, "run.log")
     logging.basicConfig(
