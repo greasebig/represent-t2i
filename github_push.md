@@ -222,6 +222,11 @@ fatal: Refusing to fetch into current branch refs/heads/dev of non-bare reposito
 
 ## 分支
 
+### 直接拉目标分支
+git clone https://github.com/AUTOMATIC1111/stable-diffusion-webui.git -b dev
+
+
+
 
 ### 切换
 

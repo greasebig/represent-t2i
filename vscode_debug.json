@@ -101,7 +101,7 @@ pip install debugpy
             "stopOnEntry": false,
             "connect": {
                 "host": "localhost", 
-                "port": 50678 
+                "port": 50688 
             }
         }
     ]
