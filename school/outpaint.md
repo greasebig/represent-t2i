@@ -3290,6 +3290,50 @@ GLIDE: Towards Photorealistic Image Generation and Editing with Text-Guided Diff
 在2020年Google 发表DDPM后，这两年扩散模型有成为一个新的研究热点的趋势，除了上面介绍的几篇论文之外，还有不少基于扩散模型所设计的优秀的生成模型，应用于多种不同的任务，比如超分、inpainting等。除了在视觉任务上的应用，也有工作针对DDPM的速度进行优化[8]，加速生成时的采样过程。此外，也有将扩散模型与VQ-VAE结合起来实现文本图像生成的算法[9]。其实在七八月份的时候，就已经看了一些DDPM的相关工作，不过因为种种原因当时没有follow下去，还是比较可惜。
 
 
+# 需求方功能 额外返回图片
+需要使用分割算法将目标移动到中心   
+贴到黑色背景
+
+    # Add input image to extra result images
+    if not getattr(p, "is_hr_pass", False):
+        if not getattr(p, "extra_result_images", None):
+            p.extra_result_images = [input_rgb]
+        else:
+            assert isinstance(p.extra_result_images, list)
+            p.extra_result_images.append(input_rgb)
+
+对poor脚本如此修改 参考ic
+
+之前我看错
+
+    def postprocess(self, p, processed, *args, **kwargs):
+        if (self.args is None) or (not self.args.enabled):
+            return
+        if getattr(p, "extra_result_images", None):
+            processed.images += p.extra_result_images
+        if self.detailed_images:
+            processed.images += self.detailed_images
+
+        这到底是在干什么
+
+这个竟然不能使用
+
+poor run中使用的是
+
+    combined_image = images.combine_grid(grid)
+
+    if opts.samples_save:
+        images.save_image(combined_image, p.outpath_samples, "", initial_seed, p.prompt, opts.samples_format, info=initial_info, p=p)
+
+    processed = Processed(p, [combined_image], initial_seed, initial_info)
+
+    return processed
+
+
+
+processed 定义好像不太一致
+
+怎么感觉还是没改对  好像两个要结合？
 
 
 

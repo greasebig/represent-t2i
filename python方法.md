@@ -356,6 +356,38 @@ samples = self.launch_sampling(steps, lambda: self.func(self.model_wrap_cfg, x, 
 
 # 字典键值对
 
+## 读取
+
+
+cond_scale = extra_args['cond_scale']
+
+cond_scale = extra_args.get('cond_scale', None)  # 如果键不存在,返回 None
+
+
+如果你想在赋值前检查键是否存在:
+
+    if 'cond_scale' in extra_args:
+        extra_args['cond_scale'] = new_value
+    else:
+        print("'cond_scale' 不在 extra_args 中")
+
+使用 .update() 方法:
+
+    extra_args.update({'cond_scale': new_value})
+这种方法在你需要更新多个值时特别有用。
+
+如果你想在键不存在时添加它:
+
+    extra_args.setdefault('cond_scale', new_value)
+这个方法会在键不存在时添加键值对，如果键已存在则不会改变原有的值。
+
+
+
+
+
+
+
+
 
 我这样定义
 
