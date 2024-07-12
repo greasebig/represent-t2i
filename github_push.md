@@ -741,6 +741,42 @@ git diff --cached
     git tag vx.x.x
     git push origin --tags
 
+# git tag
+
+
+git tag 用于给特定的 commit 打上标签，以便于标识和引用这个特定的 commit。标签通常用于版本号、发布号或者重要的里程碑版本。标签可以帮助开发者和团队更容易地查找和访问重要的历史版本。
+
+
+常见的 git tag 命令包括：
+
+    git tag：列出所有存在的标签。
+    git tag <tagname>：在当前 commit 上打上指定名称的标签。
+    git tag -a <tagname> -m "message"：创建带有附注的标签。
+
+
+打一个简单的标签：
+
+    bash
+    复制代码
+    git tag v1.0.0
+或者创建一个带有附注的标签：
+
+    bash
+    复制代码
+    git tag -a v1.0.0 -m "Release version 1.0.0"
+
+
+
+git commit -m ""
+git commit -m "" 是用于将当前工作目录中的修改提交到本地仓库的命令。它会创建一个新的 commit，并将提交信息（commit message）附加在这个 commit 上。
+
+
+
+git tag: 用于标记和记录重要的历史节点（如版本发布）。它不会更改工作区或暂存区的状态，只是为了标记特定的 commit。    
+git commit -m "": 用于将当前工作目录的修改保存到本地仓库中作为一个新的 commit。它会更改仓库中的状态，记录新的文件快照，并且需要添加一个描述性的提交信息。
+
+
+
 
 
 
