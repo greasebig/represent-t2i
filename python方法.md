@@ -589,6 +589,17 @@ print("程序运行时间为：", run_time, "秒")
 
 # try except
 
+
+    try:
+        # 这里放置可能引发异常的代码
+        result = 10 / 0  # 这会引发一个 ZeroDivisionError
+    except Exception as e:
+        print(f"发生了一个异常: {e}")
+
+
+
+
+
     try:
         x = int(input("请输入一个数字: "))
         y = 10 / x
