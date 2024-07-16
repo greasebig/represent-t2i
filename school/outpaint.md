@@ -3336,12 +3336,34 @@ processed 定义好像不太一致
 怎么感觉还是没改对  好像两个要结合？
 
 
+具体参考 Processed
+
+然后添加方法类比         
+
+    if not getattr(p, "is_hr_pass", False):
+        if not getattr(p, "extra_result_images", None):
+            p.extra_result_images = [input_rgb]
+        else:
+            assert isinstance(p.extra_result_images, list)
+            p.extra_result_images.append(input_rgb)
+
+插件写法
+
+    def postprocess(self, p, processed, *args, **kwargs):
+        if (self.args is None) or (not self.args.enabled):
+            return
+        if getattr(p, "extra_result_images", None):
+            processed.images += p.extra_result_images
+        if self.detailed_images:
+            processed.images += self.detailed_images
 
 
+但是在script中只有一个奇怪的run     
+并强制 Processed ， 可以在这之后改    
 
+相当于直接做到 poseprocess 和 process整一块儿了        
 
-
-
+唯一后果就是动态扩展能力少 但因为内置 没必要扩那么多
 
 
 
