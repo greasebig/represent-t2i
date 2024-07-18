@@ -1,22 +1,233 @@
 终端操作
 # ssh私钥公钥配置
-ssh-keygen -t rsa
+ssh-keygen -t rsa    
+开始配置
 
 支持以 'ssh-rsa', 'ssh-dss, 'ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384'or 'ecdsa-sha2-nistp521' 开头
+
+![alt text](assets/github/image.png)
+
+
+点击    
+![alt text](assets/github_push/image.png)    
+进入复制
+
+
 
 ls /root/.ssh    
 私钥自动调用id_rsa_lu      
 公钥id_rsa_lu.pub     
 
-![alt text](assets/github/image.png)
-
 git clone git@gitee.com:btc8/sd-webui-ic-light.git
+
+如果要push 仍然需要
+
+    git config --global user.email "you@example.com"
+    git config --global user.name "Your Name"
+
+
+被reject
+
+不同机器需要配置不一样的公钥
+
+生成 SSH 公钥
+Windows 用户建议使用 Windows PowerShell 或者 Git Bash，在 命令提示符 下无 cat 和 ls 命令。
+
+1、通过命令 ssh-keygen 生成 SSH Key：
+
+ssh-keygen -t ed25519 -C "Gitee SSH Key"
+
+-t key 类型
+-C 注释
+输出，如：
+
+Generating public/private ed25519 key pair.
+Enter file in which to save the key (/home/git/.ssh/id_ed25519):
+Enter passphrase (empty for no passphrase):
+Enter same passphrase again:
+Your identification has been saved in /home/git/.ssh/id_ed25519
+Your public key has been saved in /home/git/.ssh/id_ed25519.pub
+The key fingerprint is:
+SHA256:ohDd0OK5WG2dx4gST/j35HjvlJlGHvihyY+Msl6IC8I Gitee SSH Key
+The key's randomart image is:
++--[ED25519 256]--+
+|    .o           |
+|   .+oo          |
+|  ...O.o +       |
+|   .= * = +.     |
+|  .o +..S*. +    |
+|. ...o o..+* *   |
+|.E. o . ..+.O    |
+| . . ... o =.    |
+|    ..oo. o.o    |
++----[SHA256]-----+
+
+
+中间通过三次回车键确定
+
+2、查看生成的 SSH 公钥和私钥：
+
+ls ~/.ssh/
+
+输出：
+
+id_ed25519  id_ed25519.pub
+
+私钥文件 id_ed25519
+公钥文件 id_ed25519.pub
+3、读取公钥文件 ~/.ssh/id_ed25519.pub：
+
+cat ~/.ssh/id_ed25519.pub
+
+输出，如：
+
+ssh-ed25519 AAAA***5B Gitee SSH Key
+
+复制终端输出的公钥。
+
+![alt text](assets/github_push/image-1.png)
+
+
+重新配置
+
+![alt text](assets/github_push/image-2.png)
+
+
+
+基本到这里就可以了
+
+
+(myconda) (myconda) root@wyaGAr:/# ssh-keygen -t rsa
+Generating public/private rsa key pair.
+Enter file in which to save the key (/root/.ssh/id_rsa): /root/.ssh/id_rsa_lu
+Enter passphrase (empty for no passphrase): 
+Enter same passphrase again: 
+Your identification has been saved in /root/.ssh/id_rsa_lu
+Your public key has been saved in /root/.ssh/id_rsa_lu.pub
+The key fingerprint is:
+SHA256:CbpuDbL9RamPFhBCg5ezrhr2q9Ir9d22vj/EZg6YVGs root@wyaGAr
+The key's randomart image is:
++---[RSA 3072]----+
+| oo.             |
+|. =..   .        |
+| . + ... .       |
+|  . ....Eo       |
+| .  .o +S.       |
+|  + ..+o. =      |
+|.= =.+.o.*       |
+|=.+.+ ++o o      |
+|+oo=oooo=+..     |
++----[SHA256]-----+
+(myconda) (myconda) root@wyaGAr:/# 
+
+
+重新生成 不设置密码
+
+
+ls /root/.ssh   
+
+cat /root/.ssh/id_rsa_lu.pub
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC+zRpz7bedQmxR2hAkGhurvXMMUc4CTA7E+yMwm5YqevnP0XVLYOVp33HqkGIdHthM0
+
+
+
+认您已经生成了 SSH 密钥：
+如果还没有，可以使用以下命令生成：
+Copyssh-keygen -t rsa -C "your_email@example.com"
+
+查看您的公钥：
+Copycat ~/.ssh/id_rsa.pub
+
+将公钥添加到 Gitee：
+
+登录 Gitee
+进入"设置" -> "SSH 公钥"
+点击"添加公钥"，粘贴您的公钥内容
+
+
+测试 SSH 连接：
+Copyssh -T git@gitee.com
+如果成功，您应该看到欢迎消息。
+确保您使用的是 SSH URL 而不是 HTTPS URL：
+检查您的远程仓库 URL：
+Copygit remote -v
+如果是 HTTPS URL，更改为 SSH URL：
+Copygit remote set-url origin git@gitee.com:username/repository.git
+
+如果还是不行，可以尝试重新添加 Gitee 的主机密钥：
+Copyssh-keyscan -t rsa gitee.com >> ~/.ssh/known_hosts
+
+检查 SSH 代理：
+Copyeval $(ssh-agent -s)
+ssh-add ~/.ssh/id_rsa
+
+
+
+ssh -T git@gitee.com
+Enter passphrase for key '/root/.ssh/id_rsa':
+
+Edit
+这个提示表明您的 SSH 密钥是受密码保护的。这是一个额外的安全措施，要求您在使用密钥时输入密码。以下是一些建议和解释：
+
+输入密码： 首先，请输入您在创建 SSH 密钥时设置的密码。如果密码正确，您应该能够成功连接到 Gitee。
+如果不记得密码： 如果您忘记了密码，不幸的是没有办法恢复它。您需要生成一个新的 SSH 密钥对。
+避免每次都输入密码： 如果您不想每次使用 Git 操作时都输入密码，可以使用 SSH 代理：
+
+Copy
+eval $(ssh-agent -s)
+ssh-add ~/.ssh/id_rsa
+这会在当前会话中记住您的密码。
+永久解决方案： 如果您希望永久解决这个问题，可以考虑以下选项： a. 创建一个新的、不带密码的 SSH 密钥：
+
+Copy
+ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+创建过程中，当提示输入密码时，直接按 Enter 跳过。 b. 使用 SSH 配置文件： 在 ~/.ssh/config 文件中添加：
+
+Copy
+Host gitee.com
+    IdentityFile ~/.ssh/id_rsa
+    AddKeysToAgent yes
+    UseKeychain yes
+安全考虑： 请注意，移除 SSH 密钥的密码会降低安全性。如果您选择这样做，请确保妥善保管您的私钥。
+
+
+
+
+
+
+
+
+
+
+
+## 其他
+
+
+
+账户的 SSH Key 和账户绑定，当账户具有 推送/拉取 权限时可通过 SSH 方式 推送/拉取 的仓库。
+
+通过 ssh -T 测试时，输出 SSH Key 绑定的用户名：
+
+$ ssh -T git@gitee.com
+Hi USERNAME! You've successfully authenticated, but GITEE.COM does not provide shell access.
+
+
+仓库的 SSH key 只针对仓库，且我们仅对仓库提供了部署公钥，即仓库下的公钥仅能拉取仓库，这通常用于生产服务器拉取仓库的代码。
+
+通过 ssh -T 测试时，输出 Anonymous：
+
+ssh -T git@gitee.com
+Hi Anonymous! You've successfully authenticated, but GITEE.COM does not provide shell access.
+
+
+
+
+
+
+
 
 
 # 推拉
-
-
-
 
 
 
@@ -75,6 +286,74 @@ git stash
 
 暂时不做其他操作,手动编辑存在冲突的文件,解决代码冲突。解决后再次git add暂存,git commit提交。最后git pull拉取远程代码,Git会尝试合并本地提交和远程修改。    
 一般来说,暂存本地修改或手动合并是比较保险的做法,除非您确定不需要保留本地代码修改。在团队协作时,保持代码同步很重要,但也要小心不要覆盖别人的修改。
+
+
+## 删除本地commit 重新commit
+
+清空本地 Git commit 并重新 commit 的过程如下：
+
+这个比较靠谱
+
+软重置到初始状态：
+首先，我们需要撤销所有的本地 commit，但保留文件更改。使用以下命令：
+git reset --soft HEAD~<n>
+其中 <n> 是您想要撤销的 commit 数量
+
+
+
+这个最好不要使用，所有重新init 导致落后 得--force才能commit
+
+如果想撤销所有 commit 到初始状态，可以使用：    
+git reset --soft $(git rev-list --max-parents=0 HEAD)
+
+
+这个过程会改变 Git 历史。如果这是一个共享的分支，请确保与您的团队沟通。
+在执行这些操作之前，最好先创建一个备份分支：
+Copygit branch backup-branch
+
+如果您只是想修改最后一个 commit，可以使用 git commit --amend。
+
+
+
+
+冲突
+
+强制推送（慎用）：
+如果您确定要用您的本地版本覆盖远程版本，可以使用强制推送：
+Copygit push --force origin master
+警告：这会覆盖远程仓库的历史。如果这是一个共享仓库，可能会影响其他协作者的工作。
+拉取并重新应用更改：
+如果您想保留远程的更改：
+a. 首先，获取远程更改：
+Copygit fetch origin
+b. 然后，重新应用您的更改：
+Copygit rebase origin/master
+c. 如果有冲突，解决它们，然后继续变基：
+Copygit rebase --continue
+d. 最后，推送更改：
+Copygit push origin master
+
+合并远程更改：
+如果您想保留两边的历史：
+Copygit pull --rebase origin master
+git push origin master
+
+创建新分支：
+如果您不确定如何处理，可以创建一个新分支来保存您的更改：
+Copygit checkout -b new-changes
+git push origin new-changes
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ## 删除远端冗余
@@ -744,6 +1023,139 @@ git diff --cached
 # git tag
 
 
+
+## 使用
+
+### 复杂写tag
+tag 会自动创建下载包         
+确实的一个版本
+
+进一步可以通过tag 创建发行版 也就是github上一般看到的    
+
+
+标签命名建议
+通常的做法是在你的版本名称前加上字母 v 前缀， v1.0 或者 v2.3.4。
+
+如果标签不适合在生产环境下使用，请在版本名称后添加预发行版本。例如：v0.2-alpha 或者 v5.9-beta.3。
+
+附件大小说明
+单个附件不能超过 100M（GVP 项目200M），每个仓库总附件不可超过 1G（推荐项目不可超过 5G；GVP 项目不可超过 20G）。附件总容量统计包括仓库附件和发行版附件。
+
+版本格式：主版本号.次版本号.修订号，版本号递增规则如下：
+
+主版本号：当你做了不兼容的 API 修改，
+次版本号：当你做了向下兼容的功能性新增，
+修订号：当你做了向下兼容的问题修正。
+先行版本号及版本编译信息可以加到“主版本号.次版本号.修订号”的后面，作为延伸。
+
+https://semver.org/lang/zh-CN/
+
+若开头的标识符都相同时，栏位比较多的先行版本号优先层级比较高。
+
+例如：1.0.0-alpha < 1.0.0-alpha.1 < 1.0.0-alpha.beta < 1.0.0-beta < 1.0.0-beta.2 < 1.0.0-beta.11 < 1.0.0-rc.1 < 1.0.0。
+
+
+
+当然可以为 git tag 写更长的内容。Git 允许您为 tag 添加详细的注释。以下是如何创建一个带有长描述的 annotated tag：
+
+使用 -a 选项创建 annotated tag：
+
+git tag -a <标签名> -m "标签描述"
+
+如果您想输入更长的描述，可以省略 -m 选项，这样 Git 会打开您默认的文本编辑器：
+
+git tag -a <标签名>
+
+
+
+在打开的编辑器中，您可以输入任意长度的描述。第一行通常被视为标题，空一行后的内容被视为详细描述。例如：
+
+    版本 1.0.0 发布
+
+    这是我们的第一个正式版本，包含以下重要更新：
+
+    1. 实现了用户认证功能
+    2. 优化了数据库查询性能
+    3. 修复了若干已知 bug
+
+    贡献者：
+    - 张三：核心功能开发
+    - 李四：UI 设计
+    - 王五：测试
+
+    发布日期：2024-07-18
+
+保存并关闭编辑器后，tag 就创建好了。
+查看 tag 信息：
+
+git show <标签名>
+
+
+推送 tag 到远程仓库：
+
+git push origin <标签名>
+
+
+如果您写错了 tag 标签名，可以通过以下步骤修改：
+
+删除错误的 tag：
+对于本地 tag：
+Copygit tag -d <错误的标签名>
+如果已经推送到远程仓库，还需要删除远程 tag：
+Copygit push origin :refs/tags/<错误的标签名>
+
+
+创建新的正确 tag：
+Copygit tag <正确的标签名> <commit hash>
+
+
+如果您想将标签推送到特定的分支（在这个情况下是 master 分支），您可以使用以下命令：
+Copygit push origin <标签名>:refs/tags/<标签名>
+
+
+这个命令会将标签推送到远程仓库的 master 分支。
+然而，需要注意的是，Git 中的标签通常是与特定的提交相关联的，而不是与特定的分支。标签在所有分支间是共享的。当你推送一个标签时，它会被添加到远程仓库中，所有能访问该提交的分支都可以看到这个标签。
+如果您的意图是在 push 标签的同时也 push master 分支的更改，可以这样做：
+
+git push origin master <标签名>
+
+
+
+
+
+
+
+
+
+### 简短写tag
+
+ git push 之前设置 git commit 和 git tag 的基本步骤如下：
+
+修改文件后，先添加修改到暂存区：
+
+git add .
+
+创建 commit：
+
+git commit -m "你的提交信息"
+
+如果需要，创建 tag：
+
+Copygit tag <标签名> -m "标签描述"
+例如：
+Copygit tag v1.0.0 -m "版本1.0.0发布"
+
+最后推送 commit 和 tag 到远程仓库：
+
+Copygit push origin <分支名>
+git push origin <标签名>
+或者一次性推送所有 tag：
+Copygit push origin --tags
+
+
+
+
+## 简介
 git tag 用于给特定的 commit 打上标签，以便于标识和引用这个特定的 commit。标签通常用于版本号、发布号或者重要的里程碑版本。标签可以帮助开发者和团队更容易地查找和访问重要的历史版本。
 
 
@@ -992,6 +1404,122 @@ no changes added to commit (use "git add" and/or "git commit -a")
 modified: ../README.md
 
 因为不再根目录运行命令，导致无法
+
+
+# push钩子创建作者信息
+
+在push的文件首如何自动创建一些信息：比如
+"""
+Author: 
+Date: 2024-07-01
+ AI
+"""
+
+要在推送的文件开头自动添加这样的信息，您可以使用 Git 钩子（hooks）。具体来说，我们可以使用 pre-commit 钩子来实现这个功能。以下是详细的步骤：
+
+创建 pre-commit 钩子脚本：
+在您的项目根目录下，创建 .git/hooks/pre-commit 文件（如果不存在的话）。确保这个文件是可执行的。
+编辑 pre-commit 脚本：
+使用您喜欢的文本编辑器打开 .git/hooks/pre-commit 文件，并添加以下内容：
+
+    #!/bin/bash
+
+    # 获取当前日期
+    current_date=$(date +"%Y-%m-%d")
+
+    # 遍历所有暂存的文件
+    for file in $(git diff --cached --name-only); do
+    # 检查文件是否已经有头部信息
+    if ! grep -q "Author: " "$file"; then
+        # 创建临时文件
+        temp_file=$(mktemp)
+        
+        # 写入头部信息
+        echo '"""' > "$temp_file"
+        echo "Author: " >> "$temp_file"
+        echo "Date: $current_date" >> "$temp_file"
+        echo "AI" >> "$temp_file"
+        echo '"""' >> "$temp_file"
+        echo >> "$temp_file"  # 添加一个空行
+        
+        # 将原文件内容追加到临时文件
+        cat "$file" >> "$temp_file"
+        
+        # 用临时文件替换原文件
+        mv "$temp_file" "$file"
+        
+        # 将更改添加到暂存区
+        git add "$file"
+    fi
+    done
+
+    exit 0
+
+使脚本可执行：
+
+chmod +x .git/hooks/pre-commit
+
+
+这个脚本会在每次提交前检查所有暂存的文件，如果文件还没有头部信息，就会添加。
+注意事项：
+
+这个脚本会修改您的文件内容。确保您理解并接受这种行为。
+对于已经有头部信息的文件，脚本不会重复添加。
+这个脚本会自动使用当前日期。如果您想手动控制日期，需要修改脚本。
+这个方法会在本地添加信息。如果您想在远程仓库中看到这些更改，需要提交并推送。
+
+如果您想让团队中的每个人都使用这个钩子，可以考虑将它添加到版本控制中，并提供一个设置脚本来安装钩子。
+
+
+
+理解您的情况。由于 .git/hooks/pre-commit 脚本只在提交时触发，而您现有的文件没有改动，因此 git add . 确实不会产生效果。要在远程仓库中看到这些更改，我们需要手动触发文件的修改。以下是几种方法：
+
+手动修改文件：
+对于每个您想添加头信息的文件，做一个小的修改（比如添加一个空行），然后保存。这会触发 Git 检测到文件变化。
+
+
+使用 touch 命令：
+在命令行中，对每个文件使用 touch 命令来更新其修改时间：
+
+touch file1.py file2.py file3.py
+
+    (myconda) (myconda) root@wyaGAr:/home# touch a.py
+    (myconda) (myconda) root@wyaGAr:/home# vim a.py 
+    (myconda) (myconda) root@wyaGAr:/home# touch a.py
+    (myconda) (myconda) root@wyaGAr:/home# cat a.py 
+    ada
+
+确实只改变时间
+
+    (myconda) (myconda) root@wyaGAr:/home# ls -lh a.py 
+    -rw-r--r-- 1 root root 4 Jul 18 05:59 a.py
+    (myconda) (myconda) root@wyaGAr:/home# touch a.py
+    (myconda) (myconda) root@wyaGAr:/home# ls -lh a.py 
+    -rw-r--r-- 1 root root 4 Jul 18 06:00 a.py
+    (myconda) (myconda) root@wyaGAr:/home# cat a.py 
+    ada
+
+
+git touch 并不能 git add
+
+    (myconda) (myconda) root@wyaGAr:/home/sd-webui-ic-light# git commit -m "v1.1.0"
+    hint: The '.git/hooks/pre-commit' hook was ignored because it's not set as executable.
+    hint: You can disable this warning with `git config advice.ignoredHook false`.
+    [master 2802b2d] v1.1.0
+    4 files changed, 4 insertions(+), 93 deletions(-)
+    (myconda) (myconda) root@wyaGAr:/home/sd-webui-ic-light# 
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

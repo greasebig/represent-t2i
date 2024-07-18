@@ -1717,6 +1717,129 @@ config = OmegaConf.load(f"{opt.config}")
 
 
 
+# 类方法 实例方法
+类方法如果不创建实例无法使用实例方法
+
+什么这个函数无法进去converted_dict = cls.convert_args_to_dict(args)？
+定义是这样的def convert_args_to_dict(self, args) -> dict:
+
+Edit
+您提出了一个很好的问题。问题出在方法的定义和调用方式上。让我解释一下：
+
+方法定义:
+
+def convert_args_to_dict(self, args) -> dict:
+这个方法被定义为实例方法（instance method），因为它的第一个参数是 self。
+
+调用方式:
+
+converted_dict = cls.convert_args_to_dict(args)
+这里您试图通过类（cls）来调用这个方法，而不是通过实例。
+
+这就造成了不匹配。当您通过类调用方法时，Python 期望这个方法是一个类方法（class method），但它实际上被定义为实例方法。
+
+解决这个问题有两种主要方法：
+
+将方法改为类方法: 如果这个方法不需要访问实例的特定属性，您可以将其改为类方法：
+python
+
+Copy
+@classmethod
+def convert_args_to_dict(cls, args) -> dict:
+    # 方法内容保持不变
+这样，您就可以通过类来调用这个方法，就像您原本尝试的那样。
+
+创建类的实例来调用方法: 如果出于某些原因，这个方法必须保持为实例方法，您需要先创建类的实例，然后通过实例调用这个方法：
+python
+
+Copy
+instance = cls()
+converted_dict = instance.convert_args_to_dict(args)
+考虑到您的使用场景（在 fetch_from 类方法中调用），第一种方法（将 convert_args_to_dict 改为类方法）可能更合适。
+
+修改后的 convert_args_to_dict 方法应该是这样的：
+
+python
+
+Copy
+@classmethod
+def convert_args_to_dict(cls, args) -> dict:
+    # 方法内容保持不变
+    ...
+这样修改后，您原来的调用方式 cls.convert_args_to_dict(args) 就应该可以正常工作了。
+
+这个问题强调了理解 Python 中实例方法、类方法和静态方法之间区别的重要性。在这种情况下，因为您想在类方法 (fetch_from) 中调用 convert_args_to_dict，所以将后者也定义为类方法是最合适的。
+
+
+def convert_args_to_dict(self, args) -> dict:   
+这样就进不去   
+
+必须下面这样
+
+    @classmethod
+    def convert_args_to_dict(cls, args) -> dict:
+        # 定义参数的顺序
+        arg_names = [
+            "enabled",
+            "model_type",
+            "input_fg",
+            "uploaded_bg",
+            "bg_source_fc",
+            "bg_source_fbc",
+            "remove_bg",
+            "reinforce_fg",
+            "detail_transfer",
+            "detail_transfer_use_raw_input",
+            "detail_transfer_blur_radius",
+        ]
+        
+        # 创建一个字典，只包含提供的参数
+        result = {}
+        for i, arg in enumerate(args):
+            if i < len(arg_names):
+                result[arg_names[i]] = arg
+        
+        # 转换枚举类型
+        if "model_type" in result and isinstance(result["model_type"], str):
+            result["model_type"] = ModelType(result["model_type"])
+        if "bg_source_fc" in result and isinstance(result["bg_source_fc"], str):
+            result["bg_source_fc"] = BGSourceFC(result["bg_source_fc"])
+        if "bg_source_fbc" in result and isinstance(result["bg_source_fbc"], str):
+            result["bg_source_fbc"] = BGSourceFBC(result["bg_source_fbc"])
+        
+        return result
+
+
+
+
+    @classmethod
+    def fetch_from(cls, p: StableDiffusionProcessing):
+        script_runner: scripts.ScriptRunner = p.scripts
+        ic_light_script: scripts.Script = [
+            script
+            for script in script_runner.alwayson_scripts
+            if script.title() == "IC Light"
+        ][0]
+        args = p.script_args[ic_light_script.args_from : ic_light_script.args_to]
+        #assert len(args) == 1
+        try:
+            converted_dict = cls.convert_args_to_dict(args)
+            #print(f"Converted dict: {converted_dict}")  # 打印转换后的字典
+            return ICLightArgs(**converted_dict)
+            #return ICLightArgs(**cls.convert_args_to_dict(args))
+            #return ICLightArgs(**args[0])
+            #input_fg=np.zeros(shape=[1, 1, 1], dtype=np.uint8),
+        except Exception as e:
+            print(f"{e}")  # 打印出详细的错误信息
+        
+
+
+
+
+
+
+
+
 
 
 
