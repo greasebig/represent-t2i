@@ -1,4 +1,14 @@
-终端操作
+# win vscode. init config name email
+
+打开git bash
+
+    git config --global user.email "you@example.com"
+    git config --global user.name "Your Name"
+
+
+
+
+
 # ssh私钥公钥配置
 ssh-keygen -t rsa    
 开始配置
