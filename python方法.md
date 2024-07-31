@@ -1871,10 +1871,67 @@ def convert_args_to_dict(self, args) -> dict:
         
 
 
+# 多线程下载处理
+    import multiprocessing
+
+    def my_function(data):
+        # 这是你的函数代码，假设它处理数据并返回结果
+        result = data * data  # 示例操作
+        return result
+
+    def worker(data_queue, result_queue):
+        while True:
+            data = data_queue.get()
+            if data is None:
+                break
+            result = my_function(data)
+            result_queue.put(result)
+
+    if __name__ == "__main__":
+        # 创建队列来传递数据和结果
+        data_queue = multiprocessing.Queue()
+        result_queue = multiprocessing.Queue()
+
+        # 创建进程池
+        num_processes = 10
+        processes = []
+        for _ in range(num_processes):
+            p = multiprocessing.Process(target=worker, args=(data_queue, result_queue))
+            p.start()
+            processes.append(p)
+
+        # 将数据放入队列
+        data_items = list(range(100))  # 示例数据
+        for item in data_items:
+            data_queue.put(item)
+
+        # 发送终止信号
+        for _ in range(num_processes):
+            data_queue.put(None)
+
+        # 等待所有进程完成
+        for p in processes:
+            p.join()
+
+        # 收集结果
+        results = []
+        while not result_queue.empty():
+            results.append(result_queue.get())
+
+        print("处理结果:", results)
 
 
+代码说明：
+my_function(data): 这是你定义的需要多进程处理的函数。这里的示例将数据平方，但你可以用实际的处理逻辑替换它。
 
+worker(data_queue, result_queue): 每个进程将执行这个函数。它从 data_queue 中取出数据，处理它，然后将结果放入 result_queue。通过将 None 放入队列作为结束信号，进程可以知道何时停止。
 
+if __name__ == "__main__":: 这个检查确保代码在模块被导入时不会执行，只有在脚本直接运行时才执行。这个块中定义了进程池，数据队列和结果队列，创建并启动进程，放入数据，发送结束信号，等待进程完成，并收集结果。
+
+注意事项：
+数据队列 (data_queue): 用于传递待处理的数据。
+结果队列 (result_queue): 用于收集每个进程处理后的结果。
+终止信号 (None): 用于通知进程队列处理完毕，可以退出。
 
 
 
