@@ -356,6 +356,42 @@ samples = self.launch_sampling(steps, lambda: self.func(self.model_wrap_cfg, x, 
 
 # 字典键值对
 
+## 删除值
+字典如何删除某个键和他的键值对
+
+
+使用del语句
+del语句可以直接删除字典中的某个键及其键值对。如果尝试删除的键不存在，则会引发KeyError异常。
+
+
+    my_dict = {'a': 1, 'b': 2, 'c': 3}  
+    
+    # 删除键 'b'  
+    del my_dict['b']  
+    
+    print(my_dict)  # 输出: {'a': 1, 'c': 3}
+
+
+使用pop()方法    
+pop()方法用于删除字典中的指定键及其对应的值，并返回该值。如果尝试删除的键不存在，则可以指定一个默认值作为返回值，以避免KeyError异常。
+
+
+    my_dict = {'a': 1, 'b': 2, 'c': 3}  
+    
+    # 删除键 'b' 并获取其值  
+    value = my_dict.pop('b')  
+    print(value)  # 输出: 2  
+    print(my_dict)  # 输出: {'a': 1, 'c': 3}  
+    
+    # 如果尝试删除的键不存在，可以指定一个默认值  
+    value = my_dict.pop('d', '键不存在')  
+    print(value)  # 输出: 键不存在  
+    print(my_dict)  # 输出: {'a': 1, 'c': 3}，字典未变
+
+
+
+
+
 ## 读取
 
 
@@ -364,6 +400,7 @@ cond_scale = extra_args['cond_scale']
 cond_scale = extra_args.get('cond_scale', None)  # 如果键不存在,返回 None
 
 
+## 设置值
 如果你想在赋值前检查键是否存在:
 
     if 'cond_scale' in extra_args:
