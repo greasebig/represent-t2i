@@ -354,6 +354,32 @@ samples = self.launch_sampling(steps, lambda: self.func(self.model_wrap_cfg, x, 
 没有输入的lambda
 
 
+
+# list 列表
+    results = [[0,0],[1,1],[2,2]]
+
+
+    final_results = []  
+    final_results2 = []  
+    for result in results:  
+        final_results.extend(result)  
+        print(result)
+        final_results2.append(result)  
+
+    print(final_results)
+    print(final_results2)
+
+
+    [0, 0]
+    [1, 1]
+    [2, 2]
+    [0, 0, 1, 1, 2, 2]
+    [[0, 0], [1, 1], [2, 2]]
+
+
+
+
+
 # 字典键值对
 
 ## 删除值
@@ -1730,6 +1756,9 @@ python -u gradio_demo.py 2>&1 | tee -a log.txt
     )
     logger = logging.getLogger(__name__)
 
+
+使用
+
     logger.info(qnn)
 
     if not config.quant.grad_checkpoint:
@@ -1872,6 +1901,8 @@ def convert_args_to_dict(self, args) -> dict:
 
 
 # 多线程下载处理
+
+## 无效
     import multiprocessing
 
     def my_function(data):
@@ -1933,7 +1964,62 @@ if __name__ == "__main__":: 这个检查确保代码在模块被导入时不会�
 结果队列 (result_queue): 用于收集每个进程处理后的结果。
 终止信号 (None): 用于通知进程队列处理完毕，可以退出。
 
+## pandas
 
+在处理 Excel 文件（如使用 openpyxl 库）时，通常不建议使用多进程（multiprocessing）来加速 iter_rows 或类似迭代操作，因为 openpyxl 的读写操作并不是 CPU 密集型的，而是受限于 I/O（输入/输出）速度，且 Excel 文件通常不是线程或进程安全的。
+
+不过，如果你的目的是处理 Excel 文件中的数据，并且处理逻辑本身可以并行化（即每个行的处理不依赖于其他行的结果），你可以考虑使用多线程（threading）而不是多进程，因为 Python 的全局解释器锁（GIL）在多线程环境下对 I/O 密集型任务的影响较小。但请注意，即使是多线程，由于 GIL 的存在，对于纯 CPU 密集型任务，Python 的多线程通常也不会带来显著的性能提升。
+
+并且这些操作可以独立于 Excel 文件的读取进行，你可以考虑以下策略：
+
+    使用多线程读取 Excel 数据：虽然这通常不会直接加速读取过程，但你可以并行地处理读取到的数据。
+    分块处理：如果可能，尝试将 Excel 文件分块读取和处理，而不是一次性将所有数据加载到内存中。
+    使用更高效的数据处理库：考虑使用如 pandas 这样的库来处理 Excel 数据，它通常比直接使用 openpyxl 进行迭代更高效。
+    多进程处理（如果必须）：如果确实需要多进程，并且你的处理逻辑非常耗时且可以并行化，你可以考虑将 Excel 文件中的数据读取到内存中，然后将数据分块发送到不同的进程中处理。但请注意，这将需要更多的内存和复杂的同步机制。
+
+
+这个示例中，我们实际上并没有加速 Excel 文件的读取过程，而是加速了读取后数据的处理过程。如果你的瓶颈在于 Excel 文件的读取，那么使用多线程或多进程可能不会带来显著的性能提升。
+
+
+    import pandas as pd  
+    from concurrent.futures import ThreadPoolExecutor  
+    
+    # 读取 Excel 文件  
+    df = pd.read_excel('your_file.xlsx')  
+    
+    # 定义处理函数  
+    def process_row(row):  
+        # 这里是你的处理逻辑  
+        # 假设只是简单地打印出来  
+        print(row)  
+    
+    # 使用 ThreadPoolExecutor 来并行处理数据  
+    with ThreadPoolExecutor(max_workers=4) as executor:  
+        for _, row in df.iterrows():  
+            executor.submit(process_row, row)
+
+
+
+## 线程数
+
+我们可以通过Python来查询CPU的线程数，这通常指的是CPU支持的并发线程的最大数量，这取决于CPU的核心数和每个核心支持的线程数（对于支持超线程的处理器）。
+
+以下是一个使用Python查询CPU线程数的示例方法，它使用了os和multiprocessing模块：
+
+使用os.cpu_count()
+os.cpu_count()函数返回CPU的核心数，但它可能不会考虑到超线程技术。不过，在很多情况下，这个函数返回的值足够用来估计可以并发运行的线程数。
+
+python
+import os  
+  
+print(f"Number of CPU cores: {os.cpu_count()}")
+使用multiprocessing.cpu_count()
+与os.cpu_count()相似，multiprocessing.cpu_count()也返回CPU的核心数。但在某些情况下，它可能会给出更精确的关于可用于并发的处理器单元数量的信息。
+
+python
+import multiprocessing  
+  
+print(f"Number of CPU cores: {multiprocessing.cpu_count()}")
 
 
 
