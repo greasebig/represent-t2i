@@ -2023,6 +2023,79 @@ print(f"Number of CPU cores: {multiprocessing.cpu_count()}")
 
 
 
+## 守护线程
+
+使用thread开启多线程，使用ctrl c会无法完全关闭吗
+
+
+在使用Python的threading模块开启多线程时，确实存在使用Ctrl+C（即SIGINT信号）无法完全关闭所有线程的情况。这是因为Python中，只有主线程默认能够捕获到SIGINT信号，而其他非守护（daemon）线程在默认情况下并不会响应这一信号。当主线程接收到SIGINT信号并退出时，非守护线程会继续执行，直到它们自己完成或者因为其他原因（如系统资源耗尽）被终止。
+
+要解决这个问题，可以采取以下几种策略：
+
+1.设置守护线程（Daemon Threads）
+将线程设置为守护线程，这样当主线程退出时，所有守护线程也会被强制终止。但是，这种方法有一个缺点，即守护线程可能没有机会完成它们正在执行的任务或进行必要的清理工作。
+
+
+    import threading  
+    
+    def my_function():  
+        while True:  
+            # 执行一些任务  
+            pass  
+    
+    threads = []  
+    for _ in range(5):  
+        t = threading.Thread(target=my_function)  
+        t.daemon = True  # 将线程设置为守护线程  
+        t.start()  
+        threads.append(t)  
+    
+    # 主线程继续执行其他任务或直接退出  
+    # 当主线程退出时，所有守护线程也会随之退出
+
+3. 使用threading.Event控制线程退出
+通过threading.Event对象，可以在主线程中设置一个标志，当接收到SIGINT信号时，修改这个标志，然后各个线程周期性地检查这个标志，如果发现需要退出，则执行清理工作并安全退出。
+
+
+    import threading  
+    import signal  
+    import sys  
+  
+    def my_function(event):  
+        while not event.is_set():  
+            # 执行一些任务  
+            pass  
+        # 执行清理工作  
+        print("线程退出")  
+  
+    def signal_handler(signal, frame):  
+        print('You pressed Ctrl+C!')  
+        event.set()  # 设置事件，通知所有线程退出  
+    
+    event = threading.Event()  
+    
+    threads = []  
+    for _ in range(5):  
+        t = threading.Thread(target=my_function, args=(event,))  
+        t.start()  
+        threads.append(t)  
+    
+    signal.signal(signal.SIGINT, signal_handler)  
+    
+    # 主线程可以等待所有线程完成，但在这个例子中，我们依赖于事件来控制退出  
+    # for t in threads:  
+    #     t.join()  
+    
+    # 注意：在实际应用中，如果主线程没有其他任务需要执行，  
+    # 可以考虑使用while循环加上sleep来保持主线程运行，直到所有线程都通过事件退出。  
+    # 但在这个简单的示例中，我们直接让主线程退出，因为事件处理函数会负责设置事件。
+
+
+
+
+
+
+
 
 
 
