@@ -6,6 +6,13 @@
     git config --global user.name "Your Name"
 
 
+# 本地打不开git bash ，同时无法push
+重装git     
+重新执行      
+
+    git config --global user.email "you@example.com"
+    git config --global user.name greasebig
+
 
 
 

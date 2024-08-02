@@ -355,7 +355,7 @@ samples = self.launch_sampling(steps, lambda: self.func(self.model_wrap_cfg, x, 
 
 
 
-# list 列表
+# list 列表 extend append
     results = [[0,0],[1,1],[2,2]]
 
 
@@ -1744,6 +1744,48 @@ python -u gradio_demo.py 2>&1 | tee -a log.txt
 
 ## logger
 
+### 灵活设置多个logger
+该方法不可用
+
+    def logger_init(outpath):
+        log_path = os.path.join(outpath, "run2.log")
+
+        logger = logging.getLogger(__name__)  
+        logger.setLevel(logging.INFO)  
+        # 如果需要，先移除所有现有的handlers  
+        logger.handlers.clear()  
+        
+        # 添加新的FileHandler  
+        handler = logging.FileHandler(log_path, mode='a+')  
+        handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(name)s -   %(message)s', datefmt='%m/%d/%Y %H:%M:%S'))  
+        logger.addHandler(handler)  
+
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(name)s -   %(message)s', datefmt='%m/%d/%Y %H:%M:%S'))  
+        logger.addHandler(handler)  
+        
+        return logger
+
+    logger = logger_init("./")
+
+
+    def logger_init_specific(outpath):  
+        logger = logging.getLogger(__name__)  
+        logger.setLevel(logging.INFO)  
+        # 如果需要，先移除所有现有的handlers  
+        logger.handlers.clear()  
+        
+        # 添加新的FileHandler  
+        handler = logging.FileHandler(outpath, mode='w')  
+        handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(name)s -   %(message)s', datefmt='%m/%d/%Y %H:%M:%S'))  
+        logger.addHandler(handler)  
+        
+        return logger
+
+
+
+
+### 固定一种basicConfig 无法创建多种形式logger 容易混乱
     log_path = os.path.join(outpath, "run.log")
     logging.basicConfig(
         format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
@@ -1766,6 +1808,45 @@ python -u gradio_demo.py 2>&1 | tee -a log.txt
         qnn.set_grad_ckpt(False)
 
     logger.info(f"Sampling data from {config.calib_data.n_steps} timesteps for calibration")
+
+
+
+用法      
+勉强能用 也会混乱
+
+    def logger_init(outpath):
+        log_path = os.path.join(outpath, "run2.log")
+        logging.basicConfig(
+            format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
+            datefmt='%m/%d/%Y %H:%M:%S',
+            level=logging.INFO,
+            handlers=[
+                logging.FileHandler(log_path, mode='a+'),
+                logging.StreamHandler()
+            ]
+        )
+        logger = logging.getLogger(__name__)
+        return logger
+    logger = logger_init("./")
+    def logger_init_specific(outpath):  
+        logger = logging.getLogger(__name__)  
+        logger.setLevel(logging.INFO)  
+        # 如果需要，先移除所有现有的handlers  
+        logger.handlers.clear()  
+        
+        # 添加新的FileHandler  
+        handler = logging.FileHandler(outpath, mode='w')  
+        handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(name)s -   %(message)s', datefmt='%m/%d/%Y %H:%M:%S'))  
+        logger.addHandler(handler)  
+        
+        return logger
+
+### log不能像print使用
+logger.info("打乱前的1", data1[:5])
+
+
+
+
 
 
 
@@ -2053,7 +2134,7 @@ print(f"Number of CPU cores: {multiprocessing.cpu_count()}")
     # 主线程继续执行其他任务或直接退出  
     # 当主线程退出时，所有守护线程也会随之退出
 
-3. 使用threading.Event控制线程退出
+3.使用threading.Event控制线程退出
 通过threading.Event对象，可以在主线程中设置一个标志，当接收到SIGINT信号时，修改这个标志，然后各个线程周期性地检查这个标志，如果发现需要退出，则执行清理工作并安全退出。
 
 
@@ -2089,6 +2170,49 @@ print(f"Number of CPU cores: {multiprocessing.cpu_count()}")
     # 注意：在实际应用中，如果主线程没有其他任务需要执行，  
     # 可以考虑使用while循环加上sleep来保持主线程运行，直到所有线程都通过事件退出。  
     # 但在这个简单的示例中，我们直接让主线程退出，因为事件处理函数会负责设置事件。
+
+
+
+在使用多线程编程时，如果主线程（或某个关键线程）因为接收到Ctrl+C（SIGINT信号）而异常终止，可能会导致其他线程没有机会正常清理资源或执行其结束逻辑。这可能导致资源泄露、数据不一致或其他潜在问题。以下是一些处理和查看这些未正常退出线程的方法：
+
+
+
+
+
+
+# parser
+
+
+
+
+
+
+
+
+
+
+# 函数参数传入 地址式修改
+
+p_num_list = [ [] for _ in data_chunks] 可以
+
+但 p_num_list = [ 0 for _ in data_chunks] 不行    
+后期会发现没修改 无法使用
+
+    threads = []  
+    results = [[] for _ in data_chunks]  # 每个线程都有自己的结果列表（但在这个例子中，我们实际上只需要一个） 
+    httperror_list = [[] for _ in data_chunks]
+    p_num_list = [ [] for _ in data_chunks]
+    n_num_list = [ [] for _ in data_chunks]
+    timeout = 3    
+    logger.info(f"normal process: timeout {timeout}")
+    logger2.info(f"normal process: timeout {timeout}")
+    # 启动线程  
+    for i, chunk in enumerate(data_chunks):  
+        # 注意：这里我们实际上只需要一个共享的结果列表，但为了符合题目要求，我们仍然为每个线程创建了一个  
+        # 在实际应用中，你可以只传递一个results列表，并在每个线程中直接使用它（但那样就不是“各自使用独立列表”了）  
+        t = threading.Thread(target=process_file_pandas_threading, args=(chunk, results[i], httperror_list[i], p_num_list[i], n_num_list[i], fileFolderPath, excel_path, local_pickle_path, logger, timeout))  
+        
+
 
 
 
