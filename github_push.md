@@ -248,6 +248,11 @@ Hi Anonymous! You've successfully authenticated, but GITEE.COM does not provide 
 
 
 
+## git push 默认推到当前分支
+怎么样一次推所有分支？
+
+
+
 
 ## 一般推拉法1
 git clone git@gitee.com:btc8/sd-webui-ic-light.git
@@ -756,6 +761,105 @@ git branch -d branch-name
 git push origin --delete branch-name
 
 
+### 异地 添加分支
+
+查看当前
+
+git branch
+
+使用 git pull 命令的 --force 选项：
+如果你确定要覆盖本地修改并使用远程仓库的最新代码，可以运行以下命令：
+
+git pull --force origin master
+
+From http://gitlab.tools.vipshop.com/jack05.lu/classifier
+ * branch            train_on_noah -> FETCH_HEAD
+Updating 35627b4..d4214c0
+error: Your local changes to the following files would be overwritten by merge:
+        wise-ft-standcls/scripts/train_classifier_vit_L_ft_25d_cls_ddp.sh
+Please commit your changes or stash them before you merge.
+Aborting
+
+解决这个问题的方法有两种：
+
+丢弃本地改动： 如果你的本地修改不重要，可以直接丢弃它们：
+使用以下命令丢弃所有未提交的本地修改：
+git checkout .
+
+如果有一些新添加但未 add 的文件，状态显示为 untracked，你可以使用以下命令删除它们：
+git clean -xdf
+
+注意：丢弃本地修改是危险操作，请确保在执行之前仔细检查。
+暂存到堆栈区： 如果你的本地修改很重要，可以将它们暂存到堆栈区：
+使用以下命令暂存本地修改：
+git stash
+
+查看暂存内容：
+git stash list
+
+当需要用到本地修改时，将暂存内容应用到本地分支上：
+git stash pop
+
+或者如果你不想弹出内容，但仍然想应用暂存内容：      git stash apply    
+
+
+
+
+
+
+
+
+    # 获取最新的远程分支
+    git fetch origin
+
+    # 切换到 main 分支并获取最新的更新
+    git checkout main
+    git pull origin main
+
+
+检查当前状态
+使用git status命令查看当前工作目录的状态，确保没有未提交的更改。如果有未提交的更改，可以选择提交（git commit -m "描述"）或暂存（git stash）。
+确认当前分支
+使用git branch命令查看当前所在的分支，确保你在正确的分支上。
+拉取远程更新
+使用git pull命令从远程仓库拉取最新的提交并合并到当前分支。这个命令实际上是git fetch和git merge的组合。
+如果只想拉取最新的提交而不立即合并，可以先使用git fetch命令，然后使用git merge命令手动合并。
+
+
+There is no tracking information for the current branch.
+Please specify which branch you want to merge with.
+See git-pull(1) for details.
+
+    git pull <remote> <branch>
+
+If you wish to set tracking information for this branch you can do so with:
+
+    git branch --set-upstream-to=origin/<branch> train_on_noah
+
+
+git pull origin train_on_noah
+
+
+#### 好用
+git pull --force origin train_on_noah
+
+
+
+
+git pull --force 直接这样也不行
+
+There is no tracking information for the current branch.
+Please specify which branch you want to merge with.
+See git-pull(1) for details.
+
+    git pull <remote> <branch>
+
+If you wish to set tracking information for this branch you can do so with:
+
+    git branch --set-upstream-to=origin/<branch> train_on_noah
+
+git pull 这样往往失败
+
 
 
 
@@ -773,6 +877,8 @@ git commit -m "Add new feature or fix something"
 推送新分支到远程仓库    
 将新分支推送到远程仓库：    
 git push origin new-feature   
+
+
 
 8. 创建 Pull Request（可选）   
 推送后，你可以到 GitHub 上打开你的仓库，并创建一个 Pull Request，从新分支 new-feature 合并到主分支（通常是 main 或 master）。
@@ -1213,13 +1319,23 @@ git commit -m "": 用于将当前工作目录的修改保存到本地仓库中�
 
 # .gitignore
 
+.gitignore文件的内容应该如下：
 
+output/
+这行规则告诉Git忽略当前目录（及其所有子目录）中名为output的文件夹。注意，路径末尾的斜杠/是必须的，它表示这是一个目录的匹配规则，而不是文件名。
+
+如果你还想忽略output文件夹中的特定文件类型（尽管通常情况下整个文件夹都被忽略了，但这是一个有用的信息点），你可以直接在.gitignore文件中添加额外的规则。但针对你的需求，仅添加output/这一行就足够了。
+
+此外，如果你的项目结构很复杂，有多个地方需要忽略output文件夹，并且你不想在每个包含output的文件夹中都放置一个.gitignore文件，你可以考虑在项目的顶级.gitignore文件中使用通配符规则，但这需要根据你的具体项目结构来定制。例如，如果你的所有output文件夹都位于项目根目录下的某个固定层级的子目录中，你可以使用类似**/output/这样的规则（Git 1.8.2及以上版本支持**通配符）。然而，请注意，这种通配符方法可能不如在每个需要忽略的文件夹中直接放置.gitignore文件那样精确和灵活。
 
 ## .gitignore不能删去远端已有文件
 
 git rm --cached .DS_Store     
 git commit -m "Remove .DS_Store from repository"      
 git push
+
+
+
 
 ## 通用配置
 

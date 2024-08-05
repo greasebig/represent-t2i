@@ -1981,6 +1981,28 @@ def convert_args_to_dict(self, args) -> dict:
         
 
 
+
+
+
+# 多进程
+    import multiprocessing
+
+    def f(x):
+        return x * x
+
+    if __name__ == '__main__':
+        with multiprocessing.Pool(5) as p:
+            result = p.map(f, [1, 2, 3])
+            print(result)
+
+这将输出 [1, 4, 9]，表示对输入值 [1, 2, 3] 进行了并行处理。1
+
+
+
+
+
+
+
 # 多线程下载处理
 
 ## 无效
