@@ -294,6 +294,31 @@ git remote add origin 远程仓库地址
     $ git pull origin master
 
 
+## 已经进行了git commit但还没有git push，你可以很容易地取消这次提交并重新进行提交
+
+1. 使用git commit --amend
+如果你只是想修改最近一次提交的消息或者添加一些遗漏的文件到这次提交中，你可以使用git commit --amend。这个命令会打开默认的文本编辑器（或者如果你配置了git commit的-m选项，它会提示你输入新的提交信息），你可以在这里修改提交信息。如果你想要添加更多文件到这个提交中，你可以先使用git add添加这些文件，然后再执行git commit --amend。
+
+
+2. 使用git reset
+
+git reset --soft HEAD~1
+
+
+如果你想要完全取消这次提交，回到提交前的状态，并重新进行提交，你可以使用git reset。
+
+软重置（Soft Reset）：git reset --soft HEAD~1会将HEAD指向你的上一个提交，并将暂存区更新以匹配那次提交的内容，但不会改变工作目录中的文件。这意味着，你之前的所有更改都会保留在暂存区，你可以重新提交它们。
+混合重置（Mixed Reset）：git reset --mixed HEAD~1（或者简写为git reset HEAD~1）也会将HEAD指向上一个提交，但会重置暂存区，使其与HEAD匹配，而保留工作目录中的更改。这意味着，你之前的更改会保留在工作目录中，但不会被暂存，你可以重新暂存并提交它们。
+硬重置（Hard Reset）：虽然这通常用于彻底放弃更改，但如果你确定要回到某个早期状态并重新开始，也可以使用git reset --hard HEAD~1。这会丢弃自上次提交以来所有的更改，包括工作目录和暂存区的更改。
+
+
+
+
+
+
+
+
+
 ## 强制覆盖
 git reset --hard    
 git pull
@@ -1333,6 +1358,37 @@ output/
 git rm --cached .DS_Store     
 git commit -m "Remove .DS_Store from repository"      
 git push
+
+
+## 跳过（即忽略）所有名为wandb的文件夹
+
+
+
+要在.gitignore文件中跳过（即忽略）所有名为wandb的文件夹，你可以使用以下规则：
+
+wandb/
+这条规则会告诉Git忽略所有名为wandb的文件夹，无论它们位于仓库的什么位置。Git会递归地应用这个规则，所以即使wandb文件夹嵌套在其他文件夹中，它也会被忽略。
+
+
+wandb/：这会忽略所有名为 wandb 的文件夹，无论它们位于哪个路径下。
+/wandb：这个模式实际上和 wandb/ 是一样的，因为 .gitignore 文件中的路径是相对于仓库根目录的，所以开头的斜杠 / 是多余的（除非你是在特定的上下文中使用，比如某些特定的Git版本或扩展中，但这并不是标准的Git行为）。
+**/wandb：虽然 ** 在某些上下文中（如某些IDE或构建工具的路径匹配规则）用于表示任意数量的目录层级，但在 .gitignore 文件中，直接使用 wandb/ 就已经足够表示“任意路径下的 wandb 文件夹”了。Git 的 .gitignore 文件不支持 ** 这样的通配符来递归匹配目录（至少在撰写本文时是这样）。
+
+
+确保你的.gitignore文件位于仓库的根目录下，并且已经正确保存了这个规则。如果你已经提交了wandb文件夹中的文件，并且想要Git忘记这些文件，你需要先执行以下命令来从Git的跟踪中移除这些文件（但保留它们在你的工作目录中）：
+
+有效
+
+git rm -r --cached **/wandb
+
+无效
+
+bash
+git rm -r --cached wandb/
+
+
+
+
 
 
 

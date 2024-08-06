@@ -110,6 +110,10 @@ pip install debugpy
 
 python3 -m debugpy --listen 50688
 
+单文件 好像还是需要 使用 --wait-for-client 
+
+python3 -m debugpy --listen 50678  --wait-for-client 
+
 python3 -m debugpy --listen 50678  --wait-for-client train.py
 
 python3 -m debugpy --listen 50688  --wait-for-client webui.py
