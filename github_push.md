@@ -302,7 +302,14 @@ git remote add origin 远程仓库地址
 
 2. 使用git reset
 
-git reset --soft HEAD~1
+git reset --soft HEAD~1   
+有时候无效
+
+只能用下面这个    
+git reset
+
+git stash 缓存 拉下来    
+git stash pop
 
 
 如果你想要完全取消这次提交，回到提交前的状态，并重新进行提交，你可以使用git reset。
@@ -1361,7 +1368,7 @@ git push
 
 
 ## 跳过（即忽略）所有名为wandb的文件夹
-
+**/wandb
 
 
 要在.gitignore文件中跳过（即忽略）所有名为wandb的文件夹，你可以使用以下规则：

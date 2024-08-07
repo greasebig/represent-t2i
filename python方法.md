@@ -2237,6 +2237,82 @@ p_num_list = [ [] for _ in data_chunks] 可以
 
 
 
+# 当前文件/夹 位置
+
+import os
+current_dir = os.getcwd()
+print("当前工作目录的路径：", current_dir)
+
+
+
+import os
+current_dir = os.path.dirname(os.path.abspath(__file__))
+print("当前文件所在目录的完整路径：", current_dir)
+
+
+
+
+
+
+    import os  
+    
+    
+    script_path = __file__  
+    只是文件名 不是完整文件路径
+    
+    # 打印完整路径  
+    print("完整路径:", script_path)  
+    
+
+目录
+
+    # 获取目录路径  
+    dir_path = os.path.dirname(script_path)  
+    
+    # 打印目录路径  
+    print("目录路径:", dir_path)
+
+
+# 设置python执行到某一行停止
+    import sys
+    print("程序开始")
+    # 在此处执行某些代码
+    sys.exit()
+    print("程序结束")
+
+raise
+
+
+    print("程序开始")
+    # 在此处执行某些代码
+    raise SystemExit
+    print("程序结束")
+
+
+
+Traceback (most recent call last):
+  File "distribute_data.py", line 34, in <module>
+    print(script_path)
+NameError: name 'script_path' is not defined
+
+
+# 换行 \
+
+bash和py 都可以使用       
+
+conda create -n wiseft python=3.8 -y && conda activate wiseft && \
+pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 scikit-learn open_clip_torch numpy wandb torch-geometric pyyaml psutil  wilds matplotlib  tqdm  boto3 && \
+pip install torch_scatter 
+
+类似此bash 正确解析
+
+或者是 
+
+    command && {
+        command
+    }      
+
+子进程启动
 
 
 
