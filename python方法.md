@@ -377,6 +377,46 @@ samples = self.launch_sampling(steps, lambda: self.func(self.model_wrap_cfg, x, 
     [[0, 0], [1, 1], [2, 2]]
 
 
+## list create
+
+    lista = ["a","b", "c"]
+    listb = [lista[:2],lista[2:]]
+    print(lista)
+    print(listb)
+
+
+    ['a', 'b', 'c']
+    [['a', 'b'], ['c']]
+
+
+
+## 切片极快 列表遍历极慢 set方法没试过
+    val_part0 = img_list_0[i*pernum : (i+1)*pernum]
+    val_part1 = img_list_1[i*pernum : (i+1)*pernum]
+
+    #train_part0 = [x for x in img_list_0 if x not in val_part0]  
+    #train_part1 = [x for x in img_list_1 if x not in val_part1]  
+    train_part0_l = img_list_0[:i*pernum]
+    train_part0_r = img_list_0[(i+1)*pernum:]
+
+    train_part1_l = img_list_1[:i*pernum]
+    train_part1_r = img_list_1[(i+1)*pernum:]
+
+    train_part1=[]
+    train_part1.extend(train_part0_l)
+    train_part1.extend(train_part0_r)
+    train_part1.extend(train_part1_l)
+    train_part1.extend(train_part1_r)
+
+
+    val_part1.extend(val_part0)
+
+
+
+
+
+
+
 
 
 
@@ -2271,6 +2311,33 @@ print("当前文件所在目录的完整路径：", current_dir)
     
     # 打印目录路径  
     print("目录路径:", dir_path)
+
+# 遍历某个文件夹下所有文件
+方法1：使用os模块
+os模块提供了很多与操作系统交互的功能，包括遍历目录。但是，为了递归地遍历所有子目录，你通常需要自己编写递归函数。
+
+    python
+    import os  
+    
+    def traverse_dir(directory):  
+        for root, dirs, files in os.walk(directory):  
+            for file in files:  
+                print(os.path.join(root, file))  
+    
+    # 假设你想遍历的文件夹路径是'/path/to/your/directory'  
+    directory_path = '/path/to/your/directory'  
+    traverse_dir(directory_path)
+这里，os.walk(directory)会生成一个三元组(dirpath, dirnames, filenames)，其中dirpath是一个字符串，表示当前正在遍历的这个目录的路径，dirnames是一个列表，内容是该目录下的所有子目录的名字（不包括路径），filenames是一个列表，内容是该目录下的所有非目录文件的名字。
+
+两种方法各有优缺点，但pathlib因其面向对象的设计和简洁的API，在Python 3.4及以后的版本中得到了广泛推荐。不过，对于熟悉os模块的老Python开发者来说，os模块仍然是一个强大的工具。
+
+
+
+
+
+
+
+
 
 
 # 设置python执行到某一行停止
