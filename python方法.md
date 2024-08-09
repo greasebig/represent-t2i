@@ -390,6 +390,92 @@ samples = self.launch_sampling(steps, lambda: self.func(self.model_wrap_cfg, x, 
 
 
 
+    lista = [("a","b"), ("c",1)]
+    listb = [("d","e")]
+    print(lista.extend(listb))
+    print(listb + lista)
+
+
+
+    None
+    [('d', 'e'), ('a', 'b'), ('c', 1), ('d', 'e')]
+
+
+
+
+	for index, row in sampled_subset.iterrows():  
+		# 这里假设'img'是图像文件的路径或标识符  
+		# 你可能需要根据实际情况来调整保存图像的逻辑  
+		clean_data.extend((row['imgnames'],label))
+
+这里写进去有误 非元组
+
+
+	listaa = []
+	lista = [("a","b"), ("c",1)]
+	listb = [("d","e")]
+	print(lista.extend(listb))
+	print(listb + lista)
+	print(lista.extend(("d","e")))
+	print(lista.extend([("d","e")]))
+
+
+	None
+	[('d', 'e'), ('a', 'b'), ('c', 1), ('d', 'e')]
+	None
+	None
+
+	listaa = []
+	listbb = []
+	lista = [("a","b"), ("c",1)]
+	listb = [("d","e")]
+	print(lista.extend(listb))
+	print(listb + lista)
+
+	listaa.extend(("d","e"))
+	listbb.extend([("d","e")])
+	print(listaa)
+	print(listbb)
+	print(a)
+
+	None
+	[('d', 'e'), ('a', 'b'), ('c', 1), ('d', 'e')]
+	['d', 'e']
+	[('d', 'e')]
+
+	listaa = []
+	listbb = []
+	lista = [("a","b"), ("c",1)]
+	listb = [("d","e")]
+	print(lista.extend(listb))
+	print(listb + lista)
+
+	print(listaa.extend(("d","e")))
+	print(listbb.extend([("d","e")]))
+
+	None
+	[('d', 'e'), ('a', 'b'), ('c', 1), ('d', 'e')]
+	None
+	None
+
+extend竟然不是原地操作返回自身 而是返回一个值！！！！！！！
+
+
+data1.append((image_info,label)) 可以
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## 切片极快 列表遍历极慢 set方法没试过
     val_part0 = img_list_0[i*pernum : (i+1)*pernum]
     val_part1 = img_list_1[i*pernum : (i+1)*pernum]
