@@ -1351,6 +1351,29 @@ git commit -m "": 用于将当前工作目录的修改保存到本地仓库中�
 
 # .gitignore
 
+
+    # PyCharm
+    .idea
+
+    output/
+
+    # PyTorch weights
+    *.tar
+    *.pth
+    *.pt
+    *.torch
+    *.gz
+    Untitled.ipynb
+    Testing notebook.ipynb
+
+    # Root dir exclusions
+    /*.csv
+    /*.json
+    /*.jpg
+    /*.png
+    /*.zip
+    /*.tar.*
+
 .gitignore文件的内容应该如下：
 
 output/

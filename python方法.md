@@ -1971,7 +1971,28 @@ python -u gradio_demo.py 2>&1 | tee -a log.txt
 logger.info("打乱前的1", data1[:5])
 
 
-
+### 全局
+    # 在模块级别创建日志记录器  
+    _logger = None  
+    
+    def logger_init(log_file):  
+        global _logger  # 这里使用global是可选的，但如果你打算在函数内部修改_logger，就需要它  
+        if _logger is None:  
+            _logger = logging.getLogger('my_logger')  
+            _logger.setLevel(logging.DEBUG)  
+            
+            # 添加文件处理器  
+            fh = logging.FileHandler(log_file)  
+            fh.setLevel(logging.DEBUG)  
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')  
+            fh.setFormatter(formatter)  
+            _logger.addHandler(fh)  
+            
+            # 可以选择性地添加控制台处理器  
+            ch = logging.StreamHandler()  
+            ch.setLevel(logging.ERROR)  
+            ch.setFormatter(formatter)  
+            _logger.addHandler(ch)  
 
 
 
