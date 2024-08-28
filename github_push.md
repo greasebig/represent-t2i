@@ -555,13 +555,63 @@ fatal: Refusing to fetch into current branch refs/heads/dev of non-bare reposito
 
 ## 分支
 
+### 开发切分支
+
+步骤三：创建新分支
+现在，你已经位于目标分支上，接下来就可以创建新的分支了。使用git branch命令加上新分支的名称来创建新分支，但这只是创建了新分支，并没有切换到它。
+
+bash
+git branch <新分支名>
+如果你想同时创建新分支并切换到它，可以使用git checkout -b命令（Git 2.23版本之前）或git switch -c命令（Git 2.23及以上版本）。
+
+    bash
+    # Git 2.23版本之前  
+    git checkout -b <新分支名>  
+    
+    # Git 2.23及以上版本  
+    git switch -c <新分支名>
+    执行上述命令后，Git会创建一个新的分支，并自动切换到该分支。
+
+
+步骤五：（可选）将新分支推送到远程仓库
+如果你希望将新分支推送到远程仓库，以便其他人能够看到你的工作，可以使用git push命令加上远程仓库名和分支名。如果你是第一次推送这个新分支，可能需要使用--set-upstream选项来设置上游分支。
+
+bash
+git push --set-upstream origin <新分支名>
+或者，如果你已经推送过其他分支到同一个远程仓库，并且想要简化命令，可以直接使用：
+
+bash
+git push origin <新分支名>
+这样，你就成功地在Git中从一个分支下切分出了一个新的分支，并可以在新分支上进行独立的工作了。
+参考4条信息源
+
+
+
+
+
+
+
+
+
 ### 直接拉目标分支
 git clone https://github.com/AUTOMATIC1111/stable-diffusion-webui.git -b dev
+
+
+#### 拉取所有分支
 
 
 
 
 ### 切换
+步骤二：切换到目标分支
+如果当前不在你想要基于其创建新分支的分支上，你需要先切换到那个分支。使用git checkout命令加上分支名来切换分支。
+
+bash
+git checkout <目标分支名>
+或者，在Git 2.23及以上版本中，你也可以使用git switch命令来切换分支，它更清晰地表示了切换分支的意图。
+
+bash
+git switch <目标分支名>
 
 
 (myconda) root@ZB7j0G:/home# git switch webui-1.8.0
