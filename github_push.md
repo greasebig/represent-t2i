@@ -1209,7 +1209,7 @@ git diff --cached
 
 
 
-## 合并
+## 合并 merge
 
 发布
 
@@ -1224,6 +1224,101 @@ git diff --cached
 
     git tag vx.x.x
     git push origin --tags
+
+
+## rebase
+
+rebase 和 merge 的区别 ？
+这个教程的图清晰易懂，建议有兴趣搞清楚这个的看看。貌似我就是看这个理解清楚的。
+
+假设你现在基于远程分支"origin"，创建一个叫"mywork"的分支。
+
+$ git checkout -b mywork origin
+
+
+现在我们在这个分支做一些修改，然后生成两个提交(commit).
+
+    $ vi file.txt
+    $ git commit
+    $ vi otherfile.txt
+    $ git commit
+
+
+
+![alt text](assets/github_push/image-3.png)
+
+
+...
+但是与此同时，有些人也在"origin"分支上做了一些修改并且做了提交了. 这就意味着"origin"和"mywork"这两个分支各自"前进"了，它们之间"分叉"了。
+
+
+![alt text](assets/github_push/image-4.png)
+
+
+在这里，你可以用"pull"命令把"origin"分支上的修改拉下来并且和你的修改合并； 结果看起来就像一个新的"合并的提交"(merge commit):
+
+![alt text](assets/github_push/image-5.png)
+
+
+是，如果你想让"mywork"分支历史看起来像没有经过任何合并一样，你也许可以用 git rebase:
+
+    $ git checkout mywork
+    $ git rebase origin
+这些命令会把你的"mywork"分支里的每个提交(commit)取消掉，并且把它们临时 保存为补丁(patch)(这些补丁放到".git/rebase"目录中),然后把"mywork"分支更新 到最新的"origin"分支，最后把保存的这些补丁应用到"mywork"分支上。
+
+
+![alt text](assets/github_push/image-6.png)
+
+当'mywork'分支更新之后，它会指向这些新创建的提交(commit),而那些老的提交会被丢弃。 如果运行垃圾收集命令(pruning garbage collection), 这些被丢弃的提交就会删除. （请查看 git gc)
+
+
+![alt text](assets/github_push/image-7.png)
+
+
+现在我们可以看一下用合并(merge)和用rebase所产生的历史的区别：
+
+![alt text](assets/github_push/image-8.png)
+
+在rebase的过程中，也许会出现冲突(conflict). 在这种情况，Git会停止rebase并会让你去解决 冲突；在解决完冲突后，用"git-add"命令去更新这些内容的索引(index), 然后，你无需执行 git-commit,只要执行:
+
+$ git rebase --continue
+这样git会继续应用(apply)余下的补丁。
+
+在任何时候，你可以用--abort参数来终止rebase的行动，并且"mywork" 分支会回到rebase开始前的状态。
+
+$ git rebase --abort
+
+
+# 基本信息
+GIT对象模型
+SHA
+所有用来表示项目历史信息的文件,是通过一个40个字符的（40-digit）“对象名”来索引的，对象名看起来像这样:
+
+6ff87c4664981e4397625791c8ea3bbb5f2279a3
+你会在Git里到处看到这种“40个字符”字符串。每一个“对象名”都是对“对象”内容做SHA1哈希计算得来的，（SHA1是一种密码学的哈希算法）。这样就意味着两个不同内容的对象不可能有相同的“对象名”。
+
+这样做会有几个好处：
+
+    Git只要比较对象名，就可以很快的判断两个对象是否相同。
+    因为在每个仓库（repository）的“对象名”的计算方法都完全一样，如果同样的内容存在两个不同的仓库中，就会存在相同的“对象名”下。
+    Git还可以通过检查对象内容的SHA1的哈希值和“对象名”是否相同，来判断对象内容是否正确。
+    对象
+每个对象(object) 包括三个部分：类型，大小和内容。大小就是指内容的大小，内容取决于对象的类型，有四种类型的对象："blob"、"tree"、 "commit" 和"tag"。
+
+“blob”用来存储文件数据，通常是一个文件。
+“tree”有点像一个目录，它管理一些“tree”或是 “blob”（就像文件和子目录）
+一个“commit”只指向一个"tree"，它用来标记项目某一个特定时间点的状态。它包括一些关于时间点的元数据，如时间戳、最近一次提交的作者、指向上次提交（commits）的指针等等。
+一个“tag”是来标记某一个提交(commit) 的方法。
+几乎所有的Git功能都是使用这四个简单的对象类型来完成的。它就像是在你本机的文件系统之上构建一个小的文件系统。
+
+与SVN的区别
+Git与你熟悉的大部分版本控制系统的差别是很大的。也许你熟悉Subversion、CVS、Perforce、Mercurial 等等，他们使用 “增量文件系统” （Delta Storage systems）, 就是说它们存储每次提交(commit)之间的差异。Git正好与之相反，它会把你的每次提交的文件的全部内容（snapshot）都会记录下来。这会是在使用Git时的一个很重要的理念。
+
+就是说它们存储每次提交(commit)之间的差异。Git正好与之相反，它会把你的每次提交的文件的全部内容（snapshot）都会记录下来。这会是在使用Git时的一个很重要的理念。
+
+
+
+
 
 # git tag
 
