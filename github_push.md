@@ -1288,6 +1288,54 @@ $ git rebase --continue
 
 $ git rebase --abort
 
+## unable to access ‘https://*****.git/’: SSL certificate problem: unable to get local issuer certificate
+
+如果要设置为全局所有用户，可以改成这样：
+
+git config --global http.sslverify false
+
+这是由于当你通过HTTPS访问Git远程仓库的时候，如果服务器上的SSL证书未经过第三方机构认证，git就会报错。原因是因为未知的没有签署过的证书意味着可能存在很大的风险。解决办法就是通过下面的命令将git中的sslverify关掉：
+
+
+## windows拉取失败 error: invalid path 'trajectory/paper/An Introduction to Trajectory?
+
+由于我的仓库中的一个pdf文件的路径太长，导致clone到本地之后无法checkout，而在Ubuntu下没有任何问题，在这里吐槽一下Windows.
+
+git clone xxx.git
+Cloning into 'xxx'...
+remote: Enumerating objects: 1503, done.
+remote: Counting objects: 100% (210/210), done.
+remote: Compressing objects: 100% (156/156), done.
+remote: Total 1503 (delta 72), reused 182 (delta 47), pack-reused 1293
+Receiving objects: 100% (1503/1503), 1.42 GiB | 592.00 KiB/s, done.
+Resolving deltas: 100% (583/583), done.
+error: invalid path 'trajectory/paper/An Introduction to Trajectory?
+Optimization: How to Do Your?
+Own Direct Collocation.pdf'
+fatal: unable to checkout working tree
+warning: Clone succeeded, but checkout failed.
+You can inspect what was checked out with 'git status'
+and retry with 'git restore --source=HEAD :/'
+
+从错误提示中可以看出，由于一个文件导致的问题。
+操作方法：
+
+进入仓库中 仓库已有.git
+
+ git reset
+ git config core.protectNTFS false
+ git checkout
+
+
+
+这个错误信息表明在尝试从Git仓库克隆或检出（checkout）代码时遇到了问题，具体是因为路径 'wise-ft-standcls/:wq' 是不合法的。这里的 :wq 看起来像是你在使用某些文本编辑器（如vim或vi）时尝试保存的命令，而不是Git命令或路径的一部分。
+
+这个问题很可能是因为在Git命令中不小心加入了编辑器命令或者路径被错误地编辑了。以下是一些解决步骤
+
+
+
+
+
 
 # 基本信息
 GIT对象模型
