@@ -400,7 +400,16 @@ git push origin new-changes
 
 
 
+## rebase 实战 
 
+
+        git pull --rebase origin  exp_rm_copyright
+    1889  git add .
+    1890  git rebase --continue      一个个commit解决，必须手动删除冲突代码，然后git add .
+    1891  git add .
+    1892  git rebase --continue
+    1893  git status
+    1894  git push -f origin XHSPoseTransClas
 
 
 
