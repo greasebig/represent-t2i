@@ -455,7 +455,23 @@ push即可
 ## 查看版本差异
 
 
+
+
+
+
 ### git diff 
+
+
+git diff 10735516 00c98bf44f9f5e000154422cb2256eac1f09fe58
+
+git diff 10735516 00c98bf44f9f5e000154422cb2256eac1f09fe58 --stat 看文件变换行数 简单版
+
+
+
+
+
+
+
 
 比较工作区与特定提交之间的差异    
 git diff 77616e54217ade76529e2384394d56fdd302a2a0   
