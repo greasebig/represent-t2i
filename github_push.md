@@ -294,6 +294,21 @@ git remote add origin 远程仓库地址
     $ git pull origin master
 
 
+## 两个仓库同步
+
+git remote add origin2 https://github.com/greasebig/diffusers-ljd.git
+
+github 以下这句非必要，直接同 gitlab master用即可 -f 强制推到新的路径
+
+git branch -M main 是一个 Git 命令，用于将当前分支重命名为 main。具体来说：
+
+git branch -M：-M 选项表示强制重命名当前分支。如果目标分支名已经存在，它会覆盖该分支。
+main：这是新的分支名称。
+这个命令通常用于将默认的 master 分支重命名为 main，以符合现代命名惯例1。
+
+
+
+
 ## 已经进行了git commit但还没有git push，你可以很容易地取消这次提交并重新进行提交
 
 1. 使用git commit --amend
