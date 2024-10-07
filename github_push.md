@@ -309,6 +309,145 @@ main：这是新的分支名称。
 
 
 
+
+Writing objects: 100% (2820/2820), 441.97 MiB | 829.00 KiB/s, done.
+Total 2820 (delta 726), reused 2606 (delta 559), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (726/726), completed with 32 local objects.
+remote: error: Trace: 5aeb5769ec75d777949a02d981b0edfe2e11203a7a917bff242c09c7e716032d
+remote: error: See https://gh.io/lfs for more information.
+`remote: error: File UniAnimate-main.zip is 144.26 MB; this exceeds GitHub's file size limit of 100.00 MB`
+remote: error: GH001: Large files detected. You may want to try Git Large File Storage - https://git-lfs.github.com.
+To https://github.com/greasebig/diffusers-ljd.git
+ ! [remote rejected] master -> master (pre-receive hook declined)
+error: failed to push some refs to 'https://github.com/greasebig/diffusers-ljd.git'
+
+
+使用 Git LFS（Large File Storage）：
+
+GitHub 推荐使用 Git LFS 来管理大文件。Git LFS 允许你将大文件存储在远程服务器上，而只在 Git 仓库中保留文件的指针。
+
+你可以按照以下步骤设置 Git LFS：
+
+安装 Git LFS：
+
+bash
+复制
+git lfs install
+将大文件添加到 LFS 管理：
+
+bash
+复制
+git lfs track "*.zip"
+将文件添加到 Git 仓库并推送：
+
+bash
+复制
+git add .gitattributes
+git add UniAnimate-main.zip
+git commit -m "Add large file using Git LFS"
+git push origin master
+
+
+
+
+$ find . -type f -exec du -h {} + | sort -rh | head -n 10
+436M    ./.git/objects/pack/pack-aadfdc3eae1bbbcfe526f59f8174b65b90eac89c.pack
+29M     ./UniAnimate-main/assets/7.gif
+22M     ./UniAnimate-main/assets/8.gif
+19M     ./UniAnimate-main/assets/5.gif
+17M     ./MimicMotion_train-main_dataset_prepare/MimicMotion_train-main/assets/example_data/videos/pose1.mp4
+17M     ./MimicMotion_train-main/assets/example_data/videos/pose1.mp4
+17M     ./MimicMotion-main/assets/example_data/videos/pose1.mp4
+14M     ./.git/objects/pack/pack-d874a15872df8a912efd55fd7979aa08e8b871e4.pack
+13M     ./DynamicPose/assets/rick_1_1_768x512_3_2213.mp4
+13M     ./.git/lfs/objects/70/fb/70fbeeccf82ba876ba96f78a7f42ec8f1f185557661d714f1918f6e8f6cfd02b
+
+
+创建或编辑 .gitattributes 文件：
+
+如果 .gitattributes 文件不存在，创建一个新的文件：
+
+bash
+复制
+touch .gitattributes
+编辑 .gitattributes 文件，添加以下内容：
+
+plaintext
+复制
+**/*UniAnimate-main.zip filter=lfs diff=lfs merge=lfs -text
+
+你可以使用 du 命令来列出当前文件夹中子文件夹的大小，并按从大到小排序。以下是一个示例命令：
+
+bash
+复制
+du -h --max-depth=1 | sort -rh
+
+
+jack05.lu@VIP-20240626BTD MINGW64 ~/Desktop/diffusers-ljd (master)
+$ du -h --max-depth=1 | sort -rh
+1.1G    .
+533M    ./.git
+154M    ./UniAnimate-main
+97M     ./DynamicPose
+72M     ./MimicMotion_train-main
+58M     ./MimicMotion_train-main_dataset_prepare
+58M     ./MimicMotion-main
+33M     ./ControlNeXt-main
+16M     ./src
+11M     ./examples
+10M     ./Moore-AnimateAnyone-master
+3.6M    ./tests
+3.1M    ./docs
+1.6M    ./test_pic_variation336-vosdress_ref
+1.2M    ./scripts
+620K    ./SVD_Xtend-main
+384K    ./test_pic_pose_transfer_pose
+364K    ./test_pic_pose_transfer_ref
+357K    ./kernel_meta
+224K    ./utils
+196K    ./vip_tools
+193K    ./npu-sd-train
+117K    ./inference_scripts
+94K     ./prepare
+60K     ./benchmarks
+40K     ./docker
+19K     ./helpers
+4.0K    ./testsave
+
+
+git add UniAnimate-main
+
+
+
+列出所有已跟踪的文件：
+git ls-files
+
+查找特定文件（例如包含 “utils” 的文件）：
+git ls-files | grep utils
+
+只列出已暂存的文件：
+git ls-files --cached
+
+列出未跟踪的文件：
+git ls-files --others
+
+
+缓存里面并没有           
+不知道是什么原因       
+
+一直卡住
+
+
+
+
+
+
+
+
+
+
+
+
 ## 已经进行了git commit但还没有git push，你可以很容易地取消这次提交并重新进行提交
 
 1. 使用git commit --amend
