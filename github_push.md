@@ -438,6 +438,10 @@ git ls-files --others
 一直卡住
 
 
+![alt text](assets/github_push/image-9.png)
+
+
+
 
 
 
