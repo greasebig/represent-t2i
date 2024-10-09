@@ -1726,6 +1726,63 @@ git commit -m "": 用于将当前工作目录的修改保存到本地仓库中�
 
 
 # .gitignore
+
+
+##  忽略所有包含 pycache 的文件夹
+要在 .gitignore 文件中忽略所有包含 pycache 名字的文件和文件夹，并且确保即使在中间层级出现也忽略，你可以使用以下规则：
+
+    # 忽略所有包含 pycache 的文件夹
+    **/__pycache__/
+
+    # 忽略所有包含 pycache 的文件
+    **/__pycache__/*
+解释：
+**/__pycache__/：忽略所有名为 __pycache__ 的文件夹，无论它们在项目中的哪个层级出现。
+
+**/__pycache__/*：忽略所有位于 __pycache__ 文件夹中的文件，无论它们在项目中的哪个层级出现。
+
+示例：
+假设你的项目结构如下：
+
+
+    project/
+    ├── main.py
+    ├── utils/
+    │   ├── __pycache__/
+    │   │   ├── file1.pyc
+    │   │   └── file2.pyc
+    │   └── helper.py
+    └── tests/
+        ├── __pycache__/
+        │   ├── test1.pyc
+        │   └── test2.pyc
+        └── test_suite.py
+使用上述 .gitignore 规则后，__pycache__ 文件夹及其内容将被忽略。
+
+验证：
+你可以使用以下命令来验证 .gitignore 是否生效：
+
+bash
+复制
+git status
+你应该看不到 __pycache__ 文件夹及其内容出现在 git status 的输出中。
+
+注意事项：
+如果你已经将 __pycache__ 文件夹或其中的文件添加到 Git 仓库中，你需要先将其从 Git 中移除：
+
+bash
+复制
+git rm -r --cached **/__pycache__
+然后再提交更改：
+
+bash
+复制
+git add .gitignore
+git commit -m "Ignore __pycache__ directories and files"
+这样，你的 .gitignore 文件就会正确地忽略所有包含 pycache 名字的文件和文件夹。
+
+
+## 通用忽略
 要在 .gitignore 文件中排除所有软链接，可以使用以下方法：
 
 使用通配符：在 .gitignore 文件中添加以下内容：
