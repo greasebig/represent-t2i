@@ -141,3 +141,28 @@ python3 -m debugpy --listen 50688  --wait-for-client webui.py --port 8895 --list
 现在远程端口连接都好方便     
 新版vscode可以自己就映射端口    
 另外这个debug也可以设置端口    
+
+
+
+adol原始
+
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "sh_file_debug",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 9501
+            },
+            "justMyCode": false
+        }
+    ]
+}
+
+用不了，换了之前的就可以了
